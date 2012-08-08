@@ -272,6 +272,21 @@ void mpeg2_idct_init (uint32_t accel)
 	    CLIP(i) = (i < 0) ? 0 : ((i > 255) ? 255 : i);
     } else
 #endif
+#ifdef ARCH_ARM
+    if (accel & MPEG2_ACCEL_ARM) {
+        int i,j;
+
+	mpeg2_idct_copy = mpeg2_idct_copy_arm;
+	mpeg2_idct_add = mpeg2_idct_add_arm;
+
+	for (i = 0; i < 64; i++) {
+	    j = mpeg2_scan_norm[i];
+	    mpeg2_scan_norm[i] = ((j & 0x36) >> 1) | ((j & 0x09) << 2);
+	    j = mpeg2_scan_alt[i];
+	    mpeg2_scan_alt[i] = ((j & 0x36) >> 1) | ((j & 0x09) << 2);
+	}
+    } else
+#endif
     {
 	int i, j;
 

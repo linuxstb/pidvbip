@@ -281,6 +281,11 @@ void mpeg2_idct_add_altivec (int last, int16_t * block,
 			     uint8_t * dest, int stride);
 void mpeg2_idct_altivec_init (void);
 
+/* idct_arm.c */
+void mpeg2_idct_copy_arm (int16_t * block, uint8_t * dest, int stride);
+void mpeg2_idct_add_arm (int last, int16_t * block,
+		         uint8_t * dest, int stride);
+
 /* idct_alpha.c */
 void mpeg2_idct_copy_mvi (int16_t * block, uint8_t * dest, int stride);
 void mpeg2_idct_add_mvi (int last, int16_t * block,

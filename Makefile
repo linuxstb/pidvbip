@@ -11,8 +11,11 @@ CFLAGS+=-DNDEBUG
 
 all: $(TARGETS)
 
-mpeg2test: mpeg2test.c libmpeg2/libmpeg2.a
-	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o mpeg2test mpeg2test.c libmpeg2/libmpeg2.a
+mpeg2test: mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
+	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o mpeg2test mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
+
+vo_pi.o: vo_pi.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c -o vo_pi.o vo_pi.c
 
 libmpeg2/libmpeg2.a: libmpeg2/alloc.c libmpeg2/attributes.h libmpeg2/config.h libmpeg2/cpu_accel.c libmpeg2/cpu_state.c libmpeg2/decode.c libmpeg2/header.c libmpeg2/idct.c libmpeg2/motion_comp_arm.c libmpeg2/motion_comp_arm_s.S libmpeg2/motion_comp.c libmpeg2/mpeg2.h libmpeg2/mpeg2_internal.h libmpeg2/slice.c libmpeg2/vlc.h libmpeg2/idct_arm.S
 	make -C libmpeg2

@@ -38,97 +38,17 @@
 #include <assert.h>
 #include <sys/time.h>
 
-#include <bcm_host.h>
-
 #include "libmpeg2/mpeg2.h"
+#include "vo_pi.h"
 
 /* Set to 0 to disable video output, for raw benchmarking */
 int enable_output = 1;
-
-#define ALIGN_UP(x,y)  ((x + (y)-1) & ~((y)-1))
-
-typedef struct
-{
-  DISPMANX_DISPLAY_HANDLE_T   display;
-  DISPMANX_MODEINFO_T         info;
-  void                       *image;
-  DISPMANX_UPDATE_HANDLE_T    update;
-  DISPMANX_RESOURCE_HANDLE_T  resource;
-  DISPMANX_ELEMENT_HANDLE_T   element;
-  uint32_t                    vc_image_ptr;
-
-} RECT_VARS_T;
-
-static RECT_VARS_T  gRectVars;
-
 
 static off_t filesize(int fd)
 {
   struct stat st;
   fstat(fd, &st);
   return st.st_size;
-}
-
-static void display_frame (RECT_VARS_T* vars, int width, int height,
-                      int chroma_width, int chroma_height,
-                      uint8_t * const * buf, int num)
-{
-  int ret;
-  static VC_RECT_T       src_rect;
-  static VC_RECT_T       dst_rect;
-  static VC_DISPMANX_ALPHA_T alpha = { DISPMANX_FLAGS_ALPHA_FROM_SOURCE | DISPMANX_FLAGS_ALPHA_FIXED_ALL_PIXELS, 
-                                255, /*alpha 0->255*/
-			        0 };
-  if (!enable_output) return;
-
-  int pitch = ALIGN_UP(width,32);
-
-  assert((height % 16) == 0);
-  assert((chroma_height % 16) == 0);
-
-  if (num == 0) {
-    vars->resource = vc_dispmanx_resource_create( VC_IMAGE_YUV420,
-                                                  width,
-                                                  height,
-                                                  &vars->vc_image_ptr );
-    assert( vars->resource );
-
-    vars->update = vc_dispmanx_update_start( 10 );
-    assert( vars->update );
-
-    vc_dispmanx_rect_set( &src_rect, 0, 0, width << 16, height << 16 );
-
-    vc_dispmanx_rect_set( &dst_rect, 0, 0, vars->info.width, vars->info.height);
-
-    vars->element = vc_dispmanx_element_add(    vars->update,
-                                                vars->display,
-                                                2000,               // layer
-                                                &dst_rect,
-                                                vars->resource,
-                                                &src_rect,
-                                                DISPMANX_PROTECTION_NONE,
-                                                &alpha,
-                                                NULL,             // clamp
-                                                VC_IMAGE_ROT0 );
-    ret = vc_dispmanx_update_submit( vars->update, NULL, NULL);
-
-    vc_dispmanx_rect_set( &dst_rect, 0, 0, width, (3*height)/2);
-
-  }
-
-  ret = vc_dispmanx_resource_write_data(  vars->resource,
-                                          VC_IMAGE_YUV420,
-                                          pitch,
-                                          buf[0],
-                                          &dst_rect );
-  assert( ret == 0 );
-
-  vars->update = vc_dispmanx_update_start( 10 );
-  assert( vars->update );
-
-    //ret = vc_dispmanx_update_submit_sync( vars->update );
-    ret = vc_dispmanx_update_submit( vars->update, NULL, NULL);
-    assert( ret == 0 );
 }
 
 static double gettime(void)
@@ -149,9 +69,8 @@ static struct fbuf_t
     uint8_t *data;
 } fbuf[3];
 
-static void sample1 (int fd)
+static void sample1 (RECT_VARS_T* vars, int fd)
 {
-#define BUFFER_SIZE 8192
     uint8_t* buffer;
     mpeg2dec_t * decoder;
     const mpeg2_info_t * info;
@@ -161,16 +80,6 @@ static void sample1 (int fd)
     off_t filelen;
     double start_time,duration,fps;
     int nframes = 0;
-
-    /* From dispmanx.c */
-    RECT_VARS_T    *vars;
-    uint32_t        screen = 0;
-    int             ret;
-    //    VC_IMAGE_TYPE_T type = VC_IMAGE_YUV420;
-    //VC_IMAGE_TYPE_T type = VC_IMAGE_RGB565;
-    //    int width = WIDTH, height = HEIGHT;
-    //    int pitch = type == VC_IMAGE_YUV420 ? ALIGN_UP(width, 32) : ALIGN_UP(width*2, 32);
-    //int aligned_height = ALIGN_UP(height, 16);
 
     filelen = filesize(fd);
 
@@ -200,22 +109,6 @@ static void sample1 (int fd)
     /* Note: The following call simply sets internal libmpeg2 pointers
        to point to this data - no data is copied. */
     mpeg2_buffer (decoder, buffer, buffer + size);
-
-    if (enable_output) {
-    /* Init from dispmanx.c */
-    vars = &gRectVars;
-
-    bcm_host_init();
-
-    printf("Open display[%i]...\n", screen );
-    vars->display = vc_dispmanx_display_open( screen );
-
-    ret = vc_dispmanx_display_get_info( vars->display, &vars->info);
-    assert(ret == 0);
-    printf( "Display is %d x %d\n", vars->info.width, vars->info.height );
-
-    /* End of dispmanx.c init */
-    }
 
     start_time = gettime();
 
@@ -253,9 +146,11 @@ static void sample1 (int fd)
         case STATE_INVALID_END:
             if (info->display_fbuf) {
                 if (frame_period == -1) { frame_period = sequence->frame_period; }
-                display_frame (vars, sequence->width, sequence->height,
+                if (enable_output) {
+                vo_display_frame (vars, sequence->width, sequence->height,
                                sequence->chroma_width, sequence->chroma_height,
                                info->display_fbuf->buf, nframes);
+                }
                 nframes++;
             }
             break;
@@ -271,34 +166,15 @@ static void sample1 (int fd)
     fprintf(stderr,"Decoded %d frames (stream FPS=%.2f) in %.3f seconds.  Actual FPS= %.2f\n",nframes,27000000.0/frame_period,duration/1000,fps);
     mpeg2_close (decoder);
 
-    if (enable_output) {
-      fprintf(stderr,"Closing display...\n");
-
-      /* Cleanup code from dispmanx.c */
-      vars->update = vc_dispmanx_update_start( 10 );
-      assert( vars->update );
-
-      ret = vc_dispmanx_element_remove( vars->update, vars->element );
-      assert( ret == 0 );
-
-      ret = vc_dispmanx_update_submit_sync( vars->update );
-      assert( ret == 0 );
-
-      ret = vc_dispmanx_resource_delete( vars->resource );
-      assert( ret == 0 );
-
-      ret = vc_dispmanx_display_close( vars->display );
-      assert( ret == 0 );
-      /* End of cleanup */
-    }
 }
 
 int main (int argc, char ** argv)
 {
     int mpgfile;
+    RECT_VARS_T vars;
 
     if (argc != 2) {
-        fprintf(stderr,"Usage: sample1 filename.m2v\n");
+        fprintf(stderr,"Usage: mpeg2test filename.m2v\n");
         exit (1);
     }
 
@@ -308,7 +184,19 @@ int main (int argc, char ** argv)
         exit (1);
     }
 
-    sample1 (mpgfile);
+    if (enable_output) {
+      fprintf(stderr,"Closing display...\n");
+      vo_open(&vars,0);
+    }
+
+
+    sample1 (&vars,mpgfile);
+
+    if (enable_output) {
+      fprintf(stderr,"Closing display...\n");
+
+      vo_close(&vars);
+    }
 
     close(mpgfile);
 

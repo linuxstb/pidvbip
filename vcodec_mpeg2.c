@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include "libmpeg2/mpeg2.h"
+#include "codec.h"
 #include "vcodec_mpeg2.h"
 #include "vo_pi.h"
 
@@ -28,16 +29,18 @@ static double gettime(void)
     return x;
 }
 
-static void* vcodec_mpeg2_thread(struct vcodec_mpeg2_t* decoder)
+static void* vcodec_mpeg2_thread(struct codec_t* codec)
 {
   const mpeg2_sequence_t * sequence;
   mpeg2_state_t state;
   int nframes = 0;
+  mpeg2dec_t* decoder = (mpeg2dec_t*)codec->codecstate;
+  struct codec_queue_t* current = NULL;
 
-  const mpeg2_info_t * info = mpeg2_info(decoder->decoder);
+  const mpeg2_info_t * info = mpeg2_info(decoder);
 
   while (1) {
-        state = mpeg2_parse (decoder->decoder);
+        state = mpeg2_parse (decoder);
         sequence = info->sequence;
         switch (state) {
         case STATE_SEQUENCE:
@@ -54,40 +57,17 @@ static void* vcodec_mpeg2_thread(struct vcodec_mpeg2_t* decoder)
               buf[1] = buf[0] + pitch * sequence->height;
               buf[2] = buf[1] + (pitch >> 1) * (sequence->height >> 1);
 
-              mpeg2_set_buf(decoder->decoder, buf, fbuf );  
+              mpeg2_set_buf(decoder, buf, fbuf );  
             }
-            mpeg2_stride(decoder->decoder,pitch);
+            mpeg2_stride(decoder,pitch);
             fprintf(stderr,"Stride set to %d\n",pitch);
             break;
         case STATE_BUFFER:
-	  //            fprintf(stderr,"[vcodec_mpeg2] STATE_BUFFER\n");
-            pthread_mutex_lock(&decoder->queue_mutex);
+            codec_queue_free_item(codec,current);
 
-            if (decoder->current != NULL) {
-               // TODO: Free 
-	      if (decoder->current != decoder->queue_tail) {
-                fprintf(stderr,"Error - current is not equal to queue_tail\n");
-                exit(1);
-              }
-              decoder->queue_tail = decoder->queue_tail->prev;
-              if (decoder->queue_tail == NULL) {
-                decoder->queue_head = NULL;
-              } else {
-                decoder->queue_tail->next = NULL;
-              }
-              free(decoder->current->data->buf);
-              free(decoder->current->data);
-              free(decoder->current);
-              decoder->queue_count--;
-            }
+            current = codec_queue_get_next_item(codec);
 
-            if (decoder->queue_tail == NULL) {
-	      pthread_cond_wait(&decoder->queue_count_cv,&decoder->queue_mutex);
-            }
-
-            mpeg2_buffer(decoder->decoder,decoder->queue_tail->data->packet,decoder->queue_tail->data->packet + decoder->queue_tail->data->packetlength);
-            decoder->current = decoder->queue_tail;
-            pthread_mutex_unlock(&decoder->queue_mutex);
+            mpeg2_buffer(decoder,current->data->packet,current->data->packet + current->data->packetlength);
             break;
         case STATE_SLICE:
         case STATE_END:
@@ -96,15 +76,15 @@ static void* vcodec_mpeg2_thread(struct vcodec_mpeg2_t* decoder)
               //fprintf(stderr,"[vcodec_mpeg2] Displaying frame\n");
               double frame_period = (sequence->frame_period/27000000.0)*1000000.0;
               double now = gettime();
-              if (decoder->nextframetime < 0) {
-                decoder->nextframetime = now + frame_period;
+              if (codec->nextframetime < 0) {
+                codec->nextframetime = now + frame_period;
               } else {
-                if (now < decoder->nextframetime) {
-                  usleep(decoder->nextframetime - now);
+                if (now < codec->nextframetime) {
+                  usleep(codec->nextframetime - now);
                 }
-                decoder->nextframetime += frame_period;
+                codec->nextframetime += frame_period;
               }
-              vo_display_frame (&decoder->vars, sequence->width, sequence->height,
+              vo_display_frame (&codec->vars, sequence->width, sequence->height,
                                 sequence->chroma_width, sequence->chroma_height,
                                 info->display_fbuf->buf, nframes);
               nframes++;
@@ -114,66 +94,31 @@ static void* vcodec_mpeg2_thread(struct vcodec_mpeg2_t* decoder)
             break;
         }
     }
+
+  /* We never get here, but keep gcc happy */
+  return NULL;
 }
 
-void vcodec_mpeg2_init(struct vcodec_mpeg2_t* decoder)
+void vcodec_mpeg2_init(struct codec_t* codec)
 {
   mpeg2_accel(1);
-  decoder->decoder = mpeg2_init ();
+  codec->codecstate = mpeg2_init ();
 
-  if (decoder->decoder == NULL) {
+  if (codec->codecstate == NULL) {
     fprintf (stderr, "Could not allocate a decoder object.\n");
     exit(1);
   }
 
-  decoder->current = NULL;
-  decoder->queue_head = NULL;
-  decoder->queue_tail = NULL;
-  decoder->queue_count = 0;
+  codec->nextframetime = -1.0;
 
-  decoder->nextframetime = -1.0;
+  codec_queue_init(codec);
 
-  vo_open(&decoder->vars,0);
+  vo_open(&codec->vars,0);
 
-  pthread_mutex_init(&decoder->queue_mutex,NULL);
-  pthread_cond_init(&decoder->queue_count_cv,NULL);
-
-  int res = pthread_create(&decoder->thread,NULL,(void * (*)(void *))vcodec_mpeg2_thread,(void*)decoder);
+  pthread_create(&codec->thread,NULL,(void * (*)(void *))vcodec_mpeg2_thread,(void*)codec);
 }
 
 
-void vcodec_mpeg2_add_to_queue(struct vcodec_mpeg2_t* decoder, struct mpeg2_packet_t* packet)
-{
-  struct decoder_queue_t* new = malloc(sizeof(struct decoder_queue_t));
-
-  if (new == NULL) {
-    fprintf(stderr,"FATAL ERROR: out of memory adding to queue\n");
-    exit(1);
-  }
-
-  pthread_mutex_lock(&decoder->queue_mutex);
-
-  if (decoder->queue_head == NULL) {
-    new->next = NULL;
-    new->prev = NULL;
-    new->data = packet;
-    decoder->queue_head = new;
-    decoder->queue_tail = new;
-
-    pthread_cond_signal(&decoder->queue_count_cv);
-  } else {
-    new->data = packet;
-    new->next = decoder->queue_head;
-    new->prev = NULL;
-    new->next->prev = new;
-    decoder->queue_head = new;
-  }
-
-  decoder->queue_count++;
-
-  pthread_mutex_unlock(&decoder->queue_mutex);
-}
-
-int64_t vcodec_mpeg2_current_get_pts(struct vcodec_mpeg2_t* decoder)
+int64_t vcodec_mpeg2_current_get_pts(struct codec_t* codec)
 {
 }

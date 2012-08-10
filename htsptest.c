@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "vcodec_mpeg2.h"
+#include "vcodec_h264.h"
 #include "htsp.h"
 
 int main(int argc, char* argv[])
@@ -14,15 +15,15 @@ int main(int argc, char* argv[])
     int channel;
     struct htsp_t htsp;
     struct htsp_message_t msg;
-    struct mpeg2_packet_t* video_packet;
-    struct vcodec_mpeg2_t decoder;
+    struct packet_t* video_packet;
+    struct codec_t vcodec;
 
     if (argc != 4) {
         fprintf(stderr,"Usage: htsptest host port channelId\n");
         return 1;
     }
 
-    vcodec_mpeg2_init(&decoder);
+    vcodec_h264_init(&vcodec);
 
     if ((res = htsp_connect(&htsp,argv[1],atoi(argv[2]))) > 0) {
         fprintf(stderr,"Error connecting to htsp server, aborting.\n");
@@ -94,8 +95,8 @@ int main(int argc, char* argv[])
 
             // TODO: Populate PTS and DTS
             //fprintf(stderr,"Adding video packet to queue\n");
-            vcodec_mpeg2_add_to_queue(&decoder,video_packet);
-            fprintf(stderr,"Queue count:  %8d\r",decoder.queue_count);
+            codec_queue_add_item(&vcodec,video_packet);
+            fprintf(stderr,"Queue count:  %8d\r",vcodec.queue_count);
             //htsp_destroy_message(&msg);
           } else {
             htsp_destroy_message(&msg);

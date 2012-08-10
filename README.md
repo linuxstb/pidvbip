@@ -3,6 +3,13 @@ pidvbip
 
 DVB-over-IP set-top box software for the Raspberry Pi.
 
+
+Currently this repository just contains some experimental software:
+
+* mpeg2test - test decoding of mpeg-2 elementary streams
+* htsptest  - HTSP (Tvheadend) client test (streaming video playback)
+
+
 Copyright
 ---------
 

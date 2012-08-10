@@ -4,7 +4,7 @@ LDFLAGS+=-L$(SDKSTAGE)/opt/vc/lib/ -lGLESv2 -lEGL -lopenmaxil -lbcm_host -lvcos 
 
 INCLUDES+=-I$(SDKSTAGE)/opt/vc/include/ -I$(SDKSTAGE)/opt/vc/include/interface/vcos/pthreads -I./ -I/opt/vc/src/hello_pi/libs/ilclient -I/opt/vc/src/hello_pi/libs/vgfont
 
-TARGETS=mpeg2test
+TARGETS=mpeg2test htsptest
 
 # disable asserts
 CFLAGS+=-DNDEBUG
@@ -14,12 +14,21 @@ all: $(TARGETS)
 mpeg2test: mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
 	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o mpeg2test mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
 
-vo_pi.o: vo_pi.c
+htsptest: htsptest.c libmpeg2/libmpeg2.a vcodec_mpeg2.o htsp.o vo_pi.o
+	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o htsptest htsptest.c vcodec_mpeg2.o htsp.o vo_pi.o libmpeg2/libmpeg2.a
+
+vo_pi.o: vo_pi.c vo_pi.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o vo_pi.o vo_pi.c
+
+htsp.o: htsp.c htsp.h
+	$(CC) $(INCLUDES) $(CFLAGS) -c -o htsp.o htsp.c
+
+vcodec_mpeg2.o: vcodec_mpeg2.c vcodec_mpeg2.h
+	$(CC) $(INCLUDES) $(CFLAGS) -c -o vcodec_mpeg2.o vcodec_mpeg2.c
 
 libmpeg2/libmpeg2.a: libmpeg2/alloc.c libmpeg2/attributes.h libmpeg2/config.h libmpeg2/cpu_accel.c libmpeg2/cpu_state.c libmpeg2/decode.c libmpeg2/header.c libmpeg2/idct.c libmpeg2/motion_comp_arm.c libmpeg2/motion_comp_arm_s.S libmpeg2/motion_comp.c libmpeg2/mpeg2.h libmpeg2/mpeg2_internal.h libmpeg2/slice.c libmpeg2/vlc.h libmpeg2/idct_arm.S
 	make -C libmpeg2
 
 clean:
-	rm -f $(TARGETS) *~
+	rm -f $(TARGETS) vo_pi.o htsp.o vcodec_mpeg2.o *~
 	make -C libmpeg2 clean

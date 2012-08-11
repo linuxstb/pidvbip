@@ -528,7 +528,7 @@ int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscri
       fprintf(stderr,"Video stream is index %d: MPEG-2\n",subscription->streams[i].index);
     } else if (strcmp(typestr,"H264")==0) {
       subscription->streams[i].type = HMF_STREAM_VIDEO;
-      subscription->streams[i].codec = HMF_VIDEO_CODEC_MPEG2;
+      subscription->streams[i].codec = HMF_VIDEO_CODEC_H264;
       subscription->videostream = subscription->streams[i].index;
       fprintf(stderr,"Video stream is index %d: H264\n",subscription->streams[i].index);
     } else if (strcmp(typestr,"MPEG2AUDIO")==0) {

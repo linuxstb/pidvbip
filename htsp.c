@@ -445,3 +445,120 @@ int htsp_get_bin(struct htsp_message_t* msg, char* name, unsigned char** data,in
 
   return 1;
 }
+
+int htsp_get_list(struct htsp_message_t* msg, char* name, unsigned char** data,int* size)
+{
+  unsigned char* buf = msg->msg;
+  int len = msg->msglen;
+  int msglen = get_uint32_be(buf); buf += 4; len -= 4;
+  int matchlen = strlen(name);
+
+  while (len > 0) {
+    int type = buf[0]; if (type > 6) { type = 0; }
+    int namelength = buf[1];
+    int datalength = get_uint32_be(buf + 2);
+    buf += 6; len -= 6;
+
+    if ((type == HMF_LIST) && (namelength==matchlen) && (memcmp(buf,name,matchlen)==0)) {
+      *data = buf + namelength;
+      *size = datalength;
+      return 0;
+    }
+
+    buf += namelength + datalength;
+    len -= namelength + datalength;
+  }
+
+  return 1;
+}
+
+
+int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscription_t* subscription)
+{
+  unsigned char* list;
+  int listlen;
+  int i;
+
+  if (htsp_get_list(msg,"streams",&list,&listlen) > 0)
+    return 1;
+
+  unsigned char* buf = list;
+
+  subscription->numstreams = 0;
+  subscription->videostream = -1;
+  subscription->audiostream = -1;
+
+  int len = listlen;
+  while (len > 0) {
+    subscription->numstreams++;
+    int type = buf[0]; if (type > 6) { type = 0; }
+    int namelength = buf[1];
+    int datalength = get_uint32_be(buf + 2);
+    buf += 6 + namelength + datalength;
+    len -= 6 + namelength + datalength;
+  }
+
+  subscription->streams = malloc(subscription->numstreams * sizeof(struct htsp_stream_t));
+
+  len = listlen;
+  buf = list;
+  i = 0;
+  while (len > 0) {
+    int type = buf[0]; if (type > 6) { type = 0; }
+    int namelength = buf[1];
+    int datalength = get_uint32_be(buf + 2);
+    buf += 6; len -= 6;
+
+    struct htsp_message_t tmpmsg;
+    tmpmsg.msg = buf + namelength - 4;
+    tmpmsg.msglen = datalength;
+
+    htsp_get_int(&tmpmsg,"index",&subscription->streams[i].index);
+
+    char* typestr = htsp_get_string(&tmpmsg,"type");
+    char* lang = htsp_get_string(&tmpmsg,"lang");
+
+    if (typestr==NULL)
+      return 1;    
+
+    if (strcmp(typestr,"MPEG2VIDEO")==0) {
+      subscription->streams[i].type = HMF_STREAM_VIDEO;
+      subscription->streams[i].codec = HMF_VIDEO_CODEC_MPEG2;
+      subscription->videostream = subscription->streams[i].index;
+      fprintf(stderr,"Video stream is index %d: MPEG-2\n",subscription->streams[i].index);
+    } else if (strcmp(typestr,"H264")==0) {
+      subscription->streams[i].type = HMF_STREAM_VIDEO;
+      subscription->streams[i].codec = HMF_VIDEO_CODEC_MPEG2;
+      subscription->videostream = subscription->streams[i].index;
+      fprintf(stderr,"Video stream is index %d: H264\n",subscription->streams[i].index);
+    } else if (strcmp(typestr,"MPEG2AUDIO")==0) {
+      subscription->streams[i].type = HMF_STREAM_AUDIO;
+      subscription->streams[i].codec = HMF_AUDIO_CODEC_MPEG;
+      if (subscription->audiostream == -1) {
+        subscription->audiostream = subscription->streams[i].index;
+        fprintf(stderr,"Audio stream is index %d: MPEG\n",subscription->streams[i].index);
+      }
+    } else if (strcmp(typestr,"AAC")==0) {
+      subscription->streams[i].type = HMF_STREAM_AUDIO;
+      subscription->streams[i].codec = HMF_AUDIO_CODEC_AAC;
+      if (subscription->audiostream == -1) {
+        subscription->audiostream = subscription->streams[i].index;
+        fprintf(stderr,"Audio stream is index %d: AAC\n",subscription->streams[i].index);
+      }
+    } else if (strcmp(typestr,"DVBSUB")==0) {
+      subscription->streams[i].type = HMF_STREAM_SUB;
+      subscription->streams[i].codec = HMF_SUB_CODEC_DVBSUB;
+    } else {
+      fprintf(stderr,"ERROR: Unknown stream type \"%s\"\n",typestr);
+    }
+
+    free(typestr);
+    if (lang != NULL) free(lang);
+
+    buf += namelength + datalength;
+    len -= namelength + datalength;
+    i++;
+  }
+
+  return 0;
+}

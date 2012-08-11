@@ -17,13 +17,12 @@ int main(int argc, char* argv[])
     struct htsp_message_t msg;
     struct packet_t* video_packet;
     struct codec_t vcodec;
+    struct htsp_subscription_t subscription;
 
     if (argc != 4) {
         fprintf(stderr,"Usage: htsptest host port channelId\n");
         return 1;
     }
-
-    vcodec_h264_init(&vcodec);
 
     if ((res = htsp_connect(&htsp,argv[1],atoi(argv[2]))) > 0) {
         fprintf(stderr,"Error connecting to htsp server, aborting.\n");
@@ -85,10 +84,12 @@ int main(int argc, char* argv[])
 
        char* method = htsp_get_string(&msg,"method");
 
+       int free_msg = 1;  // We want to free this message, unless this flag is set to zero
+
        if ((method != NULL) && (strcmp(method,"muxpkt")==0)) {
           int stream;
           htsp_get_int(&msg,"stream",&stream);
-          if (stream==1) {  // To Do: Is video always stream 1?  Maybe also check subscriptionId
+          if (stream==subscription.videostream) {
             video_packet = malloc(sizeof(*video_packet));
             video_packet->buf = msg.msg;
             htsp_get_bin(&msg,"payload",&video_packet->packet,&video_packet->packetlength);
@@ -96,15 +97,30 @@ int main(int argc, char* argv[])
             // TODO: Populate PTS and DTS
             //fprintf(stderr,"Adding video packet to queue\n");
             codec_queue_add_item(&vcodec,video_packet);
+            free_msg = 0;   // Don't free this message
             fprintf(stderr,"Queue count:  %8d\r",vcodec.queue_count);
-            //htsp_destroy_message(&msg);
+          }
+       } else if ((method != NULL) && (strcmp(method,"subscriptionStart")==0)) {
+          if (htsp_parse_subscriptionStart(&msg,&subscription) > 0) {
+            fprintf(stderr,"FATAL ERROR: Cannot parse subscriptionStart\n");
+            exit(1);
+          }
+
+          if (subscription.streams[subscription.videostream-1].codec == HMF_VIDEO_CODEC_MPEG2) {
+            vcodec_mpeg2_init(&vcodec);
+          } else if (subscription.streams[subscription.videostream-1].codec == HMF_VIDEO_CODEC_H264) {
+            vcodec_h264_init(&vcodec);
           } else {
-            htsp_destroy_message(&msg);
+            fprintf(stderr,"UNKNOWN VIDEO FORMAT\n");
+            exit(1);
           }
        } else {
-          //htsp_dump_message(&msg);
-          htsp_destroy_message(&msg);
+	  //htsp_dump_message(&msg);
        }
+
+       if (free_msg)
+          htsp_destroy_message(&msg);
+
        if (method) free(method);
     }
 

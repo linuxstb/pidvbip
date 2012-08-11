@@ -4,20 +4,74 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <termios.h>
+#include <ctype.h>
 
 #include "vcodec_mpeg2.h"
 #include "vcodec_h264.h"
 #include "htsp.h"
 
+struct codecs_t {
+  struct codec_t vcodec; // Video
+  struct codec_t acodec; // Audio
+  struct codec_t scodec; // Subtitles
+  struct htsp_subscription_t subscription;  // Details of the currently tuned channel
+};
+
+/* TODO: Should this be global? */
+struct htsp_t htsp;
+
+/* The HTSP thread reads from the network and passes the incoming stream packets to the
+   appropriate codec (video/audio/subtitle) */
+void* htsp_receiver_thread(struct codecs_t* codecs)
+{
+  struct htsp_message_t msg;
+  int res;
+  struct packet_t* packet;
+
+  while (1)
+  {
+    if ((res = htsp_recv_message(&htsp,&msg)) > 0) {
+      fprintf(stderr,"FATAL ERROR in network read - %d\n",res);
+      exit(1);
+    }
+
+    char* method = htsp_get_string(&msg,"method");
+
+    int free_msg = 1;  // We want to free this message, unless this flag is set to zero
+
+    if ((method != NULL) && (strcmp(method,"muxpkt")==0)) {
+      int stream;
+      htsp_get_int(&msg,"stream",&stream);
+      if (stream==codecs->subscription.videostream) {
+        packet = malloc(sizeof(*packet));
+        packet->buf = msg.msg;
+        htsp_get_bin(&msg,"payload",&packet->packet,&packet->packetlength);
+
+        // TODO: Populate PTS and DTS
+        //fprintf(stderr,"Adding video packet to queue\n");
+        codec_queue_add_item(&codecs->vcodec,packet);
+        free_msg = 0;   // Don't free this message
+        fprintf(stderr,"Queue count:  %8d\r",codecs->vcodec.queue_count);
+      }
+    } else {
+      //htsp_dump_message(&msg);
+    }
+
+    if (free_msg)
+      htsp_destroy_message(&msg);
+
+    if (method) free(method);
+  }
+}
+
+
 int main(int argc, char* argv[])
 {
     int res;
     int channel;
-    struct htsp_t htsp;
     struct htsp_message_t msg;
-    struct packet_t* video_packet;
-    struct codec_t vcodec;
-    struct htsp_subscription_t subscription;
+    struct codecs_t codecs;
 
     if (argc != 4) {
         fprintf(stderr,"Usage: htsptest host port channelId\n");
@@ -77,52 +131,63 @@ int main(int argc, char* argv[])
     res = htsp_send_message(&htsp,&msg);
     htsp_destroy_message(&msg);
 
-    while (1) {
-       // TODO: Parse all updates and add video packets to mpeg2 queue
-       // Put this in its own thread.
-       res = htsp_recv_message(&htsp,&msg);
+    
+    res = htsp_recv_message(&htsp,&msg);
+    char* method = htsp_get_string(&msg,"method");
+    while ((method == NULL) || (strcmp(method,"subscriptionStart")!=0)) {
+      if (method != NULL) {
+        // TODO: Process any messages recieved whilst waiting for subscriptionStart
+        free(method);
+      }
+      htsp_destroy_message(&msg);
 
-       char* method = htsp_get_string(&msg,"method");
+      res = htsp_recv_message(&htsp,&msg);
+      method = htsp_get_string(&msg,"method");
+    }
+    htsp_destroy_message(&msg);
+    if (method != NULL) free(method);
 
-       int free_msg = 1;  // We want to free this message, unless this flag is set to zero
+    // We have received the subscriptionStart message, now parse it
+    // to get the stream info    
 
-       if ((method != NULL) && (strcmp(method,"muxpkt")==0)) {
-          int stream;
-          htsp_get_int(&msg,"stream",&stream);
-          if (stream==subscription.videostream) {
-            video_packet = malloc(sizeof(*video_packet));
-            video_packet->buf = msg.msg;
-            htsp_get_bin(&msg,"payload",&video_packet->packet,&video_packet->packetlength);
-
-            // TODO: Populate PTS and DTS
-            //fprintf(stderr,"Adding video packet to queue\n");
-            codec_queue_add_item(&vcodec,video_packet);
-            free_msg = 0;   // Don't free this message
-            fprintf(stderr,"Queue count:  %8d\r",vcodec.queue_count);
-          }
-       } else if ((method != NULL) && (strcmp(method,"subscriptionStart")==0)) {
-          if (htsp_parse_subscriptionStart(&msg,&subscription) > 0) {
-            fprintf(stderr,"FATAL ERROR: Cannot parse subscriptionStart\n");
-            exit(1);
-          }
-
-          if (subscription.streams[subscription.videostream-1].codec == HMF_VIDEO_CODEC_MPEG2) {
-            vcodec_mpeg2_init(&vcodec);
-          } else if (subscription.streams[subscription.videostream-1].codec == HMF_VIDEO_CODEC_H264) {
-            vcodec_h264_init(&vcodec);
-          } else {
-            fprintf(stderr,"UNKNOWN VIDEO FORMAT\n");
-            exit(1);
-          }
-       } else {
-	  //htsp_dump_message(&msg);
-       }
-
-       if (free_msg)
-          htsp_destroy_message(&msg);
-
-       if (method) free(method);
+    if (htsp_parse_subscriptionStart(&msg,&codecs.subscription) > 0) {
+      fprintf(stderr,"FATAL ERROR: Cannot parse subscriptionStart\n");
+      exit(1);
     }
 
+    if (codecs.subscription.streams[codecs.subscription.videostream-1].codec == HMF_VIDEO_CODEC_MPEG2) {
+      vcodec_mpeg2_init(&codecs.vcodec);
+    } else if (codecs.subscription.streams[codecs.subscription.videostream-1].codec == HMF_VIDEO_CODEC_H264) {
+      vcodec_h264_init(&codecs.vcodec);
+    } else {
+      fprintf(stderr,"UNKNOWN VIDEO FORMAT\n");
+      exit(1);
+    }
+
+    // TODO: Audio and subtitle threads
+
+
+    // All codec threads are running, so now start receiving data
+    pthread_t htspthread;
+    pthread_create(&htspthread,NULL,(void * (*)(void *))htsp_receiver_thread,(void*)&codecs);
+
+    /* UI loop - just block on keyboad input for now... */
+    struct termios new,orig;
+    tcgetattr(0, &orig);
+    memcpy(&new, &orig, sizeof(struct termios));
+    new.c_lflag &= ~(ICANON | ECHO);
+    new.c_cc[VTIME] = 0;
+    new.c_cc[VMIN] = 1;
+    tcsetattr(0, TCSANOW, &new);
+
+    int c;
+    while (1) {
+      c = getchar();
+      printf("\n char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
+      if (c=='q') goto done;
+    }
+
+done:
+    tcsetattr(0, TCSANOW, &orig);
     return 0;
 }

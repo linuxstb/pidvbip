@@ -9,6 +9,7 @@
 
 #include "vcodec_mpeg2.h"
 #include "vcodec_h264.h"
+#include "acodec_mpeg.h"
 #include "htsp.h"
 
 struct codecs_t {
@@ -53,6 +54,14 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
         codec_queue_add_item(&codecs->vcodec,packet);
         free_msg = 0;   // Don't free this message
         fprintf(stderr,"Queue count:  %8d\r",codecs->vcodec.queue_count);
+      } else if ((stream==codecs->subscription.audiostream) &&
+                 (codecs->subscription.streams[codecs->subscription.audiostream-1].codec == HMF_AUDIO_CODEC_MPEG)) {
+        packet = malloc(sizeof(*packet));
+        packet->buf = msg.msg;
+        htsp_get_bin(&msg,"payload",&packet->packet,&packet->packetlength);
+
+        codec_queue_add_item(&codecs->acodec,packet);
+        free_msg = 0;   // Don't free this message
       }
     } else {
       //htsp_dump_message(&msg);
@@ -162,6 +171,10 @@ int main(int argc, char* argv[])
     } else {
       fprintf(stderr,"UNKNOWN VIDEO FORMAT\n");
       exit(1);
+    }
+
+    if (codecs.subscription.streams[codecs.subscription.audiostream-1].codec == HMF_AUDIO_CODEC_MPEG) {
+      acodec_mpeg_init(&codecs.acodec);
     }
 
     // TODO: Audio and subtitle threads

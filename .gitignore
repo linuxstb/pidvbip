@@ -1,2 +1,9 @@
 mpeg2test
+htsptest
+acodec_mpeg.o
+codec.o
+htsp.o
+vcodec_h264.o
+vcodec_mpeg2.o
+vo_pi.o
 *.m2v

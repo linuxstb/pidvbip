@@ -9,6 +9,10 @@ Currently this repository just contains some experimental software:
 * mpeg2test - test decoding of mpeg-2 elementary streams
 * htsptest  - HTSP (Tvheadend) client test (streaming video playback)
 
+NOTE: htsptest requires PTS values for the video stream, which due to
+a bug are not always provided by Tvheadend.  A temporary fix for this
+is to comment out line 1114 in tvheadend/src/parsers.c (st->es_curpts
+= PTS_UNSET;).
 
 Copyright
 ---------

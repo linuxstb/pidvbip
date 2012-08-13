@@ -62,7 +62,6 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
         codec_queue_add_item(&codecs->vcodec,packet);
         free_msg = 0;   // Don't free this message
 
-        //fprintf(stderr,"Queue count:  %8d\r",codecs->vcodec.queue_count);
       } else if ((stream==codecs->subscription.audiostream) &&
                  (codecs->subscription.streams[codecs->subscription.audiostream-1].codec == HMF_AUDIO_CODEC_MPEG)) {
         packet = malloc(sizeof(*packet));
@@ -79,6 +78,8 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
     } else {
       //htsp_dump_message(&msg);
     }
+
+    fprintf(stderr,"v-queue: %8d packets, a-queue: %8d packets, PTS DIFF (A-V): %12lld\r",codecs->vcodec.queue_count,codecs->acodec.queue_count,codec_get_pts(&codecs->acodec)-codec_get_pts(&codecs->vcodec));
 
 next:
     if (free_msg)

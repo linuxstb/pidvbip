@@ -90,6 +90,8 @@ static void* vcodec_mpeg2_thread(struct codec_t* codec)
 
               if (PTS > audio_PTS)
 		usleep(PTS - audio_PTS);
+
+              codec_set_pts(codec, PTS);
          
               vo_display_frame (&codec->vars, sequence->width, sequence->height,
                                 sequence->chroma_width, sequence->chroma_height,

@@ -1,0 +1,25 @@
+Known bugs and unimplemented features
+
+* Deal with MPEG-2 stream not being decoded fast enough (queue will grow forever)
+
+* Implement AAC/HE-AAC codec
+
+* Implement AC3/EAC3 codec
+
+* H264 video codec is unreliable - Freeview HD streams at least will randomly fail to play
+
+* H264 video codec is not smooth - perhaps need to pre-buffer some frames to ensure the GPU always has data to decode/display
+
+* Implement a UI!
+
+* Implement channel change, including sending messages to codec threads to stop/restart.  Related - shutdown cleanly.
+
+* Implement double-buffering in MPEG-2 codec to eliminate tearing
+
+* Implement A/V sync
+
+* Properly deal with S64 integers in htsp.c (code currently assumes they are all 32-bit)
+
+* Deal with different channels/samplerate etc in MPEG audio codec (currently hard-coded for 48KHz Stereo)
+
+* Catch ^C and reset keyboard (and cleanly close down codecs)

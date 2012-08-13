@@ -23,3 +23,13 @@ Known bugs and unimplemented features
 * Deal with different channels/samplerate etc in MPEG audio codec (currently hard-coded for 48KHz Stereo)
 
 * Catch ^C and reset keyboard (and cleanly close down codecs)
+
+* Deal with network disconnections from tvheadend - test killing tvheadend, removing network cable etc...
+
+* Audio stream is sometimes mis-detected as stream index 371
+
+* Implement subtitles
+
+* Implement support for Radio stations (no video stream)
+
+* Deal with off-air channels.

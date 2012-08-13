@@ -1,4 +1,7 @@
 /*
+
+audioplay_* functions taken from "hello_audio.c" sample program 
+
 Copyright (c) 2012, Broadcom Europe Ltd
 All rights reserved.
 
@@ -36,8 +39,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "audioplay.h"
 
-
-#define BUFFER_SIZE_SAMPLES 1024
 
 static void input_buffer_callback(void *data, COMPONENT_T *comp)
 {

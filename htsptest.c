@@ -48,17 +48,29 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
       if (stream==codecs->subscription.videostream) {
         packet = malloc(sizeof(*packet));
         packet->buf = msg.msg;
+
+        int frametype;
+        htsp_get_int(&msg,"frametype",&frametype);
+
+	// htsp_dump_message(&msg);
+        if (htsp_get_int64(&msg,"pts",&packet->PTS) > 0) {
+          fprintf(stderr,"ERROR: No PTS in video packet, dropping\n");
+          goto next;
+        }
         htsp_get_bin(&msg,"payload",&packet->packet,&packet->packetlength);
 
-        // TODO: Populate PTS and DTS
-        //fprintf(stderr,"Adding video packet to queue\n");
         codec_queue_add_item(&codecs->vcodec,packet);
         free_msg = 0;   // Don't free this message
+
         //fprintf(stderr,"Queue count:  %8d\r",codecs->vcodec.queue_count);
       } else if ((stream==codecs->subscription.audiostream) &&
                  (codecs->subscription.streams[codecs->subscription.audiostream-1].codec == HMF_AUDIO_CODEC_MPEG)) {
         packet = malloc(sizeof(*packet));
         packet->buf = msg.msg;
+        if (htsp_get_int64(&msg,"pts",&packet->PTS) > 0) {
+          fprintf(stderr,"ERROR: No PTS in audio packet, dropping\n");
+          goto next;
+	}
         htsp_get_bin(&msg,"payload",&packet->packet,&packet->packetlength);
 
         codec_queue_add_item(&codecs->acodec,packet);
@@ -68,13 +80,13 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
       //htsp_dump_message(&msg);
     }
 
+next:
     if (free_msg)
       htsp_destroy_message(&msg);
 
     if (method) free(method);
   }
 }
-
 
 int main(int argc, char* argv[])
 {
@@ -175,6 +187,8 @@ int main(int argc, char* argv[])
       fprintf(stderr,"UNKNOWN VIDEO FORMAT\n");
       exit(1);
     }
+
+    codecs.vcodec.acodec = &codecs.acodec;
 
     if (codecs.subscription.streams[codecs.subscription.audiostream-1].codec == HMF_AUDIO_CODEC_MPEG) {
       acodec_mpeg_init(&codecs.acodec);

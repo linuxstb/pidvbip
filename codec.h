@@ -31,7 +31,9 @@ struct codec_t
   struct codec_queue_t* queue_head;
   struct codec_queue_t* queue_tail;
   int queue_count;
-  double nextframetime;
+  int64_t PTS;
+  pthread_mutex_t PTS_mutex;
+  struct codec_t* acodec;
   RECT_VARS_T vars;    // Used by video codecs
 };
 
@@ -39,5 +41,7 @@ void codec_queue_init(struct codec_t* codec);
 void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet);
 void codec_queue_free_item(struct codec_t* codec,struct codec_queue_t* item);
 struct codec_queue_t* codec_queue_get_next_item(struct codec_t* codec);
+void codec_set_pts(struct codec_t* codec, int64_t PTS);
+int64_t codec_get_pts(struct codec_t* codec);
 
 #endif

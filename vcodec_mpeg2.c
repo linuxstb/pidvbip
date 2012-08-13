@@ -11,6 +11,10 @@
 
 int enable_output = 1;
 
+#define LOW32(x) ((int64_t)(x) & 0xffffffff)
+#define HIGH32(x) (((int64_t)(x) & 0xffffffff00000000) >> 32)
+
+
 static struct fbuf_t
 {
     uint8_t *data;
@@ -67,6 +71,8 @@ static void* vcodec_mpeg2_thread(struct codec_t* codec)
 
             current = codec_queue_get_next_item(codec);
 
+            mpeg2_tag_picture(decoder,LOW32(current->data->PTS),HIGH32(current->data->PTS));
+
             mpeg2_buffer(decoder,current->data->packet,current->data->packet + current->data->packetlength);
             break;
         case STATE_SLICE:
@@ -74,16 +80,17 @@ static void* vcodec_mpeg2_thread(struct codec_t* codec)
         case STATE_INVALID_END:
             if ((enable_output) && (info->display_fbuf)) {
               //fprintf(stderr,"[vcodec_mpeg2] Displaying frame\n");
-              double frame_period = (sequence->frame_period/27000000.0)*1000000.0;
-              double now = gettime();
-              if (codec->nextframetime < 0) {
-                codec->nextframetime = now + frame_period;
-              } else {
-                if (now < codec->nextframetime) {
-                  usleep(codec->nextframetime - now);
-                }
-                codec->nextframetime += frame_period;
-              }
+              int64_t PTS = info->display_picture->tag2;
+              PTS <<= 32;
+              PTS |= info->display_picture->tag;
+
+              int64_t audio_PTS = codec_get_pts(codec->acodec);
+
+	      //fprintf(stderr,"Displaying frame - video PTS=%lld, audio PTS = %lld\n",PTS,audio_PTS);
+
+              if (PTS > audio_PTS)
+		usleep(PTS - audio_PTS);
+         
               vo_display_frame (&codec->vars, sequence->width, sequence->height,
                                 sequence->chroma_width, sequence->chroma_height,
                                 info->display_fbuf->buf, nframes);
@@ -109,16 +116,9 @@ void vcodec_mpeg2_init(struct codec_t* codec)
     exit(1);
   }
 
-  codec->nextframetime = -1.0;
-
   codec_queue_init(codec);
 
   vo_open(&codec->vars,0);
 
   pthread_create(&codec->thread,NULL,(void * (*)(void *))vcodec_mpeg2_thread,(void*)codec);
-}
-
-
-int64_t vcodec_mpeg2_current_get_pts(struct codec_t* codec)
-{
 }

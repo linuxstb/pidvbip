@@ -125,6 +125,8 @@ static void* acodec_mpeg_thread(struct codec_t* codec)
     }
     if(ret == MPG123_ERR){ fprintf(stderr, "some error: %s", mpg123_strerror(m)); break; }
 
+    codec_set_pts(codec,current->data->PTS);
+
     codec_queue_free_item(codec,current);
   }
   audioplay_delete(st);
@@ -143,9 +145,4 @@ void acodec_mpeg_init(struct codec_t* codec)
   codec_queue_init(codec);
 
   pthread_create(&codec->thread,NULL,(void * (*)(void *))acodec_mpeg_thread,(void*)codec);
-}
-
-
-int64_t acodec_mpeg_current_get_pts(struct codec_t* codec)
-{
 }

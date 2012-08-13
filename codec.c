@@ -11,6 +11,7 @@ void codec_queue_init(struct codec_t* codec)
 
   pthread_mutex_init(&codec->queue_mutex,NULL);
   pthread_cond_init(&codec->queue_count_cv,NULL);
+  pthread_mutex_init(&codec->PTS_mutex,NULL);
 }
 
 void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet)
@@ -80,3 +81,21 @@ struct codec_queue_t* codec_queue_get_next_item(struct codec_t* codec)
   return item;
 }
 
+
+void codec_set_pts(struct codec_t* codec, int64_t PTS)
+{
+  pthread_mutex_lock(&codec->PTS_mutex);
+  codec->PTS = PTS;
+  pthread_mutex_unlock(&codec->PTS_mutex);
+}
+
+int64_t codec_get_pts(struct codec_t* codec)
+{
+  int64_t PTS;
+
+  pthread_mutex_lock(&codec->PTS_mutex);
+  PTS = codec->PTS;
+  pthread_mutex_unlock(&codec->PTS_mutex);
+
+  return PTS;
+}

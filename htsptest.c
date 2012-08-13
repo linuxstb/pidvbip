@@ -7,6 +7,7 @@
 #include <termios.h>
 #include <ctype.h>
 
+#include "bcm_host.h"
 #include "vcodec_mpeg2.h"
 #include "vcodec_h264.h"
 #include "acodec_mpeg.h"
@@ -53,7 +54,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
         //fprintf(stderr,"Adding video packet to queue\n");
         codec_queue_add_item(&codecs->vcodec,packet);
         free_msg = 0;   // Don't free this message
-        fprintf(stderr,"Queue count:  %8d\r",codecs->vcodec.queue_count);
+        //fprintf(stderr,"Queue count:  %8d\r",codecs->vcodec.queue_count);
       } else if ((stream==codecs->subscription.audiostream) &&
                  (codecs->subscription.streams[codecs->subscription.audiostream-1].codec == HMF_AUDIO_CODEC_MPEG)) {
         packet = malloc(sizeof(*packet));
@@ -86,6 +87,8 @@ int main(int argc, char* argv[])
         fprintf(stderr,"Usage: htsptest host port channelId\n");
         return 1;
     }
+
+    bcm_host_init();
 
     if ((res = htsp_connect(&htsp,argv[1],atoi(argv[2]))) > 0) {
         fprintf(stderr,"Error connecting to htsp server, aborting.\n");

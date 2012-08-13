@@ -14,8 +14,8 @@ all: $(TARGETS)
 mpeg2test: mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
 	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o mpeg2test mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
 
-htsptest: htsptest.c libmpeg2/libmpeg2.a vcodec_mpeg2.o vcodec_h264.o htsp.o vo_pi.o codec.o acodec_mpeg.o
-	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o htsptest htsptest.c vcodec_mpeg2.o vcodec_h264.o htsp.o vo_pi.o codec.o acodec_mpeg.o libmpeg2/libmpeg2.a /opt/vc/src/hello_pi/libs/ilclient/libilclient.a
+htsptest: htsptest.c libmpeg2/libmpeg2.a vcodec_mpeg2.o vcodec_h264.o htsp.o vo_pi.o codec.o audioplay.o acodec_mpeg.o 
+	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o htsptest htsptest.c vcodec_mpeg2.o vcodec_h264.o htsp.o vo_pi.o codec.o audioplay.o  acodec_mpeg.o libmpeg2/libmpeg2.a /opt/vc/src/hello_pi/libs/ilclient/libilclient.a -lmpg123
 
 vo_pi.o: vo_pi.c vo_pi.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o vo_pi.o vo_pi.c
@@ -25,6 +25,9 @@ htsp.o: htsp.c htsp.h
 
 codec.o: codec.c codec.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o codec.o codec.c
+
+audioplay.o: audioplay.c audioplay.h
+	$(CC) $(INCLUDES) $(CFLAGS) -c -o audioplay.o audioplay.c
 
 acodec_mpeg.o: acodec_mpeg.c acodec_mpeg.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o acodec_mpeg.o acodec_mpeg.c

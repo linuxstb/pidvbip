@@ -10,8 +10,6 @@ void vo_open(RECT_VARS_T* vars, int screen)
 
     /* Init from dispmanx.c */
 
-    bcm_host_init();
-
     printf("Open display[%i]...\n", screen );
     vars->display = vc_dispmanx_display_open( screen );
 

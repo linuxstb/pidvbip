@@ -245,8 +245,5 @@ void vcodec_h264_init(struct codec_t* codec)
 
   codec_queue_init(codec);
 
-  //vo_open(&codec->vars,0);
-  bcm_host_init();
-
   pthread_create(&codec->thread,NULL,(void * (*)(void *))vcodec_h264_thread,(void*)codec);
 }

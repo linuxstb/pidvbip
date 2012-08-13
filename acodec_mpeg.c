@@ -1,31 +1,139 @@
+
+/* MPEG audio codec using libmpg123.  Based on mpglib.c sample from libmpg123
+
+   Audio code taken from the hello_audio.c sample
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <pthread.h>
 #include <sys/time.h>
+#include <assert.h>
+#include <mpg123.h>
 #include "codec.h"
 #include "acodec_mpeg.h"
+#include "audioplay.h"
+
+#define INBUFF  16384
+#define OUTBUFF 32768 
+
+#define CTTW_SLEEP_TIME 10
+#define MIN_LATENCY_TIME 20
+
+static const char *audio_dest[] = {"local", "hdmi"};
+
+#define BUFFER_SIZE_SAMPLES 1152
+
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+
+static void output_pcm(AUDIOPLAY_STATE_T *st,unsigned char* data, int size, int buffer_size)
+{
+  uint8_t *buf;
+  int copied = 0;
+  int latency;
+  int samplerate = 48000;  // audio sample rate in Hz
+  int ret;
+
+  while (size > 0) 
+  {
+    while((buf = audioplay_get_buffer(st)) == NULL)
+      usleep(10*1000);
+
+    int to_copy = MIN(size,buffer_size);
+
+    memcpy(buf,data + copied,to_copy);
+    copied += to_copy;
+    size -= to_copy;
+
+    // try and wait for a minimum latency time (in ms) before
+    // sending the next packet
+    while((latency = audioplay_get_latency(st)) > (samplerate * (MIN_LATENCY_TIME + CTTW_SLEEP_TIME) / 1000))
+       usleep(CTTW_SLEEP_TIME*1000);
+
+    ret = audioplay_play_buffer(st, buf, to_copy);
+
+    if (ret != 0) {
+      fprintf(stderr,"[acodec_mpeg] - audioplay_play_buffer() error %d\n",ret);
+      exit(1);
+    }
+  }
+}
 
 static void* acodec_mpeg_thread(struct codec_t* codec)
 {
   struct codec_queue_t* current = NULL;
-  FILE* fh;
+  size_t size;
+  unsigned char out[OUTBUFF]; /* output buffer */
+  size_t outc = 0;
+  mpg123_handle *m;
+  int ret;
 
-  fh = popen("/usr/bin/mpg123 -","w");
+  int dest = 1;            // 0=headphones, 1=hdmi
+  int samplerate = 48000;  // audio sample rate in Hz
+  int nchannels = 2;        // numnber of audio channels
+  int bitdepth = 16;       // number of bits per sample
 
-  if (fh == NULL) {
-    fprintf(stderr,"FATAL ERROR: Could not open mpg123\n");
+  AUDIOPLAY_STATE_T *st;
+  int buffer_size = (BUFFER_SIZE_SAMPLES * bitdepth * nchannels)>>3;
+
+  assert(dest == 0 || dest == 1);
+
+  ret = audioplay_create(&st, samplerate, nchannels, bitdepth, 10, buffer_size);
+  assert(ret == 0);
+
+  ret = audioplay_set_dest(st, audio_dest[dest]);
+  assert(ret == 0);
+
+  mpg123_init();
+
+  m = mpg123_new(NULL, &ret);
+
+  if(m == NULL)
+  {
+    fprintf(stderr,"Unable to create mpg123 handle: %s\n", mpg123_plain_strerror(ret));
     exit(1);
   }
+  mpg123_param(m, MPG123_VERBOSE, 2, 0); /* Brabble a bit about the parsing/decoding. */
 
-  while (1) {
+  /* Now mpg123 is being prepared for feeding. The main loop will read chunks from stdin and feed them to mpg123;
+     then take decoded data as available to write to stdout. */
+  mpg123_open_feed(m);
+
+  while(1) /* Read and write until everything is through. */
+  {
     current = codec_queue_get_next_item(codec);
-    fwrite(current->data->packet,current->data->packetlength,1,fh);
+
+    /* Feed input chunk and get first chunk of decoded audio. */
+    ret = mpg123_decode(m,current->data->packet,current->data->packetlength,out,OUTBUFF,&size);
+
+    if(ret == MPG123_NEW_FORMAT)
+    {
+      long rate;
+      int channels, enc;
+      mpg123_getformat(m, &rate, &channels, &enc);
+      fprintf(stderr, "New format: %li Hz, %i channels, encoding value %i\n", rate, channels, enc);
+    }
+
+    output_pcm(st, out, size, buffer_size);
+
+    while(ret != MPG123_ERR && ret != MPG123_NEED_MORE)
+    { /* Get all decoded audio that is available now before feeding more input. */
+      ret = mpg123_decode(m,NULL,0,out,OUTBUFF,&size);
+      output_pcm(st, out, size, buffer_size);
+      outc += size;
+    }
+    if(ret == MPG123_ERR){ fprintf(stderr, "some error: %s", mpg123_strerror(m)); break; }
+
     codec_queue_free_item(codec,current);
   }
+  audioplay_delete(st);
 
-  /* We never get here, but keep gcc happy */
-  return NULL;
+  /* Done decoding, now just clean up and leave. */
+  mpg123_delete(m);
+  mpg123_exit();
+
+  return 0;
 }
 
 void acodec_mpeg_init(struct codec_t* codec)

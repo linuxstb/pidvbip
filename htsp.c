@@ -419,6 +419,37 @@ int htsp_get_int(struct htsp_message_t* msg, char* name, int* val)
   return 1;
 }
 
+int htsp_get_int64(struct htsp_message_t* msg, char* name, int64_t* val)
+{
+  unsigned char* buf = msg->msg;
+  int len = msg->msglen;
+  int msglen = get_uint32_be(buf); buf += 4; len -= 4;
+  int matchlen = strlen(name);
+
+  while (len > 0) {
+    int type = buf[0]; if (type > 6) { type = 0; }
+    int namelength = buf[1];
+    int datalength = get_uint32_be(buf + 2);
+    buf += 6; len -= 6;
+
+    if ((type == HMF_S64) && (namelength==matchlen) && (memcmp(buf,name,matchlen)==0)) {
+      buf += namelength + datalength - 1;  // We decode backwards, it's little-endian
+      *val = 0;
+      while (datalength > 0) {
+	*val <<= 8;
+        *val |= *buf--;
+        datalength--;
+      }
+      return 0;
+    }
+
+    buf += namelength + datalength;
+    len -= namelength + datalength;
+  }
+
+  return 1;
+}
+
 
 int htsp_get_bin(struct htsp_message_t* msg, char* name, unsigned char** data,int* size)
 {

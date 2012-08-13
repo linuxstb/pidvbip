@@ -1,6 +1,8 @@
 #ifndef _HTSP_H
 #define _HTSP_H
 
+#include <stdint.h>
+
 struct htsp_t 
 {
     struct sockaddr_in *remote;
@@ -63,6 +65,7 @@ int htsp_recv_message(struct htsp_t* htsp, struct htsp_message_t* msg);
 int htsp_login(struct htsp_t* htsp);
 char* htsp_get_string(struct htsp_message_t* msg, char* name);
 int htsp_get_int(struct htsp_message_t* msg, char* name, int* val);
+int htsp_get_int64(struct htsp_message_t* msg, char* name, int64_t* val);
 int htsp_get_bin(struct htsp_message_t* msg, char* name, unsigned char** data,int* size);
 
 int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscription_t*);

@@ -1,6 +1,7 @@
 mpeg2test
 htsptest
 acodec_mpeg.o
+audioplay.o
 codec.o
 htsp.o
 vcodec_h264.o

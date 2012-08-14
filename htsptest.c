@@ -169,7 +169,6 @@ int main(int argc, char* argv[])
       res = htsp_recv_message(&htsp,&msg);
       method = htsp_get_string(&msg,"method");
     }
-    htsp_destroy_message(&msg);
     if (method != NULL) free(method);
 
     // We have received the subscriptionStart message, now parse it
@@ -179,6 +178,8 @@ int main(int argc, char* argv[])
       fprintf(stderr,"FATAL ERROR: Cannot parse subscriptionStart\n");
       exit(1);
     }
+
+    htsp_destroy_message(&msg);
 
     if (codecs.subscription.streams[codecs.subscription.videostream-1].codec == HMF_VIDEO_CODEC_MPEG2) {
       vcodec_mpeg2_init(&codecs.vcodec);

@@ -13,6 +13,7 @@
 #include "acodec_mpeg.h"
 #include "acodec_aac.h"
 #include "htsp.h"
+#include "channels.h"
 
 struct codecs_t {
   struct codec_t vcodec; // Video
@@ -32,7 +33,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
   int res;
   struct packet_t* packet;
 
-  while (1)
+  while ((codecs->vcodec.is_running) || (codecs->acodec.is_running))
   {
     if ((res = htsp_recv_message(&htsp,&msg)) > 0) {
       fprintf(stderr,"FATAL ERROR in network read - %d\n",res);
@@ -95,12 +96,18 @@ next:
 
     if (method) free(method);
   }
+
+  res = htsp_create_message(&msg,HMF_STR,"method","unsubscribe",HMF_S64,"subscriptionId",14,HMF_NULL);
+  res = htsp_send_message(&htsp,&msg);
+  htsp_destroy_message(&msg);
+
 }
 
 int main(int argc, char* argv[])
 {
     int res;
     int channel = -1;
+    int channel_id = -1;
     struct htsp_message_t msg;
     struct codecs_t codecs;
 
@@ -127,6 +134,8 @@ int main(int argc, char* argv[])
     // Recieve the acknowledgement from enableAsyncMetadata
     res = htsp_recv_message(&htsp,&msg);
 
+    channels_init();
+
     int done = 0;
     while (!done)
     {
@@ -145,8 +154,7 @@ int main(int argc, char* argv[])
            if (htsp_get_int(&msg,"channelId",&channelId) == 0) { 
              if (htsp_get_int(&msg,"channelNumber",&channelNumber) > 0) { channelNumber = 0; }
              channelName = htsp_get_string(&msg,"channelName");
-             fprintf(stderr,"%5d  %5d - %s\n",channelId,channelNumber,channelName);
-             free(channelName);
+             channels_add(channelNumber,channelId,channelName);
            }
          } else {
            //fprintf(stderr,"Recieved message: method=\"%s\"\n",method);
@@ -161,10 +169,22 @@ int main(int argc, char* argv[])
 
     fprintf(stderr,"Initial sync completed\n");
 
-    if (channel == -1)
+    if (channels_getcount() == 0) {
+      fprintf(stderr,"No channels available, exiting.\n");
       exit(1);
+    }
 
-    res = htsp_create_message(&msg,HMF_STR,"method","subscribe",HMF_S64,"channelId",channel,HMF_S64,"subscriptionId",14,HMF_NULL);
+    channels_dump();
+
+    channel_id = channels_getid(channel);
+    fprintf(stderr,"channel = %d, channel_id=%d\n",channel,channel_id);
+    if (channel_id < 0)
+      channel_id = channels_getfirst();
+
+next_channel:
+    fprintf(stderr,"Tuning to channel %d - \"%s\"\n",channels_getlcn(channel_id),channels_getname(channel_id));
+
+    res = htsp_create_message(&msg,HMF_STR,"method","subscribe",HMF_S64,"channelId",channel_id,HMF_S64,"subscriptionId",14,HMF_NULL);
     res = htsp_send_message(&htsp,&msg);
     htsp_destroy_message(&msg);
 
@@ -233,6 +253,23 @@ int main(int argc, char* argv[])
       c = getchar();
       printf("\n char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
       if (c=='q') goto done;
+      if ((c=='n') || (c=='p')) {
+	codec_stop(&codecs.vcodec);
+        pthread_join(codecs.vcodec.thread,NULL);
+        codec_stop(&codecs.acodec);
+        pthread_join(codecs.acodec.thread,NULL);
+
+        /* Wait for htsp receiver thread to stop */
+        fprintf(stderr,"Wait for receiver thread to stop.\n");
+
+        pthread_join(htspthread,NULL);
+        fprintf(stderr,"Receiver thread stopped.\n");
+
+        if (c=='n') channel_id = channels_getnext(channel_id);
+        else channel_id = channels_getprev(channel_id);
+
+        goto next_channel;
+      }
     }
 
 done:

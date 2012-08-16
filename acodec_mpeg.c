@@ -104,6 +104,12 @@ static void* acodec_mpeg_thread(struct codec_t* codec)
   {
     current = codec_queue_get_next_item(codec);
 
+    if (current->msgtype == MSG_STOP) {
+      fprintf(stderr,"[acodec_mpeg] Stopping\n");
+      codec_queue_free_item(codec,current);
+      goto stop;
+    }
+
     /* Feed input chunk and get first chunk of decoded audio. */
     ret = mpg123_decode(m,current->data->packet,current->data->packetlength,out,OUTBUFF,&size);
 
@@ -129,6 +135,7 @@ static void* acodec_mpeg_thread(struct codec_t* codec)
 
     codec_queue_free_item(codec,current);
   }
+stop:
   audioplay_delete(st);
 
   /* Done decoding, now just clean up and leave. */

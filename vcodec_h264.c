@@ -138,7 +138,15 @@ static void* vcodec_h264_thread(struct codec_t* codec)
 #endif
 
          /******* Start of new code for vcodec_h264.c */
-         if (current == NULL) { current = codec_queue_get_next_item(codec); current_used = 0; }
+         if (current == NULL) { 
+           current = codec_queue_get_next_item(codec); 
+           current_used = 0; 
+
+           if (current->msgtype == MSG_STOP) {
+             codec_queue_free_item(codec,current);
+             goto stop;
+           }
+         }
 
          int to_copy = packet_size - data_len;
 
@@ -218,6 +226,7 @@ static void* vcodec_h264_thread(struct codec_t* codec)
       ilclient_disable_port_buffers(video_decode, 130, NULL, NULL, NULL);
    }
 
+stop:
    ilclient_disable_tunnel(tunnel);
    ilclient_disable_tunnel(tunnel+1);
    ilclient_disable_tunnel(tunnel+2);
@@ -233,7 +242,6 @@ static void* vcodec_h264_thread(struct codec_t* codec)
    ilclient_destroy(client);
 
    fprintf(stderr,"End of h264 thread - status=%d\n",status);
-   exit(1);
 
    return status;
 }

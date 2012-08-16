@@ -17,14 +17,17 @@ flvtoh264: flvtoh264.c
 mpeg2test: mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
 	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o mpeg2test mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
 
-htsptest: htsptest.c libmpeg2/libmpeg2.a vcodec_mpeg2.o vcodec_h264.o htsp.o vo_pi.o codec.o audioplay.o acodec_mpeg.o acodec_aac.o /opt/vc/src/hello_pi/libs/ilclient/libilclient.a
-	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o htsptest htsptest.c vcodec_mpeg2.o vcodec_h264.o htsp.o vo_pi.o codec.o audioplay.o  acodec_aac.o acodec_mpeg.o libmpeg2/libmpeg2.a /opt/vc/src/hello_pi/libs/ilclient/libilclient.a -lmpg123 -lfaad
+htsptest: htsptest.c libmpeg2/libmpeg2.a vcodec_mpeg2.o vcodec_h264.o htsp.o vo_pi.o codec.o audioplay.o acodec_mpeg.o acodec_aac.o channels.o /opt/vc/src/hello_pi/libs/ilclient/libilclient.a
+	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o htsptest htsptest.c vcodec_mpeg2.o vcodec_h264.o htsp.o vo_pi.o codec.o audioplay.o  acodec_aac.o acodec_mpeg.o channels.o libmpeg2/libmpeg2.a /opt/vc/src/hello_pi/libs/ilclient/libilclient.a -lmpg123 -lfaad
 
 vo_pi.o: vo_pi.c vo_pi.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o vo_pi.o vo_pi.c
 
 htsp.o: htsp.c htsp.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o htsp.o htsp.c
+
+channels.o: channels.c channels.h
+	$(CC) $(INCLUDES) $(CFLAGS) -c -o channels.o channels.c
 
 codec.o: codec.c codec.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o codec.o codec.c
@@ -52,5 +55,5 @@ libmpeg2/libmpeg2.a: libmpeg2/alloc.c libmpeg2/attributes.h libmpeg2/config.h li
 	make -C /opt/vc/src/hello_pi/libs/ilclient/
 
 clean:
-	rm -f $(TARGETS) vo_pi.o codec.o htsp.o vcodec_mpeg2.o vcodec_h264.o *~
+	rm -f $(TARGETS) vo_pi.o codec.o htsp.o vcodec_mpeg2.o vcodec_h264.o channels.o *~
 	make -C libmpeg2 clean

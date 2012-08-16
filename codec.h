@@ -15,8 +15,12 @@ struct packet_t
   int64_t DTS;
 };
 
+#define MSG_PACKET  1
+#define MSG_STOP    2
+
 struct codec_queue_t
 {
+  int msgtype;
   struct packet_t* data;
   struct codec_queue_t* prev;
   struct codec_queue_t* next;
@@ -25,6 +29,7 @@ struct codec_queue_t
 struct codec_t
 {
   void* codecstate;
+  int is_running;
   pthread_t thread;
   pthread_mutex_t queue_mutex;
   pthread_cond_t queue_count_cv;
@@ -40,6 +45,7 @@ struct codec_t
 };
 
 void codec_queue_init(struct codec_t* codec);
+void codec_stop(struct codec_t* codec);
 void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet);
 void codec_queue_free_item(struct codec_t* codec,struct codec_queue_t* item);
 struct codec_queue_t* codec_queue_get_next_item(struct codec_t* codec);

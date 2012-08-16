@@ -8,10 +8,48 @@ void codec_queue_init(struct codec_t* codec)
   codec->queue_head = NULL;
   codec->queue_tail = NULL;
   codec->queue_count = 0;
+  codec->is_running = 1;
 
   pthread_mutex_init(&codec->queue_mutex,NULL);
   pthread_cond_init(&codec->queue_count_cv,NULL);
   pthread_mutex_init(&codec->PTS_mutex,NULL);
+}
+
+void codec_stop(struct codec_t* codec)
+{
+  struct codec_queue_t* new = malloc(sizeof(struct codec_queue_t));
+
+  if (new == NULL) {
+    fprintf(stderr,"FATAL ERROR: out of memory adding to queue\n");
+    exit(1);
+  }
+
+  pthread_mutex_lock(&codec->queue_mutex);
+
+  codec->is_running = 0;
+
+  /* Empty the queue */
+
+  struct codec_queue_t* p = codec->queue_head;
+  while (p) {
+    struct codec_queue_t* tmp = p;
+    p = p->next;
+    codec_queue_free_item(codec,tmp);
+  }
+
+  new->msgtype = MSG_STOP;
+  new->data = NULL;
+  new->next = NULL;
+  new->prev = NULL;
+  codec->queue_head = new;
+  codec->queue_tail = new;
+
+  if (codec->queue_count == 0) {
+    pthread_cond_signal(&codec->queue_count_cv);
+  }
+  codec->queue_count=1;
+
+  pthread_mutex_unlock(&codec->queue_mutex);
 }
 
 void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet)
@@ -23,25 +61,31 @@ void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet)
     exit(1);
   }
 
+  new->msgtype = MSG_PACKET;
+  new->data = packet;
+
   pthread_mutex_lock(&codec->queue_mutex);
 
-  if (codec->queue_head == NULL) {
-    new->next = NULL;
-    new->prev = NULL;
-    new->data = packet;
-    codec->queue_head = new;
-    codec->queue_tail = new;
+  if (codec->is_running) {
+    if (codec->queue_head == NULL) {
+      new->next = NULL;
+      new->prev = NULL;
+      codec->queue_head = new;
+      codec->queue_tail = new;
 
-    pthread_cond_signal(&codec->queue_count_cv);
+      pthread_cond_signal(&codec->queue_count_cv);
+    } else {
+      new->next = codec->queue_head;
+      new->prev = NULL;
+      new->next->prev = new;
+      codec->queue_head = new;
+    }
+
+    codec->queue_count++;
   } else {
-    new->data = packet;
-    new->next = codec->queue_head;
-    new->prev = NULL;
-    new->next->prev = new;
-    codec->queue_head = new;
+    fprintf(stderr,"Dropping packet - codec is stopped.\n");
+    free(packet);
   }
-
-  codec->queue_count++;
 
   pthread_mutex_unlock(&codec->queue_mutex);
 }
@@ -51,8 +95,10 @@ void codec_queue_free_item(struct codec_t* codec,struct codec_queue_t* item)
   if (item == NULL)
     return;
 
-  free(item->data->buf);
-  free(item->data);
+  if (item->data) {
+    free(item->data->buf);
+    free(item->data);
+  }
   free(item);
 }
 

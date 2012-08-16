@@ -71,6 +71,12 @@ static void* vcodec_mpeg2_thread(struct codec_t* codec)
 
             current = codec_queue_get_next_item(codec);
 
+            if (current->msgtype == MSG_STOP) {
+              fprintf(stderr,"[vcodec_mpeg2] Stopping\n");
+              codec_queue_free_item(codec,current);
+              goto stop;
+            }
+
             mpeg2_tag_picture(decoder,LOW32(current->data->PTS),HIGH32(current->data->PTS));
 
             mpeg2_buffer(decoder,current->data->packet,current->data->packet + current->data->packetlength);
@@ -104,7 +110,11 @@ static void* vcodec_mpeg2_thread(struct codec_t* codec)
         }
     }
 
-  /* We never get here, but keep gcc happy */
+stop:
+
+  mpeg2_close(decoder);
+  vo_close(&codec->vars);
+
   return NULL;
 }
 

@@ -147,6 +147,11 @@ static void* acodec_aac_thread(struct codec_t* codec)
   {
     current = codec_queue_get_next_item(codec);
 
+    if (current->msgtype == MSG_STOP) {
+      codec_queue_free_item(codec,current);
+      goto stop;
+    }
+
     if (!done_init) {
       err = NeAACDecInit2(hAac, codec->codecdata, codec->codecdatasize, &samplerate, &nchannels);
       //err = NeAACDecInit(hAac, current->data->packet, 7, &samplerate, &nchannels);
@@ -185,6 +190,7 @@ static void* acodec_aac_thread(struct codec_t* codec)
 
     codec_queue_free_item(codec,current);
   }
+stop:
   audioplay_delete(st);
 
   /* Done decoding, now just clean up and leave. */

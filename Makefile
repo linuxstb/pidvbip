@@ -4,12 +4,15 @@ LDFLAGS+=-L$(SDKSTAGE)/opt/vc/lib/ -lGLESv2 -lEGL -lopenmaxil -lbcm_host -lvcos 
 
 INCLUDES+=-I$(SDKSTAGE)/opt/vc/include/ -I$(SDKSTAGE)/opt/vc/include/interface/vcos/pthreads -I./ -I/opt/vc/src/hello_pi/libs/ilclient -I/opt/vc/src/hello_pi/libs/vgfont
 
-TARGETS=mpeg2test htsptest
+TARGETS=mpeg2test htsptest flvtoh264
 
 # disable asserts
 CFLAGS+=-DNDEBUG
 
 all: $(TARGETS)
+
+flvtoh264: flvtoh264.c
+	$(CC) -o flvtoh264 flvtoh264.c
 
 mpeg2test: mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
 	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o mpeg2test mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a

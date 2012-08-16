@@ -7,6 +7,7 @@ DVB-over-IP set-top box software for the Raspberry Pi.
 Currently this repository just contains some experimental software:
 
 * mpeg2test - test decoding of mpeg-2 elementary streams
+* flvtoh264 - Simple parser to extract an h264 video stream from an FLV file
 * htsptest  - HTSP (Tvheadend) client test (streaming video playback)
 
 NOTE: htsptest requires PTS values for the video stream, which due to

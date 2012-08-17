@@ -32,13 +32,13 @@ codec.o: codec.c codec.h
 audioplay.o: audioplay.c audioplay.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o audioplay.o audioplay.c
 
-acodec_mpeg.o: acodec_mpeg.c acodec_mpeg.h
+acodec_mpeg.o: acodec_mpeg.c acodec_mpeg.h codec.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o acodec_mpeg.o acodec_mpeg.c
 
-vcodec_mpeg2.o: vcodec_mpeg2.c vcodec_mpeg2.h
+vcodec_mpeg2.o: vcodec_mpeg2.c vcodec_mpeg2.h codec.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o vcodec_mpeg2.o vcodec_mpeg2.c
 
-vcodec_h264.o: vcodec_h264.c vcodec_h264.h
+vcodec_h264.o: vcodec_h264.c vcodec_h264.h codec.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o vcodec_h264.o vcodec_h264.c
 
 libmpeg2/libmpeg2.a: libmpeg2/alloc.c libmpeg2/attributes.h libmpeg2/config.h libmpeg2/cpu_accel.c libmpeg2/cpu_state.c libmpeg2/decode.c libmpeg2/header.c libmpeg2/idct.c libmpeg2/motion_comp_arm.c libmpeg2/motion_comp_arm_s.S libmpeg2/motion_comp.c libmpeg2/mpeg2.h libmpeg2/mpeg2_internal.h libmpeg2/slice.c libmpeg2/vlc.h libmpeg2/idct_arm.S

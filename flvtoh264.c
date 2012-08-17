@@ -108,6 +108,10 @@ int main(int argc, char* argv[])
             int compatibility = buf[i++];
             int level = buf[i++];
             int NULA_length_size = (buf[i++] & 0x3) + 1;
+            if (NULA_length_size != 4) {
+              fprintf(stderr,"Unsupported NULA length - %d\n",NULA_length_size);
+              exit(1);
+            }
 
             int SPS_count = buf[i++] & 0x1f;
             while (SPS_count > 0) {

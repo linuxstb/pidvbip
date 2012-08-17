@@ -240,9 +240,6 @@ static void* vcodec_h264_thread(struct codec_t* codec)
 
 void vcodec_h264_init(struct codec_t* codec)
 {
-
-  codec->nextframetime = -1.0;
-
   codec_queue_init(codec);
 
   pthread_create(&codec->thread,NULL,(void * (*)(void *))vcodec_h264_thread,(void*)codec);

@@ -79,7 +79,12 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
       //htsp_dump_message(&msg);
     }
 
-    fprintf(stderr,"v-queue: %8d packets, a-queue: %8d packets, PTS DIFF (A-V): %12lld\r",codecs->vcodec.queue_count,codecs->acodec.queue_count,codec_get_pts(&codecs->acodec)-codec_get_pts(&codecs->vcodec));
+    /* Temporary hack - don't display audio info unless it is a supported codec */
+    if (codecs->subscription.streams[codecs->subscription.audiostream-1].codec == HMF_AUDIO_CODEC_MPEG) {
+      fprintf(stderr,"v-queue: %8d packets, a-queue: %8d packets\r",codecs->vcodec.queue_count,codecs->acodec.queue_count);
+    } else {
+      fprintf(stderr,"v-queue: %8d packets\r",codecs->vcodec.queue_count);
+    }
 
 next:
     if (free_msg)

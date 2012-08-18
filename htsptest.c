@@ -92,12 +92,12 @@ next:
 int main(int argc, char* argv[])
 {
     int res;
-    int channel;
+    int channel = -1;
     struct htsp_message_t msg;
     struct codecs_t codecs;
 
-    if (argc != 4) {
-        fprintf(stderr,"Usage: htsptest host port channelId\n");
+    if ((argc != 3) && (argc != 4)) {
+        fprintf(stderr,"Usage: htsptest host port [channelId]\n");
         return 1;
     }
 
@@ -108,7 +108,8 @@ int main(int argc, char* argv[])
         return 2;
     }
 
-    channel = atoi(argv[3]);
+    if (argc==4) { channel = atoi(argv[3]); }
+
     res = htsp_login(&htsp);
 
     res = htsp_create_message(&msg,HMF_STR,"method","enableAsyncMetadata",HMF_NULL);
@@ -151,6 +152,9 @@ int main(int argc, char* argv[])
     }
 
     fprintf(stderr,"Initial sync completed\n");
+
+    if (channel == -1)
+      exit(1);
 
     res = htsp_create_message(&msg,HMF_STR,"method","subscribe",HMF_S64,"channelId",channel,HMF_S64,"subscriptionId",14,HMF_NULL);
     res = htsp_send_message(&htsp,&msg);

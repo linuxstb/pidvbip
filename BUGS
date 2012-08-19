@@ -1,26 +1,38 @@
 Known bugs and unimplemented features
 
-* Deal with MPEG-2 stream not being decoded fast enough (queue will grow forever)
+AUDIO-RELATED
+
+* Remove duplicated audio code in MPEG and AAC codecs and improve PCM API (create ao_pi?)
 
 * AAC/HE-AAC - correctly initialise codecdata based on info from tvh (stream info or a ADTS header).  Also test format changes.
 
-* Implement AC3/EAC3 codec
+* Implement AC3/EAC3 codec (? Is ffmpeg the only open source E-AC3 codec?)
+
+* Deal with different channels/samplerate etc in MPEG audio codec (currently hard-coded for 48KHz Stereo)
+
+
+VIDEO-RELATED
+
+* Deal with MPEG-2 stream not being decoded fast enough (queue will grow forever)
 
 * H264 video codec is unreliable - Freeview HD streams at least will sometimes not start, or only start after a few seconds.
 
 * H264 video codec is not smooth - perhaps need to pre-buffer some frames to ensure the GPU always has data to decode/display
 
+* Implement A/V sync for H264 video
+
+* Implement double-buffering in MPEG-2 codec to eliminate tearing
+
+
+CORE FEATURES
+
+* Document build process, including the required dependencies (libfaad, libmpg123)
+
 * Implement a UI!
 
 * Implement channel change, including sending messages to codec threads to stop/restart.  Related - shutdown cleanly.
 
-* Implement double-buffering in MPEG-2 codec to eliminate tearing
-
-* Implement A/V sync for H264 video
-
-* Properly deal with S64 integers in htsp.c (code currently assumes they are all 32-bit)
-
-* Deal with different channels/samplerate etc in MPEG audio codec (currently hard-coded for 48KHz Stereo)
+* Properly deal with S64 integers in htsp.c (code currently sometimes assumes they are all 32-bit)
 
 * Catch ^C and reset keyboard (and cleanly close down codecs)
 

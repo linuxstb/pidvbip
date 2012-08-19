@@ -11,6 +11,7 @@
 #include "vcodec_mpeg2.h"
 #include "vcodec_h264.h"
 #include "acodec_mpeg.h"
+#include "acodec_aac.h"
 #include "htsp.h"
 
 struct codecs_t {
@@ -63,7 +64,9 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
         free_msg = 0;   // Don't free this message
 
       } else if ((stream==codecs->subscription.audiostream) &&
-                 (codecs->subscription.streams[codecs->subscription.audiostream-1].codec == HMF_AUDIO_CODEC_MPEG)) {
+                 ((codecs->subscription.streams[codecs->subscription.audiostream-1].codec == HMF_AUDIO_CODEC_MPEG) ||
+                  (codecs->subscription.streams[codecs->subscription.audiostream-1].codec == HMF_AUDIO_CODEC_AAC))
+                ) {
         packet = malloc(sizeof(*packet));
         packet->buf = msg.msg;
         if (htsp_get_int64(&msg,"pts",&packet->PTS) > 0) {
@@ -203,6 +206,8 @@ int main(int argc, char* argv[])
 
     if (codecs.subscription.streams[codecs.subscription.audiostream-1].codec == HMF_AUDIO_CODEC_MPEG) {
       acodec_mpeg_init(&codecs.acodec);
+    } else if (codecs.subscription.streams[codecs.subscription.audiostream-1].codec == HMF_AUDIO_CODEC_AAC) {
+      acodec_aac_init(&codecs.acodec);
     }
 
     // TODO: Audio and subtitle threads

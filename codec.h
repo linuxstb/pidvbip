@@ -33,6 +33,8 @@ struct codec_t
   int queue_count;
   int64_t PTS;
   pthread_mutex_t PTS_mutex;
+  unsigned char* codecdata;
+  int codecdatasize;
   struct codec_t* acodec;
   RECT_VARS_T vars;    // Used by video codecs
 };

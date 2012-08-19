@@ -2,11 +2,11 @@ Known bugs and unimplemented features
 
 * Deal with MPEG-2 stream not being decoded fast enough (queue will grow forever)
 
-* Implement AAC/HE-AAC codec
+* AAC/HE-AAC - correctly initialise codecdata based on info from tvh (stream info or a ADTS header).  Also test format changes.
 
 * Implement AC3/EAC3 codec
 
-* H264 video codec is unreliable - Freeview HD streams at least will randomly fail to play
+* H264 video codec is unreliable - Freeview HD streams at least will sometimes not start, or only start after a few seconds.
 
 * H264 video codec is not smooth - perhaps need to pre-buffer some frames to ensure the GPU always has data to decode/display
 
@@ -16,7 +16,7 @@ Known bugs and unimplemented features
 
 * Implement double-buffering in MPEG-2 codec to eliminate tearing
 
-* Implement A/V sync
+* Implement A/V sync for H264 video
 
 * Properly deal with S64 integers in htsp.c (code currently assumes they are all 32-bit)
 

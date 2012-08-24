@@ -11,9 +11,11 @@ Currently this repository just contains some experimental software:
 * htsptest  - HTSP (Tvheadend) client test (streaming video playback)
 
 NOTE: htsptest requires PTS values for the video stream, which due to
-a bug are not always provided by Tvheadend.  A temporary fix for this
-is to comment out line 1114 in tvheadend/src/parsers.c (st->es_curpts
-= PTS_UNSET;).
+a bug were not being provided by Tvheadend.  This was fixed in the
+version of tvheadend available at
+https://github.com/tvheadend/tvheadend on 24th August 2012 - please
+ensure you are running a version including that fix.
+
 
 Copyright
 ---------

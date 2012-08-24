@@ -46,7 +46,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
     if ((method != NULL) && (strcmp(method,"muxpkt")==0)) {
       int stream;
       htsp_get_int(&msg,"stream",&stream);
-      if (stream==codecs->subscription.videostream) {
+      if (stream==codecs->subscription.streams[codecs->subscription.videostream].index) {
         packet = malloc(sizeof(*packet));
         packet->buf = msg.msg;
 
@@ -63,7 +63,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
         codec_queue_add_item(&codecs->vcodec,packet);
         free_msg = 0;   // Don't free this message
 
-      } else if ((stream==codecs->subscription.audiostream) &&
+      } else if ((stream==codecs->subscription.streams[codecs->subscription.audiostream].index) &&
                  ((codecs->subscription.streams[codecs->subscription.audiostream-1].codec == HMF_AUDIO_CODEC_MPEG) ||
                   (codecs->subscription.streams[codecs->subscription.audiostream-1].codec == HMF_AUDIO_CODEC_AAC))
                 ) {
@@ -193,9 +193,9 @@ int main(int argc, char* argv[])
 
     htsp_destroy_message(&msg);
 
-    if (codecs.subscription.streams[codecs.subscription.videostream-1].codec == HMF_VIDEO_CODEC_MPEG2) {
+    if (codecs.subscription.streams[codecs.subscription.videostream].codec == HMF_VIDEO_CODEC_MPEG2) {
       vcodec_mpeg2_init(&codecs.vcodec);
-    } else if (codecs.subscription.streams[codecs.subscription.videostream-1].codec == HMF_VIDEO_CODEC_H264) {
+    } else if (codecs.subscription.streams[codecs.subscription.videostream].codec == HMF_VIDEO_CODEC_H264) {
       vcodec_h264_init(&codecs.vcodec);
     } else {
       fprintf(stderr,"UNKNOWN VIDEO FORMAT\n");
@@ -204,10 +204,12 @@ int main(int argc, char* argv[])
 
     codecs.vcodec.acodec = &codecs.acodec;
 
-    if (codecs.subscription.streams[codecs.subscription.audiostream-1].codec == HMF_AUDIO_CODEC_MPEG) {
+    if (codecs.subscription.streams[codecs.subscription.audiostream].codec == HMF_AUDIO_CODEC_MPEG) {
       acodec_mpeg_init(&codecs.acodec);
-    } else if (codecs.subscription.streams[codecs.subscription.audiostream-1].codec == HMF_AUDIO_CODEC_AAC) {
+      fprintf(stderr,"Initialised mpeg codec\n");
+    } else if (codecs.subscription.streams[codecs.subscription.audiostream].codec == HMF_AUDIO_CODEC_AAC) {
       acodec_aac_init(&codecs.acodec);
+      fprintf(stderr,"Initialised AAC codec\n");
     }
 
     // TODO: Audio and subtitle threads

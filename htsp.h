@@ -19,6 +19,8 @@ struct htsp_message_t
     int msglen;
 };
 
+#define HMF_UNKNOWN 0
+
 #define HMF_STREAM_VIDEO 1
 #define HMF_STREAM_AUDIO 2
 #define HMF_STREAM_SUB 3

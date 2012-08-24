@@ -555,32 +555,34 @@ int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscri
     if (strcmp(typestr,"MPEG2VIDEO")==0) {
       subscription->streams[i].type = HMF_STREAM_VIDEO;
       subscription->streams[i].codec = HMF_VIDEO_CODEC_MPEG2;
-      subscription->videostream = subscription->streams[i].index;
+      subscription->videostream = i;
       fprintf(stderr,"Video stream is index %d: MPEG-2\n",subscription->streams[i].index);
     } else if (strcmp(typestr,"H264")==0) {
       subscription->streams[i].type = HMF_STREAM_VIDEO;
       subscription->streams[i].codec = HMF_VIDEO_CODEC_H264;
-      subscription->videostream = subscription->streams[i].index;
+      subscription->videostream = i;
       fprintf(stderr,"Video stream is index %d: H264\n",subscription->streams[i].index);
     } else if (strcmp(typestr,"MPEG2AUDIO")==0) {
       subscription->streams[i].type = HMF_STREAM_AUDIO;
       subscription->streams[i].codec = HMF_AUDIO_CODEC_MPEG;
       if (subscription->audiostream == -1) {
-        subscription->audiostream = subscription->streams[i].index;
-        fprintf(stderr,"Audio stream is index %d: MPEG\n",subscription->streams[i].index);
+        subscription->audiostream = i;
+        fprintf(stderr,"Audio stream is index %d: MPEG (i=%d)\n",subscription->streams[i].index,i);
       }
     } else if (strcmp(typestr,"AAC")==0) {
       subscription->streams[i].type = HMF_STREAM_AUDIO;
       subscription->streams[i].codec = HMF_AUDIO_CODEC_AAC;
       if (subscription->audiostream == -1) {
-        subscription->audiostream = subscription->streams[i].index;
+        subscription->audiostream = i;
         fprintf(stderr,"Audio stream is index %d: AAC\n",subscription->streams[i].index);
       }
     } else if (strcmp(typestr,"DVBSUB")==0) {
       subscription->streams[i].type = HMF_STREAM_SUB;
       subscription->streams[i].codec = HMF_SUB_CODEC_DVBSUB;
     } else {
-      fprintf(stderr,"ERROR: Unknown stream type \"%s\"\n",typestr);
+      subscription->streams[i].type = HMF_UNKNOWN;
+      subscription->streams[i].codec = HMF_UNKNOWN;
+      fprintf(stderr,"Warning: Unknown stream type \"%s\"\n",typestr);
     }
 
     free(typestr);

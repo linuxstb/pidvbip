@@ -13,8 +13,6 @@ AUDIO-RELATED
 
 VIDEO-RELATED
 
-* Add support for hardware MPEG-2 decoding
-
 * H264 video codec is unreliable - Freeview HD streams at least will sometimes not start, or only start after a few seconds.
 
 * H264 video codec is not smooth - perhaps need to pre-buffer some frames to ensure the GPU always has data to decode/display

@@ -5,6 +5,7 @@
 #include <pthread.h>
 
 #include "vo_pi.h"
+#include "ilclient.h"
 
 struct packet_t
 {
@@ -41,6 +42,7 @@ struct codec_t
   unsigned char* codecdata;
   int codecdatasize;
   struct codec_t* acodec;
+  OMX_IMAGE_CODINGTYPE codectype;
   RECT_VARS_T vars;    // Used by video codecs
 };
 

@@ -9,7 +9,7 @@
 
 #include "bcm_host.h"
 #include "vcodec_mpeg2.h"
-#include "vcodec_h264.h"
+#include "vcodec_omx.h"
 #include "acodec_mpeg.h"
 #include "acodec_aac.h"
 #include "htsp.h"
@@ -214,9 +214,13 @@ next_channel:
     htsp_destroy_message(&msg);
 
     if (codecs.subscription.streams[codecs.subscription.videostream].codec == HMF_VIDEO_CODEC_MPEG2) {
+#ifdef SOFTWARE_MPEG2
       vcodec_mpeg2_init(&codecs.vcodec);
+#else
+      vcodec_omx_init(&codecs.vcodec,OMX_VIDEO_CodingMPEG2);
+#endif
     } else if (codecs.subscription.streams[codecs.subscription.videostream].codec == HMF_VIDEO_CODEC_H264) {
-      vcodec_h264_init(&codecs.vcodec);
+      vcodec_omx_init(&codecs.vcodec,OMX_VIDEO_CodingAVC);
     } else {
       fprintf(stderr,"UNKNOWN VIDEO FORMAT\n");
       exit(1);

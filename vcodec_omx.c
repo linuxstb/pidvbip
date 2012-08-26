@@ -34,10 +34,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bcm_host.h"
 #include "ilclient.h"
 
-#include "vcodec_h264.h"
+#include "vcodec_omx.h"
 #include "codec.h"
 
-static void* vcodec_h264_thread(struct codec_t* codec)
+static void* vcodec_omx_thread(struct codec_t* codec)
 {
   struct codec_queue_t* current = NULL;
    int current_used = 0;
@@ -115,7 +115,7 @@ static void* vcodec_h264_thread(struct codec_t* codec)
    format.nSize = sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE);
    format.nVersion.nVersion = OMX_VERSION;
    format.nPortIndex = 130;
-   format.eCompressionFormat = OMX_VIDEO_CodingAVC;
+   format.eCompressionFormat = codec->codectype;
 
    if(status == 0 &&
       OMX_SetParameter(ILC_GET_HANDLE(video_decode), OMX_IndexParamVideoPortFormat, &format) == OMX_ErrorNone &&
@@ -137,7 +137,7 @@ static void* vcodec_h264_thread(struct codec_t* codec)
          data_len += fread(dest, 1, packet_size+(find_start_codes*4)-data_len, in);
 #endif
 
-         /******* Start of new code for vcodec_h264.c */
+         /******* Start of new code for vcodec_omx.c */
          if (current == NULL) { 
            current = codec_queue_get_next_item(codec); 
            current_used = 0; 
@@ -162,7 +162,7 @@ static void* vcodec_h264_thread(struct codec_t* codec)
            codec_queue_free_item(codec,current);
            current = NULL;
          }
-         /******* End of new code for vcodec_h264.c */
+         /******* End of new code for vcodec_omx.c */
 
          if(port_settings_changed == 0 &&
             ((data_len > 0 && ilclient_remove_event(video_decode, OMX_EventPortSettingsChanged, 131, 0, 0, 1) == 0) ||
@@ -241,14 +241,14 @@ stop:
 
    ilclient_destroy(client);
 
-   fprintf(stderr,"End of h264 thread - status=%d\n",status);
+   fprintf(stderr,"End of omx thread - status=%d\n",status);
 
    return status;
 }
 
-void vcodec_h264_init(struct codec_t* codec)
+void vcodec_omx_init(struct codec_t* codec, OMX_IMAGE_CODINGTYPE codectype)
 {
+  codec->codectype = codectype;
   codec_queue_init(codec);
-
-  pthread_create(&codec->thread,NULL,(void * (*)(void *))vcodec_h264_thread,(void*)codec);
+  pthread_create(&codec->thread,NULL,(void * (*)(void *))vcodec_omx_thread,(void*)codec);
 }

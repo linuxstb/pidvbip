@@ -3,6 +3,15 @@ pidvbip
 
 DVB-over-IP set-top box software for the Raspberry Pi.
 
+It requires Tvheadend running on a server:
+
+https://www.lonelycoder.com/tvheadend/
+
+pidvbip requires a development version of tvheadend from later than
+the 24th August.  It will not work with the 3.0 release or earlier.
+This can be cloned as follows:
+
+git clone https://githib.com/tvheadend/tvheadend.git
 
 In addition to pidvbip itself, this repository contains some
 experimental software:
@@ -10,11 +19,6 @@ experimental software:
 * mpeg2test - test decoding of mpeg-2 elementary streams
 * flvtoh264 - Simple parser to extract an h264 video stream from an FLV file
 
-NOTE: pidvbip requires PTS values for the video stream, which due to
-a bug were not being provided by Tvheadend.  This was fixed in the
-version of tvheadend available at
-https://github.com/tvheadend/tvheadend on 24th August 2012 - please
-ensure you are running a version including that fix.
 
 Building
 --------

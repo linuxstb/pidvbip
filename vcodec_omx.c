@@ -36,6 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "vcodec_omx.h"
 #include "codec.h"
+#include "debug.h"
 
 static void* vcodec_omx_thread(struct codec_t* codec)
 {
@@ -210,6 +211,7 @@ static void* vcodec_omx_thread(struct codec_t* codec)
          }
          
       }
+stop:
       buf->nFilledLen = 0;
       buf->nFlags = OMX_BUFFERFLAG_TIME_UNKNOWN | OMX_BUFFERFLAG_EOS;
       
@@ -226,7 +228,6 @@ static void* vcodec_omx_thread(struct codec_t* codec)
       ilclient_disable_port_buffers(video_decode, 130, NULL, NULL, NULL);
    }
 
-stop:
    ilclient_disable_tunnel(tunnel);
    ilclient_disable_tunnel(tunnel+1);
    ilclient_disable_tunnel(tunnel+2);
@@ -241,7 +242,7 @@ stop:
 
    ilclient_destroy(client);
 
-   fprintf(stderr,"End of omx thread - status=%d\n",status);
+   DEBUGF("End of omx thread - status=%d\n",status);
 
    return status;
 }

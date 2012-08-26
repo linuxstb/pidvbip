@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include "codec.h"
+#include "debug.h"
 
 void codec_queue_init(struct codec_t* codec)
 {
@@ -83,7 +84,7 @@ void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet)
 
     codec->queue_count++;
   } else {
-    fprintf(stderr,"Dropping packet - codec is stopped.\n");
+    DEBUGF("Dropping packet - codec is stopped.\n");
     free(packet);
   }
 

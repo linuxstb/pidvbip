@@ -9,5 +9,6 @@ vcodec_mpeg2.o
 vo_pi.o
 *.m2v
 acodec_aac.o
+channels.o
 flvtoh264
 *~

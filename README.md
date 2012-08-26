@@ -4,17 +4,55 @@ pidvbip
 DVB-over-IP set-top box software for the Raspberry Pi.
 
 
-Currently this repository just contains some experimental software:
+In addition to pidvbip itself, this repository contains some
+experimental software:
 
 * mpeg2test - test decoding of mpeg-2 elementary streams
 * flvtoh264 - Simple parser to extract an h264 video stream from an FLV file
-* htsptest  - HTSP (Tvheadend) client test (streaming video playback)
 
-NOTE: htsptest requires PTS values for the video stream, which due to
+NOTE: pidvbip requires PTS values for the video stream, which due to
 a bug were not being provided by Tvheadend.  This was fixed in the
 version of tvheadend available at
 https://github.com/tvheadend/tvheadend on 24th August 2012 - please
 ensure you are running a version including that fix.
+
+Building
+--------
+
+The platform using to develop pidvbip is Raspbian (2012-08-16 image).
+
+pidvbip required the following dependencies:
+
+libmpg123-dev libfaad-dev
+
+After installing these with "apt-get install", you can build pidvbip by
+typing "make" in the source code directory.
+
+
+Usage
+-----
+
+To run pidvbip you just need to start it with the hostname and port of
+your tvheadend server.  e.g.
+
+./pidvbip mypc 9982
+
+By default it will tune to the first channel in your channel list and
+start playing.  You can optionally specify a channel number as a third
+parameter to skip directly to that channel.
+
+Once running, the following actions are possible:
+
+'q' - quit
+'n' - next channel
+'p' - previous channel
+
+
+Bugs
+----
+
+pidvbip is still very early software and many things don't work or are
+not implemented yet.  See the file BUGS for more information.
 
 
 Copyright

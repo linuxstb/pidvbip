@@ -4,7 +4,7 @@ LDFLAGS+=-L$(SDKSTAGE)/opt/vc/lib/ -lGLESv2 -lEGL -lopenmaxil -lbcm_host -lvcos 
 
 INCLUDES+=-I$(SDKSTAGE)/opt/vc/include/ -I$(SDKSTAGE)/opt/vc/include/interface/vcos/pthreads -I./ -I/opt/vc/src/hello_pi/libs/ilclient -I/opt/vc/src/hello_pi/libs/vgfont
 
-TARGETS=mpeg2test htsptest flvtoh264
+TARGETS=mpeg2test pidvbip flvtoh264
 
 # disable asserts
 CFLAGS+=-DNDEBUG
@@ -17,8 +17,8 @@ flvtoh264: flvtoh264.c
 mpeg2test: mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
 	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o mpeg2test mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
 
-htsptest: htsptest.c libmpeg2/libmpeg2.a vcodec_mpeg2.o vcodec_h264.o htsp.o vo_pi.o codec.o audioplay.o acodec_mpeg.o acodec_aac.o channels.o /opt/vc/src/hello_pi/libs/ilclient/libilclient.a
-	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o htsptest htsptest.c vcodec_mpeg2.o vcodec_h264.o htsp.o vo_pi.o codec.o audioplay.o  acodec_aac.o acodec_mpeg.o channels.o libmpeg2/libmpeg2.a /opt/vc/src/hello_pi/libs/ilclient/libilclient.a -lmpg123 -lfaad
+pidvbip: pidvbip.c libmpeg2/libmpeg2.a vcodec_mpeg2.o vcodec_h264.o htsp.o vo_pi.o codec.o audioplay.o acodec_mpeg.o acodec_aac.o channels.o /opt/vc/src/hello_pi/libs/ilclient/libilclient.a
+	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o pidvbip pidvbip.c vcodec_mpeg2.o vcodec_h264.o htsp.o vo_pi.o codec.o audioplay.o  acodec_aac.o acodec_mpeg.o channels.o libmpeg2/libmpeg2.a /opt/vc/src/hello_pi/libs/ilclient/libilclient.a -lmpg123 -lfaad
 
 vo_pi.o: vo_pi.c vo_pi.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o vo_pi.o vo_pi.c

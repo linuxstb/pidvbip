@@ -113,7 +113,7 @@ int main(int argc, char* argv[])
     struct codecs_t codecs;
 
     if ((argc != 3) && (argc != 4)) {
-        fprintf(stderr,"Usage: htsptest host port [channelId]\n");
+        fprintf(stderr,"Usage: pidvbip host port [channel num]\n");
         return 1;
     }
 

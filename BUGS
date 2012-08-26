@@ -13,24 +13,24 @@ AUDIO-RELATED
 
 VIDEO-RELATED
 
-* Deal with MPEG-2 stream not being decoded fast enough (queue will grow forever)
+* Add support for hardware MPEG-2 decoding
 
 * H264 video codec is unreliable - Freeview HD streams at least will sometimes not start, or only start after a few seconds.
 
 * H264 video codec is not smooth - perhaps need to pre-buffer some frames to ensure the GPU always has data to decode/display
 
-* Implement A/V sync for H264 video
+* Implement A/V sync for hardware decoded video
 
-* Implement double-buffering in MPEG-2 codec to eliminate tearing
+* Deal with software MPEG-2 stream not being decoded fast enough (queue will grow forever)
+
+* Implement double-buffering in software MPEG-2 codec to eliminate tearing
 
 
 CORE FEATURES
 
-* Document build process, including the required dependencies (libfaad, libmpg123)
-
 * Implement a UI!
 
-* Implement channel change, including sending messages to codec threads to stop/restart.  Related - shutdown cleanly.
+* Review channel change implementation - ensure things are being opened/closed appropriately and there are no memory leaks.
 
 * Properly deal with S64 integers in htsp.c (code currently sometimes assumes they are all 32-bit)
 

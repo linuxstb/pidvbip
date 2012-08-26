@@ -14,6 +14,7 @@
 #include "codec.h"
 #include "acodec_mpeg.h"
 #include "audioplay.h"
+#include "debug.h"
 
 #define INBUFF  16384
 #define OUTBUFF 32768 
@@ -105,7 +106,7 @@ static void* acodec_mpeg_thread(struct codec_t* codec)
     current = codec_queue_get_next_item(codec);
 
     if (current->msgtype == MSG_STOP) {
-      fprintf(stderr,"[acodec_mpeg] Stopping\n");
+      DEBUGF("[acodec_mpeg] Stopping\n");
       codec_queue_free_item(codec,current);
       goto stop;
     }
@@ -118,7 +119,7 @@ static void* acodec_mpeg_thread(struct codec_t* codec)
       long rate;
       int channels, enc;
       mpg123_getformat(m, &rate, &channels, &enc);
-      fprintf(stderr, "New format: %li Hz, %i channels, encoding value %i\n", rate, channels, enc);
+      DEBUGF("New format: %li Hz, %i channels, encoding value %i\n", rate, channels, enc);
     }
 
     output_pcm(st, out, size, buffer_size);

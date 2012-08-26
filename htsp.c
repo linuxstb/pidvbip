@@ -7,6 +7,7 @@
 #include <netdb.h>
 
 #include "htsp.h"
+#include "debug.h"
 
 static int create_tcp_socket()
 {
@@ -97,23 +98,23 @@ void htsp_dump_binary(unsigned char* buf, int len)
        int datalength = get_uint32_be(buf + 2);
        buf += 6; len -= 6;
 
-       fprintf(stderr,"type=%d, datalen=%d %s: ",type,datalength,hmf_labels[type]);
+       DEBUGF("type=%d, datalen=%d %s: ",type,datalength,hmf_labels[type]);
 
-       for (i=0;i<namelength;i++) { fprintf(stderr,"%c",buf[i]); }
+       for (i=0;i<namelength;i++) { DEBUGF(stderr,"%c",buf[i]); }
        buf += namelength; len -= namelength;
 
        fprintf(stderr,"=");
        switch (type) {
            case HMF_STR:
-             fprintf(stderr,"\"");
-             for (i=0;i<datalength;i++) { fprintf(stderr,"%c",buf[i]); }
-             fprintf(stderr,"\"");
+             DEBUGF("\"");
+             for (i=0;i<datalength;i++) { DEBUGF("%c",buf[i]); }
+             DEBUGF("\"");
              break;
 
            case HMF_BIN:
-             fprintf(stderr,"\"");
-             //for (i=0;i<datalength;i++) { fprintf(stderr," 0x%02x",buf[i]); }
-             fprintf(stderr,"\"");
+             DEBUGF("\"");
+             //for (i=0;i<datalength;i++) { DEBUGF(" 0x%02x",buf[i]); }
+             DEBUGF("\"");
              break;
 
            case HMF_S64:
@@ -122,22 +123,22 @@ void htsp_dump_binary(unsigned char* buf, int len)
                 x <<= 8;
                 x |= buf[i];
              }
-             fprintf(stderr,"%lld",x);
-             fprintf(stderr," [");
-             for (i=0;i<datalength;i++) { fprintf(stderr," 0x%02x",buf[i]); }
-             fprintf(stderr," ]");
+             DEBUGF("%lld",x);
+             DEBUGF(" [");
+             for (i=0;i<datalength;i++) { DEBUGF(" 0x%02x",buf[i]); }
+             DEBUGF(" ]");
              break;
 
            case HMF_LIST:
            case HMF_MAP:
-             fprintf(stderr,"\n");
+             DEBUGF("\n");
 	     htsp_dump_binary(buf, datalength);
              break;
 
            default:
              break;
        }
-       fprintf(stderr,"\n");
+       DEBUGF("\n");
        buf += datalength; len -= datalength;
     }
 
@@ -556,25 +557,25 @@ int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscri
       subscription->streams[i].type = HMF_STREAM_VIDEO;
       subscription->streams[i].codec = HMF_VIDEO_CODEC_MPEG2;
       subscription->videostream = i;
-      fprintf(stderr,"Video stream is index %d: MPEG-2\n",subscription->streams[i].index);
+      DEBUGF("Video stream is index %d: MPEG-2\n",subscription->streams[i].index);
     } else if (strcmp(typestr,"H264")==0) {
       subscription->streams[i].type = HMF_STREAM_VIDEO;
       subscription->streams[i].codec = HMF_VIDEO_CODEC_H264;
       subscription->videostream = i;
-      fprintf(stderr,"Video stream is index %d: H264\n",subscription->streams[i].index);
+      DEBUGF("Video stream is index %d: H264\n",subscription->streams[i].index);
     } else if (strcmp(typestr,"MPEG2AUDIO")==0) {
       subscription->streams[i].type = HMF_STREAM_AUDIO;
       subscription->streams[i].codec = HMF_AUDIO_CODEC_MPEG;
       if (subscription->audiostream == -1) {
         subscription->audiostream = i;
-        fprintf(stderr,"Audio stream is index %d: MPEG (i=%d)\n",subscription->streams[i].index,i);
+        DEBUGF("Audio stream is index %d: MPEG (i=%d)\n",subscription->streams[i].index,i);
       }
     } else if (strcmp(typestr,"AAC")==0) {
       subscription->streams[i].type = HMF_STREAM_AUDIO;
       subscription->streams[i].codec = HMF_AUDIO_CODEC_AAC;
       if (subscription->audiostream == -1) {
         subscription->audiostream = i;
-        fprintf(stderr,"Audio stream is index %d: AAC\n",subscription->streams[i].index);
+        DEBUGF("Audio stream is index %d: AAC\n",subscription->streams[i].index);
       }
     } else if (strcmp(typestr,"DVBSUB")==0) {
       subscription->streams[i].type = HMF_STREAM_SUB;

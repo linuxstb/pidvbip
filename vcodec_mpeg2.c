@@ -8,6 +8,7 @@
 #include "codec.h"
 #include "vcodec_mpeg2.h"
 #include "vo_pi.h"
+#include "debug.h"
 
 int enable_output = 1;
 
@@ -48,8 +49,8 @@ static void* vcodec_mpeg2_thread(struct codec_t* codec)
         sequence = info->sequence;
         switch (state) {
         case STATE_SEQUENCE:
-            fprintf(stderr,"SEQUENCE: nframes=%d\n",nframes);
-            fprintf(stderr,"Video is %d x %d\n",sequence->width,sequence->height);
+	    DEBUGF("SEQUENCE: nframes=%d\n",nframes);
+	    DEBUGF("Video is %d x %d\n",sequence->width,sequence->height);
             int pitch = ALIGN_UP(sequence->width,32);
 
             int i;
@@ -64,7 +65,7 @@ static void* vcodec_mpeg2_thread(struct codec_t* codec)
               mpeg2_set_buf(decoder, buf, fbuf );  
             }
             mpeg2_stride(decoder,pitch);
-            fprintf(stderr,"Stride set to %d\n",pitch);
+            DEBUGF("Stride set to %d\n",pitch);
             break;
         case STATE_BUFFER:
             codec_queue_free_item(codec,current);
@@ -72,7 +73,7 @@ static void* vcodec_mpeg2_thread(struct codec_t* codec)
             current = codec_queue_get_next_item(codec);
 
             if (current->msgtype == MSG_STOP) {
-              fprintf(stderr,"[vcodec_mpeg2] Stopping\n");
+              DEBUGF("[vcodec_mpeg2] Stopping\n");
               codec_queue_free_item(codec,current);
               goto stop;
             }

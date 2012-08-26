@@ -3,6 +3,7 @@
 #include <bcm_host.h>
 
 #include "vo_pi.h"
+#include "debug.h"
 
 void vo_open(RECT_VARS_T* vars, int screen)
 {
@@ -10,12 +11,12 @@ void vo_open(RECT_VARS_T* vars, int screen)
 
     /* Init from dispmanx.c */
 
-    printf("Open display[%i]...\n", screen );
+    DEBUGF("Open display[%i]...\n", screen );
     vars->display = vc_dispmanx_display_open( screen );
 
     ret = vc_dispmanx_display_get_info( vars->display, &vars->info);
     assert(ret == 0);
-    printf( "Display is %d x %d\n", vars->info.width, vars->info.height );
+    DEBUGF( "Display is %d x %d\n", vars->info.width, vars->info.height );
 
     /* End of dispmanx.c init */
 }

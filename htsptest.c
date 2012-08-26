@@ -14,6 +14,7 @@
 #include "acodec_aac.h"
 #include "htsp.h"
 #include "channels.h"
+#include "debug.h"
 
 struct codecs_t {
   struct codec_t vcodec; // Video
@@ -177,7 +178,6 @@ int main(int argc, char* argv[])
     channels_dump();
 
     channel_id = channels_getid(channel);
-    fprintf(stderr,"channel = %d, channel_id=%d\n",channel,channel_id);
     if (channel_id < 0)
       channel_id = channels_getfirst();
 
@@ -226,10 +226,10 @@ next_channel:
 
     if (codecs.subscription.streams[codecs.subscription.audiostream].codec == HMF_AUDIO_CODEC_MPEG) {
       acodec_mpeg_init(&codecs.acodec);
-      fprintf(stderr,"Initialised mpeg codec\n");
+      DEBUGF("Initialised mpeg codec\n");
     } else if (codecs.subscription.streams[codecs.subscription.audiostream].codec == HMF_AUDIO_CODEC_AAC) {
       acodec_aac_init(&codecs.acodec);
-      fprintf(stderr,"Initialised AAC codec\n");
+      DEBUGF("Initialised AAC codec\n");
     }
 
     // TODO: Audio and subtitle threads
@@ -251,7 +251,7 @@ next_channel:
     int c;
     while (1) {
       c = getchar();
-      printf("\n char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
+      DEBUGF("\n char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
       if (c=='q') goto done;
       if ((c=='n') || (c=='p')) {
 	codec_stop(&codecs.vcodec);
@@ -260,10 +260,10 @@ next_channel:
         pthread_join(codecs.acodec.thread,NULL);
 
         /* Wait for htsp receiver thread to stop */
-        fprintf(stderr,"Wait for receiver thread to stop.\n");
+        DEBUGF("Wait for receiver thread to stop.\n");
 
         pthread_join(htspthread,NULL);
-        fprintf(stderr,"Receiver thread stopped.\n");
+        DEBUGF("Receiver thread stopped.\n");
 
         if (c=='n') channel_id = channels_getnext(channel_id);
         else channel_id = channels_getprev(channel_id);

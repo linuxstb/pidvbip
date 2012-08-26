@@ -28,7 +28,7 @@ struct codecs_t {
 /* TODO: Should this be global? */
 struct htsp_t htsp;
 
-/* Enable to dump video streams to files (for debugging)
+/* Enable to dump video streams to files (for debugging) */
 //#define DUMP_VIDEO
 
 /* The HTSP thread reads from the network and passes the incoming stream packets to the

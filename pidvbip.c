@@ -80,8 +80,9 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
         codec_queue_add_item(&codecs->acodec,packet);
         free_msg = 0;   // Don't free this message
       }
-    } else {
-      //htsp_dump_message(&msg);
+    } else if (method != NULL) {
+      //if (strcmp(method,"queueStatus") != 0)
+      //  htsp_dump_message(&msg);
     }
 
     /* Temporary hack - don't display audio info unless it is a supported codec */

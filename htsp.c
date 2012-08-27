@@ -98,23 +98,23 @@ void htsp_dump_binary(unsigned char* buf, int len)
        int datalength = get_uint32_be(buf + 2);
        buf += 6; len -= 6;
 
-       DEBUGF("type=%d, datalen=%d %s: ",type,datalength,hmf_labels[type]);
+       fprintf(stderr,"type=%d, datalen=%d %s: ",type,datalength,hmf_labels[type]);
 
-       for (i=0;i<namelength;i++) { DEBUGF(stderr,"%c",buf[i]); }
+       for (i=0;i<namelength;i++) { fprintf(stderr,"%c",buf[i]); }
        buf += namelength; len -= namelength;
 
        fprintf(stderr,"=");
        switch (type) {
            case HMF_STR:
-             DEBUGF("\"");
-             for (i=0;i<datalength;i++) { DEBUGF("%c",buf[i]); }
-             DEBUGF("\"");
+             fprintf(stderr,"\"");
+             for (i=0;i<datalength;i++) { fprintf(stderr,"%c",buf[i]); }
+             fprintf(stderr,"\"");
              break;
 
            case HMF_BIN:
-             DEBUGF("\"");
-             //for (i=0;i<datalength;i++) { DEBUGF(" 0x%02x",buf[i]); }
-             DEBUGF("\"");
+             fprintf(stderr,"\"");
+             //for (i=0;i<datalength;i++) { fprintf(stderr," 0x%02x",buf[i]); }
+             fprintf(stderr,"\"");
              break;
 
            case HMF_S64:
@@ -123,22 +123,22 @@ void htsp_dump_binary(unsigned char* buf, int len)
                 x <<= 8;
                 x |= buf[i];
              }
-             DEBUGF("%lld",x);
-             DEBUGF(" [");
-             for (i=0;i<datalength;i++) { DEBUGF(" 0x%02x",buf[i]); }
-             DEBUGF(" ]");
+             fprintf(stderr,"%lld",x);
+             fprintf(stderr," [");
+             for (i=0;i<datalength;i++) { fprintf(stderr," 0x%02x",buf[i]); }
+             fprintf(stderr," ]");
              break;
 
            case HMF_LIST:
            case HMF_MAP:
-             DEBUGF("\n");
+             fprintf(stderr,"\n");
 	     htsp_dump_binary(buf, datalength);
              break;
 
            default:
              break;
        }
-       DEBUGF("\n");
+       fprintf(stderr,"\n");
        buf += datalength; len -= datalength;
     }
 

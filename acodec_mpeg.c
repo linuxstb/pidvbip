@@ -71,7 +71,6 @@ static void* acodec_mpeg_thread(struct codec_t* codec)
   int ret;
 
   int dest = 1;            // 0=headphones, 1=hdmi
-  int samplerate = 48000;  // audio sample rate in Hz
   int nchannels = 2;        // numnber of audio channels
   int bitdepth = 16;       // number of bits per sample
 
@@ -79,12 +78,6 @@ static void* acodec_mpeg_thread(struct codec_t* codec)
   int buffer_size = (BUFFER_SIZE_SAMPLES * bitdepth * nchannels)>>3;
 
   assert(dest == 0 || dest == 1);
-
-  ret = audioplay_create(&st, samplerate, nchannels, bitdepth, 10, buffer_size);
-  assert(ret == 0);
-
-  ret = audioplay_set_dest(st, audio_dest[dest]);
-  assert(ret == 0);
 
   mpg123_init();
 
@@ -120,6 +113,13 @@ static void* acodec_mpeg_thread(struct codec_t* codec)
       int channels, enc;
       mpg123_getformat(m, &rate, &channels, &enc);
       DEBUGF("New format: %li Hz, %i channels, encoding value %i\n", rate, channels, enc);
+
+      ret = audioplay_create(&st, rate, channels, bitdepth, 10, buffer_size);
+      assert(ret == 0);
+
+      ret = audioplay_set_dest(st, audio_dest[dest]);
+      assert(ret == 0);
+
     }
 
     output_pcm(st, out, size, buffer_size);

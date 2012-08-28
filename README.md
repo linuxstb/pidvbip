@@ -56,9 +56,9 @@ parameter to skip directly to that channel.
 
 Once running, the following actions are possible:
 
-'q' - quit
-'n' - next channel
-'p' - previous channel
+    'q' - quit
+    'n' - next channel
+    'p' - previous channel
 
 
 Bugs

@@ -17,7 +17,7 @@ VIDEO-RELATED
 
 * H264 video codec is not smooth - perhaps need to pre-buffer some frames to ensure the GPU always has data to decode/display
 
-* Implement A/V sync for hardware decoded video
+* Improve A/V sync for hardware decoded video - A/V sync currently works quite well, but needs to be done properly with OMX clocks.
 
 * Deal with software MPEG-2 stream not being decoded fast enough (queue will grow forever)
 

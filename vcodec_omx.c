@@ -147,6 +147,17 @@ static void* vcodec_omx_thread(struct codec_t* codec)
              codec_queue_free_item(codec,current);
              goto stop;
            }
+
+           /* Simple implementation of A/V sync - sync video DTS with audio PTS.  
+              The proper way is to use OMX clocks */
+           int64_t audio_latency = 70000; /* 70ms - a guess which seems to work */
+           int64_t audio_PTS = codec_get_pts(codec->acodec);
+           int64_t delay = current->data->DTS-(audio_PTS+audio_latency);
+           if (delay > 0) {
+             //fprintf(stderr,"[vcodec_omx] udelay(%lld)\n",delay);
+             usleep(delay);
+           }
+
          }
 
          int to_copy = packet_size - data_len;

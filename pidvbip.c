@@ -33,6 +33,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
   struct htsp_message_t msg;
   int res;
   struct packet_t* packet;
+  int first_audio_packet = 1;
 
   while ((codecs->vcodec.is_running) || (codecs->acodec.is_running))
   {
@@ -49,6 +50,10 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
       int stream;
       htsp_get_int(&msg,"stream",&stream);
       if (stream==codecs->subscription.streams[codecs->subscription.videostream].index) {
+        if (first_audio_packet == 1) {
+          //fprintf(stderr,"Dropping video packet before first audio packet\n");
+          goto next;
+	}
         packet = malloc(sizeof(*packet));
         packet->buf = msg.msg;
 
@@ -58,6 +63,10 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
 	// htsp_dump_message(&msg);
         if (htsp_get_int64(&msg,"pts",&packet->PTS) > 0) {
           fprintf(stderr,"ERROR: No PTS in video packet, dropping\n");
+          goto next;
+        }
+        if (htsp_get_int64(&msg,"dts",&packet->DTS) > 0) {
+          fprintf(stderr,"ERROR: No DTS in video packet, dropping\n");
           goto next;
         }
         htsp_get_bin(&msg,"payload",&packet->packet,&packet->packetlength);
@@ -75,6 +84,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
           fprintf(stderr,"ERROR: No PTS in audio packet, dropping\n");
           goto next;
 	}
+        first_audio_packet = 0;
         htsp_get_bin(&msg,"payload",&packet->packet,&packet->packetlength);
 
         codec_queue_add_item(&codecs->acodec,packet);

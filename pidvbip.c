@@ -122,6 +122,7 @@ int main(int argc, char* argv[])
     int channel_id = -1;
     struct htsp_message_t msg;
     struct codecs_t codecs;
+    pthread_t htspthread = 0;
 
     if ((argc != 3) && (argc != 4)) {
         fprintf(stderr,"Usage: pidvbip host port [channel num]\n");
@@ -147,6 +148,14 @@ int main(int argc, char* argv[])
     res = htsp_recv_message(&htsp,&msg);
 
     channels_init();
+
+    struct termios new,orig;
+    tcgetattr(0, &orig);
+    memcpy(&new, &orig, sizeof(struct termios));
+    new.c_lflag &= ~(ICANON | ECHO);
+    new.c_cc[VTIME] = 0;
+    new.c_cc[VMIN] = 1;
+    tcsetattr(0, TCSANOW, &new);
 
     int done = 0;
     while (!done)
@@ -193,21 +202,37 @@ int main(int argc, char* argv[])
       channel_id = channels_getfirst();
 
 next_channel:
-    fprintf(stderr,"Tuning to channel %d - \"%s\"\n",channels_getlcn(channel_id),channels_getname(channel_id));
+    memset(&codecs.vcodec,0,sizeof(codecs.vcodec));
+    memset(&codecs.acodec,0,sizeof(codecs.acodec));
+
+    fprintf(stderr,"Tuning to channel %d - \"%s\"                        \n",channels_getlcn(channel_id),channels_getname(channel_id));
 
     res = htsp_create_message(&msg,HMF_STR,"method","subscribe",HMF_S64,"channelId",channel_id,HMF_S64,"subscriptionId",14,HMF_NULL);
     res = htsp_send_message(&htsp,&msg);
     htsp_destroy_message(&msg);
 
-    
     res = htsp_recv_message(&htsp,&msg);
+
+    //    if () {
+    //      fprintf(stderr,"Tuning failed - wait for next channel\n");
+    //      goto wait_for_key;
+    //    }
+    
     char* method = htsp_get_string(&msg,"method");
     while ((method == NULL) || (strcmp(method,"subscriptionStart")!=0)) {
       if (method != NULL) {
         // TODO: Process any messages recieved whilst waiting for subscriptionStart
         free(method);
       }
+
+      char* status = htsp_get_string(&msg,"status");
       htsp_destroy_message(&msg);
+
+      if ((status != NULL) && (strcmp(status,"OK")!=0)) {
+        fprintf(stderr,"Tuning error: %s\n",status);
+        free(status);
+        goto wait_for_key;
+      }
 
       res = htsp_recv_message(&htsp,&msg);
       method = htsp_get_string(&msg,"method");
@@ -251,34 +276,33 @@ next_channel:
 
 
     // All codec threads are running, so now start receiving data
-    pthread_t htspthread;
     pthread_create(&htspthread,NULL,(void * (*)(void *))htsp_receiver_thread,(void*)&codecs);
 
     /* UI loop - just block on keyboad input for now... */
-    struct termios new,orig;
-    tcgetattr(0, &orig);
-    memcpy(&new, &orig, sizeof(struct termios));
-    new.c_lflag &= ~(ICANON | ECHO);
-    new.c_cc[VTIME] = 0;
-    new.c_cc[VMIN] = 1;
-    tcsetattr(0, TCSANOW, &new);
-
-    int c;
+wait_for_key:
     while (1) {
-      c = getchar();
+      int c = getchar();
       DEBUGF("\n char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
       if (c=='q') goto done;
       if ((c=='n') || (c=='p')) {
-	codec_stop(&codecs.vcodec);
-        pthread_join(codecs.vcodec.thread,NULL);
-        codec_stop(&codecs.acodec);
-        pthread_join(codecs.acodec.thread,NULL);
+        if (codecs.vcodec.thread) {
+          codec_stop(&codecs.vcodec);
+          pthread_join(codecs.vcodec.thread,NULL);
+        }
+
+        if (codecs.acodec.thread) {
+          codec_stop(&codecs.acodec);
+          pthread_join(codecs.acodec.thread,NULL);
+        }
 
         /* Wait for htsp receiver thread to stop */
         DEBUGF("Wait for receiver thread to stop.\n");
 
-        pthread_join(htspthread,NULL);
-        DEBUGF("Receiver thread stopped.\n");
+        if (htspthread) {
+          pthread_join(htspthread,NULL);
+          htspthread = 0;
+          DEBUGF("Receiver thread stopped.\n");
+        }
 
         if (c=='n') channel_id = channels_getnext(channel_id);
         else channel_id = channels_getprev(channel_id);

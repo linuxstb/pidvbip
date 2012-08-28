@@ -28,7 +28,9 @@ CORE FEATURES
 
 * Implement a UI!
 
-* Review channel change implementation - ensure things are being opened/closed appropriately and there are no memory leaks.
+* Review channel change implementation - ensure things are being
+  opened/closed appropriately and there are no memory leaks.  pidvbip
+  crashes if you change channel too quickly in succession.
 
 * Properly deal with S64 integers in htsp.c (code currently sometimes assumes they are all 32-bit)
 

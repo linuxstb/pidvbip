@@ -53,14 +53,14 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
         if (first_audio_packet == 1) {
           //fprintf(stderr,"Dropping video packet before first audio packet\n");
           goto next;
-	}
+        }
         packet = malloc(sizeof(*packet));
         packet->buf = msg.msg;
 
         int frametype;
         htsp_get_int(&msg,"frametype",&frametype);
 
-	// htsp_dump_message(&msg);
+        // htsp_dump_message(&msg);
         if (htsp_get_int64(&msg,"pts",&packet->PTS) > 0) {
           fprintf(stderr,"ERROR: No PTS in video packet, dropping\n");
           goto next;
@@ -83,7 +83,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
         if (htsp_get_int64(&msg,"pts",&packet->PTS) > 0) {
           fprintf(stderr,"ERROR: No PTS in audio packet, dropping\n");
           goto next;
-	}
+        }
         first_audio_packet = 0;
         htsp_get_bin(&msg,"payload",&packet->packet,&packet->packetlength);
 
@@ -288,31 +288,39 @@ wait_for_key:
     while (1) {
       int c = getchar();
       DEBUGF("\n char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
-      if (c=='q') goto done;
-      if ((c=='n') || (c=='p')) {
-        if (codecs.vcodec.thread) {
-          codec_stop(&codecs.vcodec);
-          pthread_join(codecs.vcodec.thread,NULL);
-        }
 
-        if (codecs.acodec.thread) {
-          codec_stop(&codecs.acodec);
-          pthread_join(codecs.acodec.thread,NULL);
-        }
+      switch (c) {
+        case 'q':
+          goto done;
 
-        /* Wait for htsp receiver thread to stop */
-        DEBUGF("Wait for receiver thread to stop.\n");
+        case 'n':
+        case 'p':
+          if (codecs.vcodec.thread) {
+            codec_stop(&codecs.vcodec);
+            pthread_join(codecs.vcodec.thread,NULL);
+          }
 
-        if (htspthread) {
-          pthread_join(htspthread,NULL);
-          htspthread = 0;
-          DEBUGF("Receiver thread stopped.\n");
-        }
+          if (codecs.acodec.thread) {
+            codec_stop(&codecs.acodec);
+            pthread_join(codecs.acodec.thread,NULL);
+          }
 
-        if (c=='n') channel_id = channels_getnext(channel_id);
-        else channel_id = channels_getprev(channel_id);
+          /* Wait for htsp receiver thread to stop */
+          DEBUGF("Wait for receiver thread to stop.\n");
 
-        goto next_channel;
+          if (htspthread) {
+            pthread_join(htspthread,NULL);
+            htspthread = 0;
+            DEBUGF("Receiver thread stopped.\n");
+          }
+
+          if (c=='n') channel_id = channels_getnext(channel_id);
+          else channel_id = channels_getprev(channel_id);
+
+          goto next_channel;
+
+        default:
+          break;            
       }
     }
 

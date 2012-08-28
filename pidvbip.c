@@ -35,13 +35,12 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
   struct packet_t* packet;
   int first_audio_packet = 1;
 
-  while ((codecs->vcodec.is_running) || (codecs->acodec.is_running))
+  while (((codecs->subscription.videostream != -1) && (codecs->vcodec.is_running)) || (codecs->acodec.is_running))
   {
     if ((res = htsp_recv_message(&htsp,&msg)) > 0) {
       fprintf(stderr,"FATAL ERROR in network read - %d\n",res);
       exit(1);
     }
-
     char* method = htsp_get_string(&msg,"method");
 
     int free_msg = 1;  // We want to free this message, unless this flag is set to zero
@@ -49,7 +48,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
     if ((method != NULL) && (strcmp(method,"muxpkt")==0)) {
       int stream;
       htsp_get_int(&msg,"stream",&stream);
-      if (stream==codecs->subscription.streams[codecs->subscription.videostream].index) {
+      if ((codecs->subscription.videostream != -1) && (stream==codecs->subscription.streams[codecs->subscription.videostream].index)) {
         if (first_audio_packet == 1) {
           //fprintf(stderr,"Dropping video packet before first audio packet\n");
           goto next;
@@ -75,8 +74,8 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
         free_msg = 0;   // Don't free this message
 
       } else if ((stream==codecs->subscription.streams[codecs->subscription.audiostream].index) &&
-                 ((codecs->subscription.streams[codecs->subscription.audiostream-1].codec == HMF_AUDIO_CODEC_MPEG) ||
-                  (codecs->subscription.streams[codecs->subscription.audiostream-1].codec == HMF_AUDIO_CODEC_AAC))
+                 ((codecs->subscription.streams[codecs->subscription.audiostream].codec == HMF_AUDIO_CODEC_MPEG) ||
+                  (codecs->subscription.streams[codecs->subscription.audiostream].codec == HMF_AUDIO_CODEC_AAC))
                 ) {
         packet = malloc(sizeof(*packet));
         packet->buf = msg.msg;
@@ -249,20 +248,22 @@ next_channel:
 
     htsp_destroy_message(&msg);
 
-    if (codecs.subscription.streams[codecs.subscription.videostream].codec == HMF_VIDEO_CODEC_MPEG2) {
+    if (codecs.subscription.videostream != -1) {
+      if (codecs.subscription.streams[codecs.subscription.videostream].codec == HMF_VIDEO_CODEC_MPEG2) {
 #ifdef SOFTWARE_MPEG2
-      vcodec_mpeg2_init(&codecs.vcodec);
+        vcodec_mpeg2_init(&codecs.vcodec);
 #else
-      vcodec_omx_init(&codecs.vcodec,OMX_VIDEO_CodingMPEG2);
+        vcodec_omx_init(&codecs.vcodec,OMX_VIDEO_CodingMPEG2);
 #endif
-    } else if (codecs.subscription.streams[codecs.subscription.videostream].codec == HMF_VIDEO_CODEC_H264) {
-      vcodec_omx_init(&codecs.vcodec,OMX_VIDEO_CodingAVC);
-    } else {
-      fprintf(stderr,"UNKNOWN VIDEO FORMAT\n");
-      exit(1);
-    }
+      } else if (codecs.subscription.streams[codecs.subscription.videostream].codec == HMF_VIDEO_CODEC_H264) {
+        vcodec_omx_init(&codecs.vcodec,OMX_VIDEO_CodingAVC);
+      } else {
+        fprintf(stderr,"UNKNOWN VIDEO FORMAT\n");
+        exit(1);
+      }
 
-    codecs.vcodec.acodec = &codecs.acodec;
+      codecs.vcodec.acodec = &codecs.acodec;
+    }
 
     if (codecs.subscription.streams[codecs.subscription.audiostream].codec == HMF_AUDIO_CODEC_MPEG) {
       acodec_mpeg_init(&codecs.acodec);

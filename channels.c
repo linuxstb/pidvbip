@@ -5,6 +5,8 @@
 struct channel_t
 {
   int id;
+  int64_t eventid;
+  int64_t nexteventid;
   int lcn;
   char* name;
   struct channel_t* next;
@@ -22,7 +24,7 @@ void channels_init(void)
   num_channels = 0;
 }
 
-void channels_add(int lcn, int id, char* name)
+void channels_add(int lcn, int id, char* name, int64_t eventid, int64_t nexteventid)
 {
   struct channel_t* p = channels;
   struct channel_t* prev = NULL;
@@ -32,6 +34,8 @@ void channels_add(int lcn, int id, char* name)
   new->lcn = lcn;
   new->id = id;
   new->name = name;
+  new->eventid = eventid;
+  new->nexteventid = nexteventid;
 
   if (channels == NULL) {
     channels = new;
@@ -116,6 +120,46 @@ char* channels_getname(int id)
   }
 
   return "[NO CHANNEL]";
+}
+
+int64_t channels_geteventid(int id)
+{
+  struct channel_t* p;
+
+  if ((channels_cache) && (channels_cache->id == id)) {
+    return channels_cache->eventid;
+  }
+
+  p = channels;
+  while (p) {
+    if (p->id == id) {
+      channels_cache = p;
+      return p->eventid;
+    }
+    p = p->next;
+  }
+
+  return 0;
+}
+
+int64_t channels_getnexteventid(int id)
+{
+  struct channel_t* p;
+
+  if ((channels_cache) && (channels_cache->id == id)) {
+    return channels_cache->nexteventid;
+  }
+
+  p = channels;
+  while (p) {
+    if (p->id == id) {
+      channels_cache = p;
+      return p->nexteventid;
+    }
+    p = p->next;
+  }
+
+  return 0;
 }
 
 int channels_getlcn(int id)

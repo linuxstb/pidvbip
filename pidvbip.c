@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdarg.h>
 #include <string.h>
 #include <termios.h>
@@ -170,11 +171,14 @@ int main(int argc, char* argv[])
          } else if (strcmp(method,"channelAdd")==0) {
            // channelName, channelNumber, channelId
            int channelNumber,channelId;
+           int64_t eventid,nexteventid;
            char* channelName;
            if (htsp_get_int(&msg,"channelId",&channelId) == 0) { 
              if (htsp_get_int(&msg,"channelNumber",&channelNumber) > 0) { channelNumber = 0; }
+             if (htsp_get_int64(&msg,"eventId",&eventid) > 0) { eventid = 0; }
+             if (htsp_get_int64(&msg,"nextEventId",&nexteventid) > 0) { nexteventid = 0; }
              channelName = htsp_get_string(&msg,"channelName");
-             channels_add(channelNumber,channelId,channelName);
+             channels_add(channelNumber,channelId,channelName,eventid,nexteventid);
            }
          } else {
            //fprintf(stderr,"Recieved message: method=\"%s\"\n",method);
@@ -204,7 +208,7 @@ next_channel:
     memset(&codecs.vcodec,0,sizeof(codecs.vcodec));
     memset(&codecs.acodec,0,sizeof(codecs.acodec));
 
-    fprintf(stderr,"Tuning to channel %d - \"%s\"                        \n",channels_getlcn(channel_id),channels_getname(channel_id));
+    fprintf(stderr,"Tuning to channel %d - \"%s\" (current event is %lld)      \n",channels_getlcn(channel_id),channels_getname(channel_id),channels_geteventid(channel_id));
 
     res = htsp_create_message(&msg,HMF_STR,"method","subscribe",HMF_S64,"channelId",channel_id,HMF_S64,"subscriptionId",14,HMF_NULL);
     res = htsp_send_message(&htsp,&msg);

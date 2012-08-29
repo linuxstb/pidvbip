@@ -30,6 +30,7 @@ struct htsp_message_t
 
 #define HMF_AUDIO_CODEC_MPEG 1
 #define HMF_AUDIO_CODEC_AAC  2
+#define HMF_AUDIO_CODEC_AC3  3
 
 #define HMF_SUB_CODEC_DVBSUB  1
 

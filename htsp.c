@@ -577,6 +577,14 @@ int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscri
         subscription->audiostream = i;
         DEBUGF("Audio stream is index %d: AAC\n",subscription->streams[i].index);
       }
+    } else if (strcmp(typestr,"AC3")==0) {
+      subscription->streams[i].type = HMF_STREAM_AUDIO;
+      subscription->streams[i].codec = HMF_AUDIO_CODEC_AC3;
+      /* AC3 takes precedence over MPEG */
+      if ((subscription->audiostream == -1) || (subscription->streams[subscription->audiostream].codec == HMF_AUDIO_CODEC_MPEG)) {
+        subscription->audiostream = i;
+        DEBUGF("Audio stream is index %d: A/52\n",subscription->streams[i].index);
+      }
     } else if (strcmp(typestr,"DVBSUB")==0) {
       subscription->streams[i].type = HMF_STREAM_SUB;
       subscription->streams[i].codec = HMF_SUB_CODEC_DVBSUB;

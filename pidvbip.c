@@ -13,6 +13,7 @@
 #include "vcodec_omx.h"
 #include "acodec_mpeg.h"
 #include "acodec_aac.h"
+#include "acodec_a52.h"
 #include "htsp.h"
 #include "channels.h"
 #include "debug.h"
@@ -76,6 +77,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
 
       } else if ((stream==codecs->subscription.streams[codecs->subscription.audiostream].index) &&
                  ((codecs->subscription.streams[codecs->subscription.audiostream].codec == HMF_AUDIO_CODEC_MPEG) ||
+                  (codecs->subscription.streams[codecs->subscription.audiostream].codec == HMF_AUDIO_CODEC_AC3) ||
                   (codecs->subscription.streams[codecs->subscription.audiostream].codec == HMF_AUDIO_CODEC_AAC))
                 ) {
         packet = malloc(sizeof(*packet));
@@ -275,6 +277,9 @@ next_channel:
     } else if (codecs.subscription.streams[codecs.subscription.audiostream].codec == HMF_AUDIO_CODEC_AAC) {
       acodec_aac_init(&codecs.acodec);
       DEBUGF("Initialised AAC codec\n");
+    } else if (codecs.subscription.streams[codecs.subscription.audiostream].codec == HMF_AUDIO_CODEC_AC3) {
+      acodec_a52_init(&codecs.acodec);
+      DEBUGF("Initialised A/52 codec\n");
     }
 
     // TODO: Audio and subtitle threads

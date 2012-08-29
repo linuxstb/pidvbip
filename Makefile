@@ -20,8 +20,8 @@ flvtoh264: flvtoh264.c
 mpeg2test: mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
 	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o mpeg2test mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
 
-pidvbip: pidvbip.c libmpeg2/libmpeg2.a vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o acodec_mpeg.o acodec_aac.o channels.o /opt/vc/src/hello_pi/libs/ilclient/libilclient.a
-	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o pidvbip pidvbip.c vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o  acodec_aac.o acodec_mpeg.o channels.o libmpeg2/libmpeg2.a /opt/vc/src/hello_pi/libs/ilclient/libilclient.a -lmpg123 -lfaad
+pidvbip: pidvbip.c libmpeg2/libmpeg2.a vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o acodec_mpeg.o acodec_aac.o acodec_a52.o channels.o /opt/vc/src/hello_pi/libs/ilclient/libilclient.a
+	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o pidvbip pidvbip.c vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o  acodec_aac.o acodec_a52.o acodec_mpeg.o channels.o libmpeg2/libmpeg2.a /opt/vc/src/hello_pi/libs/ilclient/libilclient.a -lmpg123 -lfaad -la52
 
 vo_pi.o: vo_pi.c vo_pi.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o vo_pi.o vo_pi.c
@@ -40,6 +40,9 @@ audioplay.o: audioplay.c audioplay.h
 
 acodec_aac.o: acodec_aac.c acodec_aac.h codec.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o acodec_aac.o acodec_aac.c
+
+acodec_a52.o: acodec_a52.c acodec_a52.h codec.h
+	$(CC) $(INCLUDES) $(CFLAGS) -c -o acodec_a52.o acodec_a52.c
 
 acodec_mpeg.o: acodec_mpeg.c acodec_mpeg.h codec.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o acodec_mpeg.o acodec_mpeg.c

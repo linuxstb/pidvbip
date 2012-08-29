@@ -6,7 +6,11 @@ AUDIO-RELATED
 
 * AAC/HE-AAC - correctly initialise codecdata based on info from tvh (stream info or a ADTS header).  Also test format changes.
 
-* Implement AC3/EAC3 codec (? Is ffmpeg the only open source E-AC3 codec?)
+* Implement E-AC3 codec (? Is ffmpeg the only open source E-AC3 codec?)
+
+* AC-3 decoder always downmixes to Stereo - can we output 5.1 over HDMI?
+
+* Implement HW pass-through of AC-3 (and other codecs?)
 
 * Deal with different channels/samplerate etc in MPEG audio codec (currently hard-coded for 48KHz Stereo)
 

@@ -60,6 +60,10 @@ Once running, the following actions are possible:
     'n' - next channel
     'p' - previous channel
 
+pidvbip currently supports hardware decoding of H264 and MPEG-2 video
+streams, and software decoding of MPEG, AAC and A/52 (AC-3) audio
+streams.  Multi-channel audio streams are downmixed to Stereo.
+
 
 Bugs
 ----

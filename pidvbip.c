@@ -28,6 +28,9 @@ struct codecs_t {
 /* TODO: Should this be global? */
 struct htsp_t htsp;
 
+/* Enable to dump video streams to files (for debugging)
+//#define DUMP_VIDEO
+
 /* The HTSP thread reads from the network and passes the incoming stream packets to the
    appropriate codec (video/audio/subtitle) */
 void* htsp_receiver_thread(struct codecs_t* codecs)
@@ -36,6 +39,18 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
   int res;
   struct packet_t* packet;
   int first_audio_packet = 1;
+#ifdef DUMP_VIDEO
+  int fd;
+  static int track = 0;
+  char filename[32];
+
+  sprintf(filename,"video%03d.dump",++track);
+  fd = open(filename,O_CREAT|O_TRUNC|O_RDWR,0666);
+  if (fd < 0) {
+    fprintf(stderr,"Could not create video.dump\n");
+    exit(1);
+  }
+#endif
 
   while (((codecs->subscription.videostream != -1) && (codecs->vcodec.is_running)) || (codecs->acodec.is_running))
   {
@@ -71,6 +86,10 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
           goto next;
         }
         htsp_get_bin(&msg,"payload",&packet->packet,&packet->packetlength);
+
+#ifdef DUMP_VIDEO
+        write(fd,packet->packet,packet->packetlength);
+#endif
 
         codec_queue_add_item(&codecs->vcodec,packet);
         free_msg = 0;   // Don't free this message
@@ -111,10 +130,12 @@ next:
     if (method) free(method);
   }
 
+#ifdef DUMP_VIDEO
+  close(fd);
+#endif
   res = htsp_create_message(&msg,HMF_STR,"method","unsubscribe",HMF_S64,"subscriptionId",14,HMF_NULL);
   res = htsp_send_message(&htsp,&msg);
   htsp_destroy_message(&msg);
-
 }
 
 int main(int argc, char* argv[])

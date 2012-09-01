@@ -69,7 +69,7 @@ typedef enum
 
 typedef struct GRAPHICS_RESOURCE_HANDLE_TABLE_T *GRAPHICS_RESOURCE_HANDLE;
 
-VCOS_STATUS_T gx_graphics_init(const char *font_dir);
+VCOS_STATUS_T gx_graphics_init(const unsigned char *font, int fontsize);
 int32_t graphics_delete_resource( GRAPHICS_RESOURCE_HANDLE res );
 VCOS_STATUS_T gx_create_window( uint32_t screen_id,
                                 uint32_t width,

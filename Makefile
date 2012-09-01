@@ -20,8 +20,8 @@ flvtoh264: flvtoh264.c
 mpeg2test: mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
 	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o mpeg2test mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
 
-pidvbip: pidvbip.c libmpeg2/libmpeg2.a vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o acodec_mpeg.o acodec_aac.o acodec_a52.o channels.o libs/ilclient/libilclient.a
-	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o pidvbip pidvbip.c vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o  acodec_aac.o acodec_a52.o acodec_mpeg.o channels.o libmpeg2/libmpeg2.a libs/ilclient/libilclient.a -lmpg123 -lfaad -la52
+pidvbip: pidvbip.c libmpeg2/libmpeg2.a vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o acodec_mpeg.o acodec_aac.o acodec_a52.o channels.o libs/vgfont/libvgfont.a libs/ilclient/libilclient.a osd.o tiresias_pcfont.o
+	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o pidvbip pidvbip.c vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o  acodec_aac.o acodec_a52.o acodec_mpeg.o channels.o osd.o tiresias_pcfont.o libmpeg2/libmpeg2.a libs/ilclient/libilclient.a libs/vgfont/libvgfont.a -lmpg123 -lfaad -la52 -lfreetype
 
 vo_pi.o: vo_pi.c vo_pi.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o vo_pi.o vo_pi.c
@@ -34,6 +34,12 @@ channels.o: channels.c channels.h
 
 codec.o: codec.c codec.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o codec.o codec.c
+
+osd.o: osd.c osd.h tiresias_pcfont.h
+	$(CC) $(INCLUDES) $(CFLAGS) -c -o osd.o osd.c
+
+tiresias_pcfont.o: tiresias_pcfont.c tiresias_pcfont.h
+	$(CC) -c -o tiresias_pcfont.o tiresias_pcfont.c
 
 audioplay.o: audioplay.c audioplay.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o audioplay.o audioplay.c

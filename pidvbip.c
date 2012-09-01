@@ -17,6 +17,7 @@
 #include "htsp.h"
 #include "channels.h"
 #include "debug.h"
+#include "osd.h"
 
 struct codecs_t {
   struct codec_t vcodec; // Video
@@ -145,6 +146,7 @@ int main(int argc, char* argv[])
     int channel_id = -1;
     struct htsp_message_t msg;
     struct codecs_t codecs;
+    struct osd_t osd;
     pthread_t htspthread = 0;
 
     if ((argc != 3) && (argc != 4)) {
@@ -153,6 +155,8 @@ int main(int argc, char* argv[])
     }
 
     bcm_host_init();
+
+    osd_init(&osd);
 
     if ((res = htsp_connect(&htsp,argv[1],atoi(argv[2]))) > 0) {
         fprintf(stderr,"Error connecting to htsp server, aborting.\n");
@@ -232,6 +236,9 @@ next_channel:
     memset(&codecs.acodec,0,sizeof(codecs.acodec));
 
     fprintf(stderr,"Tuning to channel %d - \"%s\" (current event is %lld)      \n",channels_getlcn(channel_id),channels_getname(channel_id),channels_geteventid(channel_id));
+    char str[64];
+    snprintf(str,sizeof(str),"%03d - %s",channels_getlcn(channel_id),channels_getname(channel_id));
+    osd_show_channelname(&osd,str);
 
     res = htsp_create_message(&msg,HMF_STR,"method","subscribe",HMF_S64,"channelId",channel_id,HMF_S64,"subscriptionId",14,HMF_NULL);
     res = htsp_send_message(&htsp,&msg);

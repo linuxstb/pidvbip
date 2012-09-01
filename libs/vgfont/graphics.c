@@ -969,7 +969,7 @@ finish:
 }
 
 /*****************************************************************************/
-VCOS_STATUS_T gx_graphics_init(const char *font_dir)
+VCOS_STATUS_T gx_graphics_init(const unsigned char *font, int fontsize)
 {
    GX_CLIENT_STATE_T save;
    VCOS_STATUS_T rc;
@@ -978,7 +978,7 @@ VCOS_STATUS_T gx_graphics_init(const char *font_dir)
    
    rc = gx_priv_initialise();
    if (rc == VCOS_SUCCESS)
-      rc = gx_priv_font_init(font_dir);
+     rc = gx_priv_font_init(font,fontsize);
 
    gx_priv_restore(&save);
    

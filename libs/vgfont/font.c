@@ -82,60 +82,31 @@ static gx_font_cache_entry_t *fonts;
 
 static VGFT_FONT_T *find_font(const char *text, uint32_t text_size);
 
-VCOS_STATUS_T gx_priv_font_init(const char *font_dir)
+VCOS_STATUS_T gx_priv_font_init(const unsigned char *font, int fontsize)
 {
    VCOS_STATUS_T ret;
-   size_t len;
-   int rc;
+
    if (vgft_init())
    {
       ret = VCOS_ENOMEM;
       goto fail_init;
    }
 
-   int fd = -1;
-   // search for the font
-   sprintf(fname, "%s/%s", font_dir, default_font.file);
-   fd = open(fname, O_RDONLY);
-
-   if (fd < 0)
-   {
-      GX_ERROR("Could not open font file '%s'", default_font.file);
-      ret = VCOS_ENOENT;
-      goto fail_open;
-   }
-
-   len = lseek(fd, 0, SEEK_END);
-   lseek(fd, 0, SEEK_SET);
-
-   default_font.mem = vcos_malloc(len, default_font.file);
+   default_font.mem = vcos_malloc(fontsize, "font");
    if (!default_font.mem)
    {
-      GX_ERROR("No memory for font %s", fname);
+       GX_ERROR("No memory for font");
       ret = VCOS_ENOMEM;
       goto fail_mem;
    }
 
-   rc = read(fd, default_font.mem, len);
-   if (rc != len)
-   {
-      GX_ERROR("Could not read font %s", fname);
-      ret = VCOS_EINVAL;
-      goto fail_rd;
-   }
-   default_font.len = len;
-   close(fd);
-
-   GX_TRACE("Opened font file '%s'", fname);
+   memcpy(default_font.mem,font,fontsize);
+   default_font.len = fontsize;
 
    inited = 1;
    return VCOS_SUCCESS;
 
-fail_rd:
-   vcos_free(default_font.mem);
 fail_mem:
-   if (fd >= 0) close(fd);
-fail_open:
    vgft_term();
 fail_init:
    return ret;

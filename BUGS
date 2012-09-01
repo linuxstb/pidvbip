@@ -10,14 +10,12 @@ AUDIO-RELATED
 
 * AC-3 decoder always downmixes to Stereo - can we output 5.1 over HDMI?
 
-* Implement HW pass-through of AC-3 (and other codecs?)
+* Implement HW pass-through of AC-3 (and other codecs?) - detect HDMI audio capabilities and send raw data when possible.
 
 * Deal with different channels/samplerate etc in MPEG audio codec (currently hard-coded for 48KHz Stereo)
 
 
 VIDEO-RELATED
-
-* H264 video codec is not smooth - perhaps need to pre-buffer some frames to ensure the GPU always has data to decode/display
 
 * Improve A/V sync for hardware decoded video - A/V sync currently works quite well, but needs to be done properly with OMX clocks.
 
@@ -25,14 +23,16 @@ VIDEO-RELATED
 
 * Implement double-buffering in software MPEG-2 codec to eliminate tearing
 
+* Clear the framebuffer/add a black background image so any framebuffer text isn't visible during channel changes or when displaying 4:3 video.
+
 
 CORE FEATURES
 
-* Implement a UI!
+* Implement an OSD API and build a UI.
 
 * Review channel change implementation - ensure things are being
   opened/closed appropriately and there are no memory leaks.  pidvbip
-  crashes if you change channel too quickly in succession.
+  freezes if you change channel too quickly in succession.
 
 * Properly deal with S64 integers in htsp.c (code currently sometimes assumes they are all 32-bit)
 
@@ -43,3 +43,11 @@ CORE FEATURES
 * Implement subtitles
 
 * Deal with off-air channels.
+
+* Collect EPG data from server and maintain internal EPG database
+
+* Support connecting to multiple servers, merging channel list.  Servers will be listed in priority order, and duplicate channels renumbered to a high range (e.g. 1000+)
+
+* Add LIRC input support
+
+* Integrate with OpenELEC

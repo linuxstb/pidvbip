@@ -139,6 +139,52 @@ next:
   htsp_destroy_message(&msg);
 }
 
+int read_config(char* configfile,char** host, int* port)
+{
+  int fd = -1;
+  int res;
+  char buf[1024];
+
+  if (configfile)
+    fd = open(configfile,O_RDONLY);
+
+  if (fd < 0)
+    fd = open("/boot/pidvbip.txt",O_RDONLY);  /* FAT partition in Raspbian */
+
+  if (fd < 0)
+    fd = open("/flash/pidvbip.txt",O_RDONLY); /* FAT partition in OpenELEC */
+
+  if (fd < 0) {
+    fprintf(stderr,"Could not open config file\n");
+    return -1;
+  }
+
+  res = read(fd, buf, sizeof(buf)-1);
+  buf[1023] = 0;
+  close(fd);
+
+  if (res < 0) {
+    fprintf(stderr,"Error reading from config file\n");
+    return -1;
+  }
+
+  *host = malloc(1024);
+  res = sscanf(buf,"%s %d",*host,port);
+
+  if (res != 2) {
+    fprintf(stderr,"Error parsing config file\n");
+    return -1;
+  }
+
+  return 0;
+}
+
+void usage(void)
+{
+  fprintf(stderr,"pidvbip - tvheadend client for the Raspberry Pi\n");
+  fprintf(stderr,"\nOptions:\n\n");
+}
+
 int main(int argc, char* argv[])
 {
     int res;
@@ -148,17 +194,33 @@ int main(int argc, char* argv[])
     struct codecs_t codecs;
     struct osd_t osd;
     pthread_t htspthread = 0;
+    char* configfile = "/boot/config.txt"; /* Default config file */
+    char* host = NULL;
+    int port;
 
-    if ((argc != 3) && (argc != 4)) {
-        fprintf(stderr,"Usage: pidvbip host port [channel num]\n");
+    if (argc == 1) {
+      /* No arguments, try to read default config from /boot/config.txt */
+      if (read_config(NULL,&host,&port) < 0) {
+        fprintf(stderr,"ERROR: Could not read from config file\n");
+        fprintf(stderr,"Create config.txt in /boot/pidvbip.txt containing one line with the\n");
+        fprintf(stderr,"host and port of the server separated by a space.\n");
+        exit(1);
+      }
+//    } else if (argc==2) {
+//      /* One argument - config file */
+    } else if ((argc != 3) && (argc != 4)) {
+        usage();
         return 1;
+    } else {
+        host = argv[1];
+        port = atoi(argv[2]);
     }
 
     bcm_host_init();
 
     osd_init(&osd);
 
-    if ((res = htsp_connect(&htsp,argv[1],atoi(argv[2]))) > 0) {
+    if ((res = htsp_connect(&htsp,host,port)) > 0) {
         fprintf(stderr,"Error connecting to htsp server, aborting.\n");
         return 2;
     }

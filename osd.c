@@ -23,6 +23,7 @@ void osd_init(struct osd_t* osd)
 
    s = graphics_get_display_size(0, &display_width, &display_height);
    assert(s == 0);
+   fprintf(stderr,"Display width=%d, height=%d\n",display_width,display_height);
 
    s = gx_create_window(SCREEN, display_width-100, 100, GRAPHICS_RESOURCE_RGBA32, &osd->img);
    assert(s == 0);
@@ -48,6 +49,8 @@ void osd_show_channelname(struct osd_t* osd, const char *text)
    uint32_t text_size = 40;
 
    s = graphics_resource_text_dimensions_ext(osd->img, text, text_length, &width, &height, text_size);
+
+   width = 600;
 
    graphics_resource_fill(osd->img, x_offset, y_offset, width+100, height+60, GRAPHICS_RGBA32(0,0,0,0x80));
 

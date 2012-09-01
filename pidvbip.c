@@ -117,12 +117,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
       //  htsp_dump_message(&msg);
     }
 
-    /* Temporary hack - don't display audio info unless it is a supported codec */
-    if (codecs->subscription.streams[codecs->subscription.audiostream-1].codec == HMF_AUDIO_CODEC_MPEG) {
-      fprintf(stderr,"v-queue: %8d packets, a-queue: %8d packets\r",codecs->vcodec.queue_count,codecs->acodec.queue_count);
-    } else {
-      fprintf(stderr,"v-queue: %8d packets\r",codecs->vcodec.queue_count);
-    }
+    fprintf(stderr,"v-queue: %8d packets, a-queue: %8d packets\r",codecs->vcodec.queue_count,codecs->acodec.queue_count);
 
 next:
     if (free_msg)
@@ -300,7 +295,7 @@ next_channel:
     fprintf(stderr,"Tuning to channel %d - \"%s\" (current event is %lld)      \n",channels_getlcn(channel_id),channels_getname(channel_id),channels_geteventid(channel_id));
     char str[64];
     snprintf(str,sizeof(str),"%03d - %s",channels_getlcn(channel_id),channels_getname(channel_id));
-    osd_show_channelname(&osd,str);
+    //osd_show_channelname(&osd,str);
 
     res = htsp_create_message(&msg,HMF_STR,"method","subscribe",HMF_S64,"channelId",channel_id,HMF_S64,"subscriptionId",14,HMF_NULL);
     res = htsp_send_message(&htsp,&msg);

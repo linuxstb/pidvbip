@@ -10,10 +10,24 @@ void codec_queue_init(struct codec_t* codec)
   codec->queue_tail = NULL;
   codec->queue_count = 0;
   codec->is_running = 1;
+  codec->PTS = -1;
 
   pthread_mutex_init(&codec->queue_mutex,NULL);
   pthread_cond_init(&codec->queue_count_cv,NULL);
   pthread_mutex_init(&codec->PTS_mutex,NULL);
+  pthread_mutex_init(&codec->isrunning_mutex,NULL);
+}
+
+int codec_is_running(struct codec_t* codec)
+{
+  int res;
+  pthread_mutex_lock(&codec->isrunning_mutex);
+
+  res = codec->is_running;
+
+  pthread_mutex_unlock(&codec->isrunning_mutex);
+
+  return res;
 }
 
 void codec_stop(struct codec_t* codec)
@@ -27,7 +41,9 @@ void codec_stop(struct codec_t* codec)
 
   pthread_mutex_lock(&codec->queue_mutex);
 
+  pthread_mutex_lock(&codec->isrunning_mutex);
   codec->is_running = 0;
+  pthread_mutex_unlock(&codec->isrunning_mutex);
 
   /* Empty the queue */
 

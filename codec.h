@@ -39,6 +39,7 @@ struct codec_t
   int queue_count;
   int64_t PTS;
   pthread_mutex_t PTS_mutex;
+  pthread_mutex_t isrunning_mutex;
   unsigned char* codecdata;
   int codecdatasize;
   struct codec_t* acodec;
@@ -53,5 +54,6 @@ void codec_queue_free_item(struct codec_t* codec,struct codec_queue_t* item);
 struct codec_queue_t* codec_queue_get_next_item(struct codec_t* codec);
 void codec_set_pts(struct codec_t* codec, int64_t PTS);
 int64_t codec_get_pts(struct codec_t* codec);
+int codec_is_running(struct codec_t* codec);
 
 #endif

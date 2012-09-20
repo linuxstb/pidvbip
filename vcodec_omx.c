@@ -52,6 +52,7 @@ static void* vcodec_omx_thread(struct codec_t* codec)
    unsigned char *data = NULL;
    unsigned int data_len = 0;
    int packet_size = 16<<10; // NOTE: 16KB
+   int frames_sent = 0;
 
    memset(list, 0, sizeof(list));
    memset(tunnel, 0, sizeof(tunnel));
@@ -152,6 +153,7 @@ static void* vcodec_omx_thread(struct codec_t* codec)
 
            if (current->msgtype == MSG_STOP) {
              codec_queue_free_item(codec,current);
+             fprintf(stderr,"\nframes_sent=%d\n",frames_sent);
              goto stop;
            }
 
@@ -159,12 +161,13 @@ static void* vcodec_omx_thread(struct codec_t* codec)
               The proper way is to use OMX clocks */
            int64_t audio_latency = 70000; /* 70ms - a guess which seems to work */
            int64_t audio_PTS = codec_get_pts(codec->acodec);
-           int64_t delay = current->data->DTS-(audio_PTS+audio_latency);
-           if (delay > 0) {
-             //fprintf(stderr,"[vcodec_omx] udelay(%lld)\n",delay);
-             usleep(delay);
+           if (audio_PTS != -1) {
+             int64_t delay = current->data->DTS-(audio_PTS+audio_latency);
+             if (delay > 0) {
+               //fprintf(stderr,"[vcodec_omx] udelay(%lld)\n",delay);
+               usleep(delay);
+             }
            }
-
          }
 
          int to_copy = packet_size - data_len;
@@ -181,6 +184,7 @@ static void* vcodec_omx_thread(struct codec_t* codec)
            codec_queue_free_item(codec,current);
            current = NULL;
          }
+         frames_sent++;
          /******* End of new code for vcodec_omx.c */
 
          if(port_settings_changed == 0 &&
@@ -232,17 +236,16 @@ static void* vcodec_omx_thread(struct codec_t* codec)
 stop:
       buf->nFilledLen = 0;
       buf->nFlags = OMX_BUFFERFLAG_TIME_UNKNOWN | OMX_BUFFERFLAG_EOS;
-      
+
       if(OMX_EmptyThisBuffer(ILC_GET_HANDLE(video_decode), buf) != OMX_ErrorNone)
          status = -20;
       
       // wait for EOS from render
       ilclient_wait_for_event(video_render, OMX_EventBufferFlag, 90, 0, OMX_BUFFERFLAG_EOS, 0,
                               ILCLIENT_BUFFER_FLAG_EOS, 10000);
-      
+
       // need to flush the renderer to allow video_decode to disable its input port
       ilclient_flush_tunnels(tunnel, 0);
-
       ilclient_disable_port_buffers(video_decode, 130, NULL, NULL, NULL);
    }
 

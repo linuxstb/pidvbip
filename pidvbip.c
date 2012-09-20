@@ -53,7 +53,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
   }
 #endif
 
-  while (((codecs->subscription.videostream != -1) && (codecs->vcodec.is_running)) || (codecs->acodec.is_running))
+  while (((codecs->subscription.videostream != -1) && (codec_is_running(&codecs->vcodec))) || (codec_is_running(&codecs->acodec)))
   {
     if ((res = htsp_recv_message(&htsp,&msg)) > 0) {
       fprintf(stderr,"FATAL ERROR in network read - %d\n",res);
@@ -67,10 +67,6 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
       int stream;
       htsp_get_int(&msg,"stream",&stream);
       if ((codecs->subscription.videostream != -1) && (stream==codecs->subscription.streams[codecs->subscription.videostream].index)) {
-        if (first_audio_packet == 1) {
-          //fprintf(stderr,"Dropping video packet before first audio packet\n");
-          goto next;
-        }
         packet = malloc(sizeof(*packet));
         packet->buf = msg.msg;
 
@@ -117,7 +113,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
       //  htsp_dump_message(&msg);
     }
 
-    fprintf(stderr,"v-queue: %8d packets, a-queue: %8d packets\r",codecs->vcodec.queue_count,codecs->acodec.queue_count);
+    fprintf(stderr,"v-queue: %8d (%d) packets, a-queue: %8d (%d) packets\r",codecs->vcodec.queue_count,codecs->vcodec.is_running,codecs->acodec.queue_count,codecs->acodec.is_running);
 
 next:
     if (free_msg)
@@ -224,6 +220,10 @@ int main(int argc, char* argv[])
 
     res = htsp_login(&htsp);
 
+    if (res > 0) {
+      fprintf(stderr,"Could not login to server\n");
+      return 3;
+    }
     res = htsp_create_message(&msg,HMF_STR,"method","enableAsyncMetadata",HMF_NULL);
     res = htsp_send_message(&htsp,&msg);
     htsp_destroy_message(&msg);

@@ -299,9 +299,9 @@ int htsp_recv_message(struct htsp_t* htsp, struct htsp_message_t* msg)
   //fprintf(stderr,"Waiting for response...\n");
   res = recv(htsp->sock, buf, 4, 0);
 
-  if (res < 0) {
-     fprintf(stderr,"Error in recv\n");
-     return 1;
+  if (res < 4) {
+    fprintf(stderr,"Error in recv - res=%d\n",res);
+    return 1;
   }
 
   msg->msglen = get_uint32_be(buf);
@@ -352,8 +352,9 @@ int htsp_login(struct htsp_t* htsp)
 
   res = htsp_recv_message(htsp,&msg);
 
-  if (res == 0) {
-    htsp_dump_message(&msg);
+  if (res > 0) {
+    fprintf(stderr,"Error receiving login response\n");
+    return 1;
   }
 
   htsp_destroy_message(&msg);

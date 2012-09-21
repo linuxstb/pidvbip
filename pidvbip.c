@@ -7,6 +7,7 @@
 #include <string.h>
 #include <termios.h>
 #include <ctype.h>
+#include <time.h>
 
 #include "bcm_host.h"
 #include "vcodec_mpeg2.h"
@@ -16,6 +17,7 @@
 #include "acodec_a52.h"
 #include "htsp.h"
 #include "channels.h"
+#include "events.h"
 #include "debug.h"
 #include "osd.h"
 
@@ -31,6 +33,42 @@ struct htsp_t htsp;
 
 /* Enable to dump video streams to files (for debugging) */
 //#define DUMP_VIDEO
+
+void process_message(char* method,struct htsp_message_t* msg,char* debugtext)
+{
+  if ((strcmp(method,"eventAdd")==0) || (strcmp(method,"eventUpdate")==0)) {
+    process_event_message(method,msg);
+  } else if (strcmp(method,"eventDeleted")==0) {
+    uint32_t eventId;
+    if (htsp_get_uint(msg,"eventId",&eventId)==0) {
+      event_delete(eventId);
+    }
+  } else if (strcmp(method,"channelUpdate")==0) {
+    fprintf(stderr,"***** %s ******\n",method);
+    htsp_dump_message(msg);
+  } else if ((strcmp(method,"channelAdd")==0) || (strcmp(method,"channelUpdate")==0)) {
+    // channelName, channelNumber, channelId
+    int channelNumber,channelId;
+    uint32_t eventid,nexteventid;
+    char* channelName;
+    if (htsp_get_int(msg,"channelId",&channelId) == 0) { 
+      if (htsp_get_int(msg,"channelNumber",&channelNumber) > 0) { channelNumber = 0; }
+      if (htsp_get_uint(msg,"eventId",&eventid) > 0) { eventid = 0; }
+      if (htsp_get_uint(msg,"nextEventId",&nexteventid) > 0) { nexteventid = 0; }
+      channelName = htsp_get_string(msg,"channelName");
+      if (strcmp(method,"channelAdd")==0) {
+        channels_add(channelNumber,channelId,channelName,eventid,nexteventid);
+      } else {
+        channels_update(channelNumber,channelId,channelName,eventid,nexteventid);
+      }
+    }
+  } else if (strcmp(method,"queueStatus")== 0) {
+    /* Are we interested? */
+  } else {
+    fprintf(stderr,"%s: Received message %s\n",debugtext,method);
+    //htsp_dump_message(msg);
+  }
+}
 
 /* The HTSP thread reads from the network and passes the incoming stream packets to the
    appropriate codec (video/audio/subtitle) */
@@ -109,11 +147,10 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
         free_msg = 0;   // Don't free this message
       }
     } else if (method != NULL) {
-      //if (strcmp(method,"queueStatus") != 0)
-      //  htsp_dump_message(&msg);
+      process_message(method,&msg,"htsp_receiver_thread");
     }
 
-    fprintf(stderr,"v-queue: %8d (%d) packets, a-queue: %8d (%d) packets\r",codecs->vcodec.queue_count,codecs->vcodec.is_running,codecs->acodec.queue_count,codecs->acodec.is_running);
+    //fprintf(stderr,"v-queue: %8d (%d) packets, a-queue: %8d (%d) packets\r",codecs->vcodec.queue_count,codecs->vcodec.is_running,codecs->acodec.queue_count,codecs->acodec.is_running);
 
 next:
     if (free_msg)
@@ -128,6 +165,8 @@ next:
   res = htsp_create_message(&msg,HMF_STR,"method","unsubscribe",HMF_S64,"subscriptionId",14,HMF_NULL);
   res = htsp_send_message(&htsp,&msg);
   htsp_destroy_message(&msg);
+
+  return 0;
 }
 
 int read_config(char* configfile,char** host, int* port)
@@ -185,7 +224,6 @@ int main(int argc, char* argv[])
     struct codecs_t codecs;
     struct osd_t osd;
     pthread_t htspthread = 0;
-    char* configfile = "/boot/config.txt"; /* Default config file */
     char* host = NULL;
     int port;
 
@@ -224,11 +262,11 @@ int main(int argc, char* argv[])
       fprintf(stderr,"Could not login to server\n");
       return 3;
     }
-    res = htsp_create_message(&msg,HMF_STR,"method","enableAsyncMetadata",HMF_NULL);
+    res = htsp_create_message(&msg,HMF_STR,"method","enableAsyncMetadata",HMF_S64,"epg",1,HMF_NULL);
     res = htsp_send_message(&htsp,&msg);
     htsp_destroy_message(&msg);
 
-    // Recieve the acknowledgement from enableAsyncMetadata
+    // Receive the acknowledgement from enableAsyncMetadata
     res = htsp_recv_message(&htsp,&msg);
 
     channels_init();
@@ -241,6 +279,7 @@ int main(int argc, char* argv[])
     new.c_cc[VMIN] = 1;
     tcsetattr(0, TCSANOW, &new);
 
+    int num_events = 0;
     int done = 0;
     while (!done)
     {
@@ -252,21 +291,8 @@ int main(int argc, char* argv[])
        if (method) {
          if (strcmp(method,"initialSyncCompleted")==0) {
            done=1;
-         } else if (strcmp(method,"channelAdd")==0) {
-           // channelName, channelNumber, channelId
-           int channelNumber,channelId;
-           int64_t eventid,nexteventid;
-           char* channelName;
-           if (htsp_get_int(&msg,"channelId",&channelId) == 0) { 
-             if (htsp_get_int(&msg,"channelNumber",&channelNumber) > 0) { channelNumber = 0; }
-             if (htsp_get_int64(&msg,"eventId",&eventid) > 0) { eventid = 0; }
-             if (htsp_get_int64(&msg,"nextEventId",&nexteventid) > 0) { nexteventid = 0; }
-             channelName = htsp_get_string(&msg,"channelName");
-             channels_add(channelNumber,channelId,channelName,eventid,nexteventid);
-           }
          } else {
-           //fprintf(stderr,"Recieved message: method=\"%s\"\n",method);
-           //htsp_dump_message(&msg);
+           process_message(method,&msg,"Initial sync:");
          }
 
          free(method);
@@ -275,7 +301,7 @@ int main(int argc, char* argv[])
        htsp_destroy_message(&msg);
     }
 
-    fprintf(stderr,"Initial sync completed\n");
+    fprintf(stderr,"Initial sync completed - read data for %d events\n",num_events);
 
     if (channels_getcount() == 0) {
       fprintf(stderr,"No channels available, exiting.\n");
@@ -292,7 +318,13 @@ next_channel:
     memset(&codecs.vcodec,0,sizeof(codecs.vcodec));
     memset(&codecs.acodec,0,sizeof(codecs.acodec));
 
-    fprintf(stderr,"Tuning to channel %d - \"%s\" (current event is %lld)      \n",channels_getlcn(channel_id),channels_getname(channel_id),channels_geteventid(channel_id));
+    uint32_t current_eventId = channels_geteventid(channel_id);
+    struct event_t* current_event = get_event(current_eventId);
+
+    fprintf(stderr,"Tuning to channel %d - \"%s\"\n",channels_getlcn(channel_id),channels_getname(channel_id));
+
+    event_dump(current_event);
+
     char str[64];
     snprintf(str,sizeof(str),"%03d - %s",channels_getlcn(channel_id),channels_getname(channel_id));
     //osd_show_channelname(&osd,str);
@@ -311,7 +343,7 @@ next_channel:
     char* method = htsp_get_string(&msg,"method");
     while ((method == NULL) || (strcmp(method,"subscriptionStart")!=0)) {
       if (method != NULL) {
-        // TODO: Process any messages recieved whilst waiting for subscriptionStart
+        process_message(method,&msg,"subscriptionStart_loop");
         free(method);
       }
 

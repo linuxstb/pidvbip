@@ -4,12 +4,13 @@
 #include <stdint.h>
 
 void channels_init(void);
-void channels_add(int lcn, int id, char* name, int64_t eventid, int64_t nexteventid);
+void channels_add(int lcn, int id, char* name, uint32_t eventId, uint32_t nextEventId);
+void channels_update(int lcn, int id, char* name, uint32_t eventId, uint32_t nextEventId);
 void channels_dump(void);
 int channels_getid(int lcn);
 char* channels_getname(int id);
-int64_t channels_geteventid(int id);
-int64_t channels_getnexteventid(int id);
+uint32_t channels_geteventid(int id);
+uint32_t channels_getnexteventid(int id);
 int channels_getlcn(int id);
 int channels_getnext(int id);
 int channels_getprev(int id);

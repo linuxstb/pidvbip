@@ -390,7 +390,7 @@ char* htsp_get_string(struct htsp_message_t* msg, char* name)
   return NULL;
 }
 
-int htsp_get_int(struct htsp_message_t* msg, char* name, int* val)
+int htsp_get_int(struct htsp_message_t* msg, char* name, int32_t* val)
 {
   unsigned char* buf = msg->msg;
   int len = msg->msglen;
@@ -419,6 +419,11 @@ int htsp_get_int(struct htsp_message_t* msg, char* name, int* val)
   }
 
   return 1;
+}
+
+int htsp_get_uint(struct htsp_message_t* msg, char* name, uint32_t* val)
+{
+  return htsp_get_int(msg,name,(int32_t*)val);
 }
 
 int htsp_get_int64(struct htsp_message_t* msg, char* name, int64_t* val)

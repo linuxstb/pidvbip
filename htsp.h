@@ -67,7 +67,8 @@ int htsp_send_message(struct htsp_t* htsp, struct htsp_message_t* msg);
 int htsp_recv_message(struct htsp_t* htsp, struct htsp_message_t* msg);
 int htsp_login(struct htsp_t* htsp);
 char* htsp_get_string(struct htsp_message_t* msg, char* name);
-int htsp_get_int(struct htsp_message_t* msg, char* name, int* val);
+int htsp_get_int(struct htsp_message_t* msg, char* name, int32_t* val);
+int htsp_get_uint(struct htsp_message_t* msg, char* name, uint32_t* val);
 int htsp_get_int64(struct htsp_message_t* msg, char* name, int64_t* val);
 int htsp_get_bin(struct htsp_message_t* msg, char* name, unsigned char** data,int* size);
 

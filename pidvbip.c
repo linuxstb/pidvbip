@@ -99,7 +99,6 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
   struct htsp_message_t msg;
   int res;
   struct packet_t* packet;
-  int first_audio_packet = 1;
 #ifdef DUMP_VIDEO
   int fd;
   static int track = 0;
@@ -162,7 +161,6 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
           fprintf(stderr,"ERROR: No PTS in audio packet, dropping\n");
           goto next;
         }
-        first_audio_packet = 0;
         htsp_get_bin(&msg,"payload",&packet->packet,&packet->packetlength);
 
         codec_queue_add_item(&codecs->acodec,packet);

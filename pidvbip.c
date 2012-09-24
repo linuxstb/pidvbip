@@ -41,11 +41,11 @@ void process_message(char* method,struct htsp_message_t* msg,char* debugtext)
   } else if (strcmp(method,"eventDeleted")==0) {
     uint32_t eventId;
     if (htsp_get_uint(msg,"eventId",&eventId)==0) {
+      //fprintf(stderr,"eventDeleted: %d\n",eventId);
       event_delete(eventId);
+    } else {
+      fprintf(stderr,"Warning eventDeleted event not found (%d)\n",eventId);
     }
-  } else if (strcmp(method,"channelUpdate")==0) {
-    fprintf(stderr,"***** %s ******\n",method);
-    htsp_dump_message(msg);
   } else if ((strcmp(method,"channelAdd")==0) || (strcmp(method,"channelUpdate")==0)) {
     // channelName, channelNumber, channelId
     int channelNumber,channelId;
@@ -58,11 +58,15 @@ void process_message(char* method,struct htsp_message_t* msg,char* debugtext)
       channelName = htsp_get_string(msg,"channelName");
       if (strcmp(method,"channelAdd")==0) {
         channels_add(channelNumber,channelId,channelName,eventid,nexteventid);
+        //fprintf(stderr,"channelAdd - id=%d,lcn=%d,name=%s,current_event=%d,next_event=%d\n",channelId,channelNumber,channelName,eventid,nexteventid);
       } else {
         channels_update(channelNumber,channelId,channelName,eventid,nexteventid);
+        //fprintf(stderr,"channelUpdated - id=%d,current_event=%d,next_event=%d\n",channelId,eventid,nexteventid);
       }
     }
   } else if (strcmp(method,"queueStatus")== 0) {
+    /* Are we interested? */
+  } else if (strcmp(method,"signalStatus")== 0) {
     /* Are we interested? */
   } else {
     fprintf(stderr,"%s: Received message %s\n",debugtext,method);
@@ -270,6 +274,7 @@ int main(int argc, char* argv[])
     res = htsp_recv_message(&htsp,&msg);
 
     channels_init();
+    events_init();
 
     struct termios new,orig;
     tcgetattr(0, &orig);
@@ -319,11 +324,13 @@ next_channel:
     memset(&codecs.acodec,0,sizeof(codecs.acodec));
 
     uint32_t current_eventId = channels_geteventid(channel_id);
-    struct event_t* current_event = get_event(current_eventId);
+    struct event_t* current_event = event_copy(current_eventId);
 
     fprintf(stderr,"Tuning to channel %d - \"%s\"\n",channels_getlcn(channel_id),channels_getname(channel_id));
 
     event_dump(current_event);
+
+    event_free(current_event);
 
     char str[64];
     snprintf(str,sizeof(str),"%03d - %s",channels_getlcn(channel_id),channels_getname(channel_id));

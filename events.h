@@ -18,8 +18,11 @@ struct event_t {
 };
 
 void process_event_message(char* method, struct htsp_message_t* msg);
-struct event_t* get_event(uint32_t eventId);
+struct event_t* event_get(uint32_t eventId);
+struct event_t* event_copy(uint32_t eventId);
 void event_delete(uint32_t eventId);
+void event_free(struct event_t* event);
 void event_dump(struct event_t* event);
+void events_init(void);
 
 #endif

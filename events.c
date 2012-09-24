@@ -2,9 +2,44 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <pthread.h>
 #include "avl.h"
 #include "htsp.h"
 #include "events.h"
+
+static struct avl_tree events;
+static pthread_mutex_t events_mutex;
+
+static struct event_t* searched_event;
+
+static int iter(struct avl* a)
+{
+  searched_event = (struct event_t*)a;
+  //fprintf(stderr,"searched_event->eventId=%d\n",searched_event->eventId);
+
+  return 0;
+}
+
+static struct event_t* event_get_nolock(uint32_t eventId)
+{
+  struct event_t event;
+  event.eventId = eventId;
+
+  //fprintf(stderr,"Searching for %d\n",eventId);
+  searched_event = NULL;
+  avl_range(&events,(struct avl*)&event,(struct avl*)&event,iter);
+  return searched_event;
+}
+
+struct event_t* event_get(uint32_t eventId)
+{
+  pthread_mutex_lock(&events_mutex);
+  struct event_t* event = event_get_nolock(eventId);
+  pthread_mutex_unlock(&events_mutex);
+
+  return event;
+}
+
 
 static int cmp_event(void* a, void* b)
 {
@@ -23,7 +58,16 @@ static void event_free_items(struct event_t* event)
     free(event->description);
 }
 
-static struct avl_tree events = { NULL, cmp_event};
+void event_free(struct event_t* event)
+{
+  if (!event)
+    return;
+
+  event_free_items(event);
+
+  free(event);
+}
+
 
 void process_event_message(char* method, struct htsp_message_t* msg)
 {
@@ -33,14 +77,28 @@ void process_event_message(char* method, struct htsp_message_t* msg)
 
   htsp_get_uint(msg,"eventId",&eventId);
 
-  if (strcmp(method,"eventAdd")==0) {
+  pthread_mutex_lock(&events_mutex);
+  event = event_get_nolock(eventId);
+
+  //  if (strcmp(method,"eventUpdate")==0) {
+  //    fprintf(stderr,"eventUpdate - %d\n",eventId);
+  //  } else {
+  //    fprintf(stderr,"eventAdd - %d\n",eventId);
+  //  }
+
+  if (event == NULL) {
     do_insert = 1;
     event = calloc(sizeof(struct event_t),1);
     event->eventId = eventId;
-  } else { // eventUpdate
-    event = get_event(eventId);
+    if (strcmp(method,"eventUpdate")==0) {
+      fprintf(stderr,"WARNING: eventUpdate received for non-existent event %d, adding instead.\n",eventId);
+    }
+  } else {
     event_free_items(event);
     memset(event,0,sizeof(event));
+    if (strcmp(method,"eventAdd")==0) {
+      fprintf(stderr,"WARNING: eventAdd received for existing event %d, updating instead.\n",eventId);
+    }
   }
 
   htsp_get_uint(msg,"eventId",&event->eventId);
@@ -58,32 +116,14 @@ void process_event_message(char* method, struct htsp_message_t* msg)
   if (do_insert) {
     avl_insert(&events,(struct avl*)event);
   }
-}
-
-static struct event_t* searched_event;
-
-static int iter(struct avl* a)
-{
-  searched_event = (struct event_t*)a;
-  fprintf(stderr,"searched_event->eventId=%d\n",searched_event->eventId);
-
-  return 0;
-}
-
-struct event_t* get_event(uint32_t eventId)
-{
-  struct event_t event;
-  event.eventId = eventId;
-
-  fprintf(stderr,"Searching for %d\n",eventId);
-  searched_event = NULL;
-  avl_range(&events,(struct avl*)&event,(struct avl*)&event,iter);
-  return searched_event;
+  pthread_mutex_unlock(&events_mutex);
 }
 
 void event_delete(uint32_t eventId)
 {
-  struct event_t* event = get_event(eventId);
+  pthread_mutex_lock(&events_mutex);
+
+  struct event_t* event = event_get_nolock(eventId);
 
   //fprintf(stderr,"DELETING EVENT:\n");
   //event_dump(event);
@@ -93,10 +133,38 @@ void event_delete(uint32_t eventId)
     event_free_items(event);
     free(event);
   }
+  pthread_mutex_unlock(&events_mutex);
+}
+
+struct event_t* event_copy(uint32_t eventId)
+{
+  struct event_t* event;
+  struct event_t* copy;
+
+  pthread_mutex_lock(&events_mutex);
+  event = event_get_nolock(eventId);
+
+  if (event==NULL)
+    return NULL;
+
+  copy = malloc(sizeof(struct event_t));
+
+  *copy = *event;
+  if (event->title)
+    copy->title = strdup(event->title);
+
+  if (event->description)
+    copy->description = strdup(event->description);
+
+  pthread_mutex_unlock(&events_mutex);
+
+  return copy;
 }
 
 void event_dump(struct event_t* event)
 {
+  pthread_mutex_lock(&events_mutex);
+
   if (event==NULL) {
     fprintf(stderr,"NULL event\n");
     return;
@@ -114,4 +182,13 @@ void event_dump(struct event_t* event)
   fprintf(stderr,"Stop:        %04d-%02d-%02d %02d:%02d:%02d\n",stop_time.tm_year+1900,stop_time.tm_mon+1,stop_time.tm_mday,stop_time.tm_hour,stop_time.tm_min,stop_time.tm_sec);
   fprintf(stderr,"Duration:    %02d:%02d:%02d\n",duration/3600,(duration%3600)/60,duration % 60);
   fprintf(stderr,"Description: %s\n",event->description);
+
+  pthread_mutex_unlock(&events_mutex);
+}
+
+void events_init(void)
+{
+  events.root = NULL;
+  events.compar = cmp_event;
+  pthread_mutex_init(&events_mutex,NULL);
 }

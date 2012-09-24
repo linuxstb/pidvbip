@@ -90,12 +90,13 @@ void channels_update(int lcn, int id, char* name, uint32_t eventId, uint32_t nex
     fprintf(stderr,"Channel %d not found for update, adding.\n",id);
     channels_add(lcn,id,name,eventId,nextEventId);
   } else {
-    p->lcn = lcn;
-    p->eventId = eventId;
-    free(p->name);
-    p->name = name;
-    p->eventId = eventId;
-    p->nextEventId = nextEventId;
+    if (lcn >= 0) p->lcn = lcn;
+    if (name) {
+      free(p->name);
+      p->name = name;
+    }
+    if (eventId) p->eventId = eventId;
+    if (nextEventId) p->nextEventId = nextEventId;
   }
 }
 

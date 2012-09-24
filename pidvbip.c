@@ -70,7 +70,7 @@ void process_message(char* method,struct htsp_message_t* msg,char* debugtext)
     uint32_t eventid,nexteventid;
     char* channelName;
     if (htsp_get_int(msg,"channelId",&channelId) == 0) { 
-      if (htsp_get_int(msg,"channelNumber",&channelNumber) > 0) { channelNumber = 0; }
+      if (htsp_get_int(msg,"channelNumber",&channelNumber) > 0) { channelNumber = -1; }
       if (htsp_get_uint(msg,"eventId",&eventid) > 0) { eventid = 0; }
       if (htsp_get_uint(msg,"nextEventId",&nexteventid) > 0) { nexteventid = 0; }
       channelName = htsp_get_string(msg,"channelName");

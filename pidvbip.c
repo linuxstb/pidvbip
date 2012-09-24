@@ -245,6 +245,8 @@ int main(int argc, char* argv[])
     struct htsp_message_t msg;
     struct codecs_t codecs;
     struct osd_t osd;
+    uint32_t current_eventId;
+    struct event_t* current_event;
     pthread_t htspthread = 0;
     char* host = NULL;
     int port;
@@ -349,14 +351,7 @@ next_channel:
     memset(&codecs.vcodec,0,sizeof(codecs.vcodec));
     memset(&codecs.acodec,0,sizeof(codecs.acodec));
 
-    uint32_t current_eventId = channels_geteventid(channel_id);
-    struct event_t* current_event = event_copy(current_eventId);
-
     fprintf(stderr,"Tuning to channel %d - \"%s\"\n",channels_getlcn(channel_id),channels_getname(channel_id));
-
-    event_dump(current_event);
-
-    event_free(current_event);
 
     char str[64];
     snprintf(str,sizeof(str),"%03d - %s",channels_getlcn(channel_id),channels_getname(channel_id));
@@ -447,6 +442,14 @@ wait_for_key:
       switch (c) {
         case 'q':
           goto done;
+
+        case 'i':
+          current_eventId = channels_geteventid(channel_id);
+          current_event = event_copy(current_eventId);
+
+          event_dump(current_event);
+          event_free(current_event);
+          break;
 
         case 'n':
         case 'p':

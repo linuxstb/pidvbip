@@ -9,9 +9,6 @@ TARGETS=mpeg2test pidvbip flvtoh264
 # disable asserts
 CFLAGS+=-DNDEBUG
 
-# Uncomment to enable software MPEG-2
-#CFLAGS+=-DSOFTWARE_MPEG2
-
 all: $(TARGETS)
 
 flvtoh264: flvtoh264.c

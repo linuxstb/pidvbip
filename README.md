@@ -36,10 +36,10 @@ typing "make" in the source code directory.
 MPEG-2 decoding
 ---------------
 
-pidvbip contains support for both hardware and software MPEG-2
-decoding.  The default is to use hardware decoding, so if you don't
-have this license, enable the -DSOFTWARE_MPEG2 compile-time flag in
-the Makefile.
+pidvbip will detect whether the MPEG-2 hardware codec is enabled, and
+fall back to software decoding otherwise.  Software MPEG-2 only works
+for relatively low bitrate SD streams - it is recommended to overclock
+your Pi as high as possible if you want to use software decoding.
 
 
 Usage

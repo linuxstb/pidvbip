@@ -8,6 +8,7 @@
 #include <termios.h>
 #include <ctype.h>
 #include <time.h>
+#include <interface/vmcs_host/vcgencmd.h>
 
 #include "bcm_host.h"
 #include "vcodec_mpeg2.h"
@@ -30,6 +31,23 @@ struct codecs_t {
 
 /* TODO: Should this be global? */
 struct htsp_t htsp;
+
+int hw_mpeg2;
+
+int mpeg2_codec_enabled(void)
+{
+  char response[1024];
+
+  vc_gencmd_init();
+
+  vc_gencmd(response,sizeof(response), "codec_enabled MPG2");
+
+  if (strcmp(response,"MPG2=enabled")==0) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
 
 /* Enable to dump video streams to files (for debugging) */
 //#define DUMP_VIDEO
@@ -251,6 +269,14 @@ int main(int argc, char* argv[])
 
     bcm_host_init();
 
+    hw_mpeg2 = mpeg2_codec_enabled();
+
+    if (hw_mpeg2) {
+      fprintf(stderr,"Using hardware MPEG-2 decoding\n");
+    } else {
+      fprintf(stderr,"Using software MPEG-2 decoding\n");
+    }
+
     osd_init(&osd);
 
     if ((res = htsp_connect(&htsp,host,port)) > 0) {
@@ -380,11 +406,11 @@ next_channel:
 
     if (codecs.subscription.videostream != -1) {
       if (codecs.subscription.streams[codecs.subscription.videostream].codec == HMF_VIDEO_CODEC_MPEG2) {
-#ifdef SOFTWARE_MPEG2
-        vcodec_mpeg2_init(&codecs.vcodec);
-#else
-        vcodec_omx_init(&codecs.vcodec,OMX_VIDEO_CodingMPEG2);
-#endif
+        if (hw_mpeg2) {
+          vcodec_omx_init(&codecs.vcodec,OMX_VIDEO_CodingMPEG2);
+        } else {
+          vcodec_mpeg2_init(&codecs.vcodec);
+        }
       } else if (codecs.subscription.streams[codecs.subscription.videostream].codec == HMF_VIDEO_CODEC_H264) {
         vcodec_omx_init(&codecs.vcodec,OMX_VIDEO_CodingAVC);
       } else {

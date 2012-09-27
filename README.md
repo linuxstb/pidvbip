@@ -60,6 +60,7 @@ Once running, the following actions are possible:
     'n' - next channel
     'p' - previous channel
     'i' - show current event information
+    'h' - toggle auto-switching to HD versions of programmes from an SD channel
 
 pidvbip currently supports hardware decoding of H264 and MPEG-2 video
 streams, and software decoding of MPEG, AAC and A/52 (AC-3) audio

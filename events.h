@@ -23,6 +23,7 @@ struct event_t* event_copy(uint32_t eventId);
 void event_delete(uint32_t eventId);
 void event_free(struct event_t* event);
 void event_dump(struct event_t* event);
+int event_find_hd_version(int eventId);
 void events_init(void);
 
 #endif

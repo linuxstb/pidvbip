@@ -9,6 +9,7 @@ struct channel_t
   uint32_t eventId;
   uint32_t nextEventId;
   int lcn;
+  int type;
   char* name;
   struct channel_t* next;
   struct channel_t* prev;
@@ -25,7 +26,7 @@ void channels_init(void)
   num_channels = 0;
 }
 
-void channels_add(int lcn, int id, char* name, uint32_t eventId, uint32_t nextEventId)
+void channels_add(int lcn, int id, char* name, int type, uint32_t eventId, uint32_t nextEventId)
 {
   struct channel_t* p = channels;
   struct channel_t* prev = NULL;
@@ -34,6 +35,7 @@ void channels_add(int lcn, int id, char* name, uint32_t eventId, uint32_t nextEv
 
   new->lcn = lcn;
   new->id = id;
+  new->type = type;
   new->name = name;
   new->eventId = eventId;
   new->nextEventId = nextEventId;
@@ -73,7 +75,7 @@ void channels_add(int lcn, int id, char* name, uint32_t eventId, uint32_t nextEv
   num_channels++;
 }
 
-void channels_update(int lcn, int id, char* name, uint32_t eventId, uint32_t nextEventId)
+void channels_update(int lcn, int id, char* name, int type, uint32_t eventId, uint32_t nextEventId)
 {
   struct channel_t* p;
 
@@ -88,9 +90,10 @@ void channels_update(int lcn, int id, char* name, uint32_t eventId, uint32_t nex
 
   if (p==NULL) {
     fprintf(stderr,"Channel %d not found for update, adding.\n",id);
-    channels_add(lcn,id,name,eventId,nextEventId);
+    channels_add(lcn,id,name,type,eventId,nextEventId);
   } else {
     if (lcn >= 0) p->lcn = lcn;
+    if (type) p->type = type;
     if (name) {
       free(p->name);
       p->name = name;
@@ -203,6 +206,26 @@ int channels_getlcn(int id)
     if (p->id == id) {
       channels_cache = p;
       return p->lcn;
+    }
+    p = p->next;
+  }
+
+  return -1;
+}
+
+int channels_gettype(int id)
+{
+  struct channel_t* p;
+
+  if ((channels_cache) && (channels_cache->id == id)) {
+    return channels_cache->type;;
+  }
+
+  p = channels;
+  while (p) {
+    if (p->id == id) {
+      channels_cache = p;
+      return p->type;
     }
     p = p->next;
   }

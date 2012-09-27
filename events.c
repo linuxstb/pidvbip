@@ -6,6 +6,7 @@
 #include "avl.h"
 #include "htsp.h"
 #include "events.h"
+#include "channels.h"
 
 static struct avl_tree events;
 static pthread_mutex_t events_mutex;
@@ -184,6 +185,46 @@ void event_dump(struct event_t* event)
   fprintf(stderr,"Description: %s\n",event->description);
 
   pthread_mutex_unlock(&events_mutex);
+}
+
+static int find_hd_version(struct avl* a,struct event_t* sd_event){
+  int res = -1;
+  struct event_t* events = (struct event_t*)a;
+
+  if (a==NULL) return -1;
+
+  if ((events->episodeId == sd_event->episodeId) && 
+      (events->start == sd_event->start) && 
+      (channels_gettype(events->channelId)==CTYPE_HDTV)) {
+    return events->channelId;
+  }
+
+  if (a->right) {
+    res = find_hd_version(a->right,sd_event);
+  }
+
+  if (res == -1) {
+    if (a->left) {
+      res = find_hd_version(a->left,sd_event);
+    }
+  }
+
+  return res;
+}
+
+int event_find_hd_version(int eventId)
+{
+  pthread_mutex_lock(&events_mutex);
+
+  struct event_t* current_event = event_get_nolock(eventId);
+
+  fprintf(stderr,"Searching for episode %d\n",current_event->episodeId);
+  int res = find_hd_version(events.root,current_event);
+  fprintf(stderr,"HERE - res=%d\n",res);
+  
+  pthread_mutex_unlock(&events_mutex);
+
+  return res;
 }
 
 void events_init(void)

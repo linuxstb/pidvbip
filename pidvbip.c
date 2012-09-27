@@ -59,27 +59,63 @@ void process_message(char* method,struct htsp_message_t* msg,char* debugtext)
   } else if (strcmp(method,"eventDeleted")==0) {
     uint32_t eventId;
     if (htsp_get_uint(msg,"eventId",&eventId)==0) {
-      //fprintf(stderr,"eventDeleted: %d\n",eventId);
+      fprintf(stderr,"eventDeleted: %d\n",eventId);
       event_delete(eventId);
     } else {
       fprintf(stderr,"Warning eventDeleted event not found (%d)\n",eventId);
     }
   } else if ((strcmp(method,"channelAdd")==0) || (strcmp(method,"channelUpdate")==0)) {
     // channelName, channelNumber, channelId
-    int channelNumber,channelId;
+    int channelNumber,channelId,channelType;
     uint32_t eventid,nexteventid;
     char* channelName;
+    unsigned char* list;
+    int listlen;
+
     if (htsp_get_int(msg,"channelId",&channelId) == 0) { 
       if (htsp_get_int(msg,"channelNumber",&channelNumber) > 0) { channelNumber = -1; }
       if (htsp_get_uint(msg,"eventId",&eventid) > 0) { eventid = 0; }
       if (htsp_get_uint(msg,"nextEventId",&nexteventid) > 0) { nexteventid = 0; }
       channelName = htsp_get_string(msg,"channelName");
+
+      if (htsp_get_list(msg,"services",&list,&listlen) > 0)
+      {
+        channelType = 0;
+      } else {
+        unsigned char* buf = list;
+        int type = buf[0]; if (type > 6) { type = 0; }
+        int namelength = buf[1];
+        int datalength = (buf[2] << 24) | (buf[3] << 16) | (buf[4] << 8) | buf[5];
+
+        buf += 6;
+
+        struct htsp_message_t tmpmsg;
+        tmpmsg.msg = buf + namelength - 4;
+        tmpmsg.msglen = datalength;
+
+        char* typestr = htsp_get_string(&tmpmsg,"type");
+        if (strncmp(typestr,"SDTV",4)==0) {
+          //fprintf(stderr,"Type=SDTV\n");
+          channelType = CTYPE_SDTV;
+        } else if (strncmp(typestr,"HDTV",4)==0) {
+          //fprintf(stderr,"Type=HDTV\n");
+          channelType = CTYPE_HDTV;
+        } else if (strncmp(typestr,"Radio",4)==0) {
+          //fprintf(stderr,"Type=RADIO\n");
+          channelType = CTYPE_RADIO;
+        } else {
+          fprintf(stderr,"Type=%s (unknown - defaulting to SDTV\n",typestr);
+          channelType = CTYPE_SDTV;
+        }
+        free(typestr);
+      }
+
       if (strcmp(method,"channelAdd")==0) {
-        channels_add(channelNumber,channelId,channelName,eventid,nexteventid);
+        channels_add(channelNumber,channelId,channelName,channelType,eventid,nexteventid);
         //fprintf(stderr,"channelAdd - id=%d,lcn=%d,name=%s,current_event=%d,next_event=%d\n",channelId,channelNumber,channelName,eventid,nexteventid);
       } else {
-        channels_update(channelNumber,channelId,channelName,eventid,nexteventid);
-        //fprintf(stderr,"channelUpdated - id=%d,current_event=%d,next_event=%d\n",channelId,eventid,nexteventid);
+        channels_update(channelNumber,channelId,channelName,channelType,eventid,nexteventid);
+        //fprintf(stderr,"channelUpdate - id=%d,current_event=%d,next_event=%d\n",channelId,eventid,nexteventid);
       }
     }
   } else if (strcmp(method,"queueStatus")== 0) {
@@ -235,11 +271,29 @@ void usage(void)
   fprintf(stderr,"\nOptions:\n\n");
 }
 
+static int get_actual_channel(int auto_hdtv, int user_channel_id)
+{
+  int actual_channel_id = user_channel_id;
+
+  if ((auto_hdtv) && (channels_gettype(user_channel_id)==CTYPE_SDTV)) {
+    uint32_t current_eventId = channels_geteventid(user_channel_id);
+    int hd_channel = event_find_hd_version(current_eventId);
+    if (hd_channel >= 0) {
+      fprintf(stderr,"Auto-switching to channel %d (%s)\n",channels_getlcn(hd_channel),channels_getname(hd_channel));
+      actual_channel_id = hd_channel;
+    }
+  }
+
+  return actual_channel_id;
+}
+
 int main(int argc, char* argv[])
 {
     int res;
     int channel = -1;
-    int channel_id = -1;
+    int user_channel_id = -1;
+    int actual_channel_id = -1;
+    int auto_hdtv = 0;
     struct htsp_message_t msg;
     struct codecs_t codecs;
     struct osd_t osd;
@@ -341,21 +395,45 @@ int main(int argc, char* argv[])
 
     channels_dump();
 
-    channel_id = channels_getid(channel);
-    if (channel_id < 0)
-      channel_id = channels_getfirst();
+    user_channel_id = channels_getid(channel);
+    if (user_channel_id < 0)
+      user_channel_id = channels_getfirst();
 
-next_channel:
+    actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
+
     memset(&codecs.vcodec,0,sizeof(codecs.vcodec));
     memset(&codecs.acodec,0,sizeof(codecs.acodec));
 
-    fprintf(stderr,"Tuning to channel %d - \"%s\"\n",channels_getlcn(channel_id),channels_getname(channel_id));
+next_channel:
+    if (codecs.vcodec.thread) {
+      codec_stop(&codecs.vcodec);
+      pthread_join(codecs.vcodec.thread,NULL);
+    }
+
+    if (codecs.acodec.thread) {
+      codec_stop(&codecs.acodec);
+      pthread_join(codecs.acodec.thread,NULL);
+    }
+
+    /* Wait for htsp receiver thread to stop */
+
+    if (htspthread) {
+      DEBUGF("Wait for receiver thread to stop.\n");
+      pthread_join(htspthread,NULL);
+      htspthread = 0;
+      DEBUGF("Receiver thread stopped.\n");
+    }
+
+    memset(&codecs.vcodec,0,sizeof(codecs.vcodec));
+    memset(&codecs.acodec,0,sizeof(codecs.acodec));
+    
+    fprintf(stderr,"Tuning to channel %d - \"%s\"\n",channels_getlcn(user_channel_id),channels_getname(user_channel_id));
 
     char str[64];
-    snprintf(str,sizeof(str),"%03d - %s",channels_getlcn(channel_id),channels_getname(channel_id));
+    snprintf(str,sizeof(str),"%03d - %s",channels_getlcn(user_channel_id),channels_getname(user_channel_id));
     //osd_show_channelname(&osd,str);
 
-    res = htsp_create_message(&msg,HMF_STR,"method","subscribe",HMF_S64,"channelId",channel_id,HMF_S64,"subscriptionId",14,HMF_NULL);
+    res = htsp_create_message(&msg,HMF_STR,"method","subscribe",HMF_S64,"channelId",actual_channel_id,HMF_S64,"subscriptionId",14,HMF_NULL);
     res = htsp_send_message(&htsp,&msg);
     htsp_destroy_message(&msg);
 
@@ -442,36 +520,28 @@ wait_for_key:
           goto done;
 
         case 'i':
-          current_eventId = channels_geteventid(channel_id);
+          current_eventId = channels_geteventid(user_channel_id);
           current_event = event_copy(current_eventId);
 
           event_dump(current_event);
           event_free(current_event);
           break;
 
+        case 'h':
+          auto_hdtv = 1 - auto_hdtv;
+          int new_actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
+          if (new_actual_channel_id != actual_channel_id) {
+            actual_channel_id = new_actual_channel_id;
+            goto next_channel;
+          }
+          break;
+
         case 'n':
         case 'p':
-          if (codecs.vcodec.thread) {
-            codec_stop(&codecs.vcodec);
-            pthread_join(codecs.vcodec.thread,NULL);
-          }
+          if (c=='n') user_channel_id = channels_getnext(user_channel_id);
+          else user_channel_id = channels_getprev(user_channel_id);
 
-          if (codecs.acodec.thread) {
-            codec_stop(&codecs.acodec);
-            pthread_join(codecs.acodec.thread,NULL);
-          }
-
-          /* Wait for htsp receiver thread to stop */
-          DEBUGF("Wait for receiver thread to stop.\n");
-
-          if (htspthread) {
-            pthread_join(htspthread,NULL);
-            htspthread = 0;
-            DEBUGF("Receiver thread stopped.\n");
-          }
-
-          if (c=='n') channel_id = channels_getnext(channel_id);
-          else channel_id = channels_getprev(channel_id);
+          actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
 
           goto next_channel;
 

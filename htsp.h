@@ -71,6 +71,7 @@ int htsp_get_int(struct htsp_message_t* msg, char* name, int32_t* val);
 int htsp_get_uint(struct htsp_message_t* msg, char* name, uint32_t* val);
 int htsp_get_int64(struct htsp_message_t* msg, char* name, int64_t* val);
 int htsp_get_bin(struct htsp_message_t* msg, char* name, unsigned char** data,int* size);
+int htsp_get_list(struct htsp_message_t* msg, char* name, unsigned char** data,int* size);
 
 int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscription_t*);
 

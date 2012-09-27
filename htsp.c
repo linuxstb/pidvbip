@@ -336,7 +336,7 @@ int htsp_login(struct htsp_t* htsp)
   int res;
 
   htsp_create_message(&msg,HMF_STR,"method","hello",
-                           HMF_STR,"clientname","htsptest",
+                           HMF_STR,"clientname","pidvbip",
                            HMF_S64,"htspversion",1,
                            HMF_S64,"seq",1,
                            HMF_NULL);

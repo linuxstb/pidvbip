@@ -13,6 +13,8 @@ struct osd_t {
 void osd_init(struct osd_t* osd);
 void osd_done(struct osd_t* osd);
 void osd_show_info(struct osd_t* osd, int channel_id);
+void osd_show_newchannel(struct osd_t* osd, int channel);
 void osd_clear(struct osd_t* osd);
+void osd_clear_newchannel(struct osd_t* osd);
 
 #endif

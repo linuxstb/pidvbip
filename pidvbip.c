@@ -521,7 +521,11 @@ next_channel:
     pthread_create(&htspthread,NULL,(void * (*)(void *))htsp_receiver_thread,(void*)&codecs);
 
     /* UI loop - just block on keyboad input for now... */
+    int new_channel;
+    double new_channel_timeout;
 wait_for_key:
+    new_channel = -1;
+    new_channel_timeout = 0;
     while (1) {
       int c;
       struct timeval tv = { 0L, 100000L };  /* 100ms */
@@ -535,6 +539,33 @@ wait_for_key:
         DEBUGF("\n char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
 
         switch (c) {
+          case '0':
+          case '1':
+          case '2':
+          case '3':
+          case '4':
+          case '5':
+          case '6':
+          case '7':
+          case '8':
+          case '9':
+            if (new_channel == -1) {
+              new_channel = c - '0';
+            } else {
+              new_channel = (new_channel * 10) + (c - '0');
+              /* Limit to 4 digits */
+              if (new_channel > 10000) {
+                new_channel = new_channel % 10000;
+              }
+            }
+            if (osd_cleartime) {
+              osd_clear(&osd);
+              osd_cleartime = 0;
+            }
+            osd_show_newchannel(&osd,new_channel);
+            new_channel_timeout = get_time() + 1000;
+            break;
+
           case 'q':
             goto done;
 
@@ -557,7 +588,6 @@ wait_for_key:
           case 'p':
             if (c=='n') user_channel_id = channels_getnext(user_channel_id);
             else user_channel_id = channels_getprev(user_channel_id);
-
             actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
 
             goto next_channel;
@@ -570,6 +600,21 @@ wait_for_key:
       if ((osd_cleartime) && (get_time() > osd_cleartime)) {
         osd_clear(&osd);
         osd_cleartime = 0;
+      }
+
+      if ((new_channel_timeout) && (get_time() >= new_channel_timeout)) {
+        fprintf(stderr,"new_channel = %d\n",new_channel);
+        int new_channel_id = channels_getid(new_channel);
+        if (new_channel_id >= 0) {
+          user_channel_id = new_channel_id;
+          actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
+          goto next_channel;
+        } else {
+          osd_clear_newchannel(&osd);
+          fprintf(stderr,"No such channel\n");
+          new_channel = -1;
+          new_channel_timeout = 0;
+        }
       }
     }
 

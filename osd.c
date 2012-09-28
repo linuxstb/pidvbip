@@ -234,6 +234,36 @@ void osd_show_info(struct osd_t* osd, int channel_id)
   event_free(event);
 }
 
+void osd_show_newchannel(struct osd_t* osd, int channel)
+{
+  char str[128];
+
+  snprintf(str,sizeof(str),"%d",channel);
+  if (channel < 1000) {
+    str[4] = 0;
+    str[3] = '-';
+    if (channel < 100) {
+      str[2] = '-';
+      if (channel < 10) {
+        str[1] = '-';
+      }
+    }
+  }
+  fprintf(stderr,"New channel = %s\n",str);
+  osd_show_channelname(osd,str);
+  graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
+}
+
+void osd_clear_newchannel(struct osd_t* osd)
+{
+  /* TODO: Only clear channel area */
+
+  graphics_resource_fill(osd->img, 0, 0, osd->display_width, osd->display_height, GRAPHICS_RGBA32(0,0,0,0));
+  graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
+
+  fprintf(stderr,"Clearing OSD...\n");
+}
+
 void osd_clear(struct osd_t* osd)
 {
   graphics_resource_fill(osd->img, 0, 0, osd->display_width, osd->display_height, GRAPHICS_RGBA32(0,0,0,0));

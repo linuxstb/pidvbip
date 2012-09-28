@@ -57,6 +57,7 @@ parameter to skip directly to that channel.
 Once running, the following actions are possible:
 
     'q' - quit
+    '0' to '9' - direct channel number entry
     'n' - next channel
     'p' - previous channel
     'i' - show current event information

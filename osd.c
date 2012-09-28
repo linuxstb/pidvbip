@@ -19,59 +19,80 @@
 #define OSD_XMARGIN 32
 #define OSD_YMARGIN 18
 
-static const char *strnchr(const char *str, size_t len, char c)
+int32_t render_paragraph(GRAPHICS_RESOURCE_HANDLE img, const char *text, const uint32_t text_size, const uint32_t x_offset, const uint32_t y_offset)
 {
-   const char *e = str + len;
-   do {
-      if (*str == c) {
-         return str;
-      }
-   } while (++str < e);
-   return NULL;
-}
-
-int32_t render_paragraph(GRAPHICS_RESOURCE_HANDLE img, const char *text, const int skip, const uint32_t text_size, const uint32_t y_offset)
-{
-   uint32_t text_length = strlen(text)-skip;
+   uint32_t text_length = strlen(text);
+   uint32_t line_length;
    uint32_t width=0, height=0;
    const char *split = text;
    int32_t s=0;
-   int len = 0; // length of pre-paragraph
-   uint32_t img_w, img_h;
-
-   img_w = 1400;
-   img_h = 300;
-   //graphics_get_resource_size(img, &img_w, &img_h);
+   uint32_t img_w = 1400;;
 
    if (text_length==0)
       return 0;
-   while (split[0]) {
-      s = graphics_resource_text_dimensions_ext(img, split, text_length-(split-text), &width, &height, text_size);
-      if (s != 0) return s;
-      if (width > img_w) {
-         const char *space = strnchr(split, text_length-(split-text), ' ');
-         if (!space) {
-            len = split+1-text;
-            split = split+1;
-         } else {
-            len = space-text;
-            split = space+1;
-         }
-      } else {
-         break;
-      }
+
+   //fprintf(stderr,"render_paragraph(\"%s\",%d)\n",text,text_length);
+
+   s = graphics_resource_text_dimensions_ext(img, text, text_length, &width, &height, text_size);
+   if (s != 0) return s;
+
+   if (width <= img_w) {
+     /* We can display the whole line */
+     line_length = text_length;
+   } else {
+     //fprintf(stderr,"width=%d, img_w=%d, looking for next space\n",width,img_w);
+
+     const char* space = index(split,' ');
+
+     if (space) {
+       s = graphics_resource_text_dimensions_ext(img, text, space-text, &width, &height, text_size);
+       if (s != 0) return s;
+     }
+
+     if ((space == NULL) || (width > img_w)) {
+       /* No spaces, within img_w. Just go through character by character */
+       line_length = 0;
+       do {
+         line_length++;
+         s = graphics_resource_text_dimensions_ext(img, text, text_length, &width, &height, text_size);
+         if (s != 0) return s;
+       } while (width < img_w);
+
+       line_length--;
+     } else {
+       /* We have at least one space, so can split line on a space */
+       width = 0;
+       line_length = space - text;
+
+       while (width < img_w) {
+         space = index(space+1,' ');
+         s = graphics_resource_text_dimensions_ext(img, text, space - text, &width, &height, text_size);
+         if (s != 0) return s;
+
+         if (width < img_w) { line_length = space - text; }
+       }
+     }
    }
-   // split now points to last line of text. split-text = length of initial text. text_length-(split-text) is length of last line
-   if (width) {
-      s = graphics_resource_render_text_ext(img, OSD_XMARGIN+350, y_offset-height,
+
+   if (line_length) {
+     //int i;
+     //fprintf(stderr,"Rendering: ");
+     //for (i=0;i<line_length;i++) { fprintf(stderr,"%c",text[i]); }
+     //fprintf(stderr,"\n");
+
+     s = graphics_resource_render_text_ext(img, x_offset, y_offset,
                                      GRAPHICS_RESOURCE_WIDTH,
                                      GRAPHICS_RESOURCE_HEIGHT,
                                      GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
                                      GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
-                                     split, text_length-(split-text), text_size);
+                                     text, line_length, text_size);
       if (s!=0) return s;
    }
-   return render_paragraph(img, text, skip+text_length-len, text_size, y_offset - height);
+   if (text[line_length]) {
+     return render_paragraph(img, text + line_length+1, text_size, x_offset, y_offset + height);
+   } else {
+     return 0;
+   }
 }
 
 
@@ -154,24 +175,14 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event)
 
   osd_draw_window(osd,OSD_XMARGIN,700,width,height);
 
-  snprintf(str,sizeof(str),"%dh %02dm",duration/3600,(duration%3600)/60);
-
-  s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 800,
-                                     width,
-                                     height,
-                                     GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
-                                     GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
-				     str, strlen(str), 30);
-
-
   snprintf(str,sizeof(str),"%02d:%02d - %02d:%02d",start_time.tm_hour,start_time.tm_min,stop_time.tm_hour,stop_time.tm_min);
-
   s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 720,
                                      width,
                                      height,
                                      GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
                                      GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
 				     str, strlen(str), 40);
+
 
   s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+350, 720,
                                      width,
@@ -181,7 +192,16 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event)
 				     event->title, strlen(event->title), 40);
 
 
-  render_paragraph(osd->img, event->description,0,30,900);
+  snprintf(str,sizeof(str),"%dh %02dm",duration/3600,(duration%3600)/60);
+  s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 800,
+                                     width,
+                                     height,
+                                     GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
+                                     GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
+				     str, strlen(str), 30);
+
+
+  render_paragraph(osd->img, event->description,30,OSD_XMARGIN+350,800);
 
   //fprintf(stderr,"Title:       %s\n",event->title);
   //fprintf(stderr,"Start:       %04d-%02d-%02d %02d:%02d:%02d\n",start_time.tm_year+1900,start_time.tm_mon+1,start_time.tm_mday,start_time.tm_hour,start_time.tm_min,start_time.tm_sec);

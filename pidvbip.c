@@ -7,7 +7,7 @@
 #include <string.h>
 #include <termios.h>
 #include <ctype.h>
-#include <time.h>
+#include <sys/time.h>
 #include <interface/vmcs_host/vcgencmd.h>
 
 #include "bcm_host.h"
@@ -287,6 +287,19 @@ static int get_actual_channel(int auto_hdtv, int user_channel_id)
   return actual_channel_id;
 }
 
+double get_time(void)
+{
+  struct timeval tv;
+
+  gettimeofday(&tv,NULL);
+
+  double x = tv.tv_sec;
+  x *= 1000;
+  x += tv.tv_usec / 1000;
+
+  return x;
+}
+
 int main(int argc, char* argv[])
 {
     int res;
@@ -297,11 +310,10 @@ int main(int argc, char* argv[])
     struct htsp_message_t msg;
     struct codecs_t codecs;
     struct osd_t osd;
-    uint32_t current_eventId;
-    struct event_t* current_event;
     pthread_t htspthread = 0;
     char* host = NULL;
     int port;
+    double osd_cleartime = 0;
 
     if (argc == 1) {
       /* No arguments, try to read default config from /boot/config.txt */
@@ -429,9 +441,8 @@ next_channel:
     
     fprintf(stderr,"Tuning to channel %d - \"%s\"\n",channels_getlcn(user_channel_id),channels_getname(user_channel_id));
 
-    char str[64];
-    snprintf(str,sizeof(str),"%03d - %s",channels_getlcn(user_channel_id),channels_getname(user_channel_id));
-    //osd_show_channelname(&osd,str);
+    osd_show_info(&osd,user_channel_id);
+    osd_cleartime = get_time() + 5000;
 
     res = htsp_create_message(&msg,HMF_STR,"method","subscribe",HMF_S64,"channelId",actual_channel_id,HMF_S64,"subscriptionId",14,HMF_NULL);
     res = htsp_send_message(&htsp,&msg);
@@ -512,41 +523,53 @@ next_channel:
     /* UI loop - just block on keyboad input for now... */
 wait_for_key:
     while (1) {
-      int c = getchar();
-      DEBUGF("\n char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
+      int c;
+      struct timeval tv = { 0L, 100000L };  /* 100ms */
+      fd_set fds;
+      FD_ZERO(&fds);
+      FD_SET(0, &fds);
+      if (select(1, &fds, NULL, NULL, &tv)==0) {
+        c = -1;
+      } else {
+        c = getchar();
+        DEBUGF("\n char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
 
-      switch (c) {
-        case 'q':
-          goto done;
+        switch (c) {
+          case 'q':
+            goto done;
 
-        case 'i':
-          current_eventId = channels_geteventid(user_channel_id);
-          current_event = event_copy(current_eventId);
+          case 'i':
+            osd_show_info(&osd,user_channel_id);
+            osd_cleartime = get_time() + 5000;
 
-          event_dump(current_event);
-          event_free(current_event);
-          break;
+            break;
 
-        case 'h':
-          auto_hdtv = 1 - auto_hdtv;
-          int new_actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
-          if (new_actual_channel_id != actual_channel_id) {
-            actual_channel_id = new_actual_channel_id;
+          case 'h':
+            auto_hdtv = 1 - auto_hdtv;
+            int new_actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
+            if (new_actual_channel_id != actual_channel_id) {
+              actual_channel_id = new_actual_channel_id;
+              goto next_channel;
+            }
+            break;
+
+          case 'n':
+          case 'p':
+            if (c=='n') user_channel_id = channels_getnext(user_channel_id);
+            else user_channel_id = channels_getprev(user_channel_id);
+
+            actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
+
             goto next_channel;
-          }
-          break;
 
-        case 'n':
-        case 'p':
-          if (c=='n') user_channel_id = channels_getnext(user_channel_id);
-          else user_channel_id = channels_getprev(user_channel_id);
+          default:
+            break;            
+        }
+      }
 
-          actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
-
-          goto next_channel;
-
-        default:
-          break;            
+      if ((osd_cleartime) && (get_time() > osd_cleartime)) {
+        osd_clear(&osd);
+        osd_cleartime = 0;
       }
     }
 

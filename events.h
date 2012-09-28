@@ -2,6 +2,7 @@
 #define _EVENTS_H
 
 #include <stdint.h>
+#include "htsp.h"
 #include "avl.h"
 
 struct event_t {

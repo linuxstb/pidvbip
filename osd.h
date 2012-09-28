@@ -6,10 +6,13 @@
 struct osd_t {
   GRAPHICS_RESOURCE_HANDLE img_bg;
   GRAPHICS_RESOURCE_HANDLE img;
+  int display_width;
+  int display_height;
 };
 
 void osd_init(struct osd_t* osd);
 void osd_done(struct osd_t* osd);
-void osd_show_channelname(struct osd_t* osd, const char *text);
+void osd_show_info(struct osd_t* osd, int channel_id);
+void osd_clear(struct osd_t* osd);
 
 #endif

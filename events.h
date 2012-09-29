@@ -15,6 +15,7 @@ struct event_t {
   char* description;
   uint32_t serieslinkId;
   uint32_t episodeId;
+  char* episodeUri;
   uint32_t nextEventId;  
 };
 

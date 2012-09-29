@@ -27,7 +27,7 @@ The platform being used to develop pidvbip is Raspbian (2012-08-16 image).
 
 pidvbip requires the following dependencies:
 
-libmpg123-dev libfaad-dev liba52-dev
+libmpg123-dev libfaad-dev liba52-dev libavahi-client-dev
 
 After installing these with "apt-get install", you can build pidvbip by
 typing "make" in the source code directory.
@@ -45,16 +45,27 @@ your Pi as high as possible if you want to use software decoding.
 Usage
 -----
 
-To run pidvbip you just need to start it with the hostname and port of
-your tvheadend server.  e.g.
+There are three ways for pidvbip to locate the tvheadend server:
 
-./pidvbip mypc 9982
+1) Using avahi.  To do this you need to ensure that tvheadend is
+   compiled with avahi support and avahi-daemon is running on both the
+   machine running tvheadend and the Pi running pidvbip.
 
-By default it will tune to the first channel in your channel list and
-start playing.  You can optionally specify a channel number as a third
-parameter to skip directly to that channel.
+2) Via the config file /boot/pidvbip.txt If avahi fails to locate a
+   server, pidvbip will look in this file.  The first line of this
+   file must contain the hostname and port, separated by a space.
 
-Once running, the following actions are possible:
+3) Via the command line - e.g. ./pidvbip mypc 9982
+
+As soon as pidvbip starts it will connect to tvheadend, download the
+channel list and all EPG data, and then tune to the first channel in
+your channel list and start playing.
+
+You can optionally specify a channel number as a third parameter to
+skip directly to that channel (only when also specifying the host and
+port on the command-line).
+
+Once running, the following keys are mapped to actions:
 
     'q' - quit
     '0' to '9' - direct channel number entry

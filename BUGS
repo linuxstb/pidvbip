@@ -51,3 +51,5 @@ CORE FEATURES
 * Add LIRC input support
 
 * Integrate with OpenELEC
+
+* avahi discovery only returns the first discovered instance of tvheadend

@@ -38,15 +38,12 @@ static char *get_ip(char *host)
   return ip;
 }
 
-int htsp_connect(struct htsp_t* htsp, char* host, int port)
+int htsp_connect(struct htsp_t* htsp)
 {
     int res;
 
-    htsp->host = host;
-    htsp->port = port;
-
     htsp->sock = create_tcp_socket();
-    htsp->ip = get_ip(host);
+    htsp->ip = get_ip(htsp->host);
 
     fprintf(stderr,"Connecting to %s (%s) port %d...\n",htsp->host,htsp->ip,htsp->port);    
 
@@ -62,7 +59,7 @@ int htsp_connect(struct htsp_t* htsp, char* host, int port)
         fprintf(stderr, "%s is not a valid IP address\n", htsp->ip);
         return 1;
     }
-    htsp->remote->sin_port = htons(port);
+    htsp->remote->sin_port = htons(htsp->port);
  
     if (connect(htsp->sock, (struct sockaddr *)htsp->remote, sizeof(struct sockaddr)) < 0){
         perror("Could not connect");

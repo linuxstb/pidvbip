@@ -21,6 +21,7 @@
 #include "events.h"
 #include "debug.h"
 #include "osd.h"
+#include "avahi.h"
 
 struct codecs_t {
   struct codec_t vcodec; // Video
@@ -311,17 +312,22 @@ int main(int argc, char* argv[])
     struct codecs_t codecs;
     struct osd_t osd;
     pthread_t htspthread = 0;
-    char* host = NULL;
-    int port;
     double osd_cleartime = 0;
 
+    htsp.host = NULL;
+
     if (argc == 1) {
-      /* No arguments, try to read default config from /boot/config.txt */
-      if (read_config(NULL,&host,&port) < 0) {
-        fprintf(stderr,"ERROR: Could not read from config file\n");
-        fprintf(stderr,"Create config.txt in /boot/pidvbip.txt containing one line with the\n");
-        fprintf(stderr,"host and port of the server separated by a space.\n");
-        exit(1);
+      /* No arguments, try avahi discovery */
+      avahi_discover_tvh(&htsp);
+
+      if (htsp.host == NULL) {
+        /* No avahi, try to read default config from /boot/config.txt */
+        if (read_config(NULL,&htsp.host,&htsp.port) < 0) {
+          fprintf(stderr,"ERROR: Could not read from config file\n");
+          fprintf(stderr,"Create config.txt in /boot/pidvbip.txt containing one line with the\n");
+          fprintf(stderr,"host and port of the server separated by a space.\n");
+          exit(1);
+        }
       }
 //    } else if (argc==2) {
 //      /* One argument - config file */
@@ -329,10 +335,11 @@ int main(int argc, char* argv[])
         usage();
         return 1;
     } else {
-        host = argv[1];
-        port = atoi(argv[2]);
+        htsp.host = argv[1];
+        htsp.port = atoi(argv[2]);
     }
 
+    fprintf(stderr,"Using host \"%s:%d\"\n",htsp.host,htsp.port);
     bcm_host_init();
 
     hw_mpeg2 = mpeg2_codec_enabled();
@@ -345,7 +352,7 @@ int main(int argc, char* argv[])
 
     osd_init(&osd);
 
-    if ((res = htsp_connect(&htsp,host,port)) > 0) {
+    if ((res = htsp_connect(&htsp)) > 0) {
         fprintf(stderr,"Error connecting to htsp server, aborting.\n");
         return 2;
     }

@@ -17,14 +17,17 @@ flvtoh264: flvtoh264.c
 mpeg2test: mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
 	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o mpeg2test mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
 
-pidvbip: pidvbip.c libmpeg2/libmpeg2.a vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o acodec_mpeg.o acodec_aac.o acodec_a52.o channels.o events.o libs/vgfont/libvgfont.a libs/ilclient/libilclient.a osd.o tiresias_pcfont.o avl.o
-	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o pidvbip pidvbip.c vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o  acodec_aac.o acodec_a52.o acodec_mpeg.o channels.o events.o osd.o tiresias_pcfont.o avl.o libmpeg2/libmpeg2.a libs/ilclient/libilclient.a libs/vgfont/libvgfont.a -lmpg123 -lfaad -la52 -lfreetype
+pidvbip: pidvbip.c libmpeg2/libmpeg2.a vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o acodec_mpeg.o acodec_aac.o acodec_a52.o channels.o events.o avahi.o libs/vgfont/libvgfont.a libs/ilclient/libilclient.a osd.o tiresias_pcfont.o avl.o
+	gcc $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o pidvbip pidvbip.c vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o  acodec_aac.o acodec_a52.o acodec_mpeg.o channels.o events.o avahi.o osd.o tiresias_pcfont.o avl.o libmpeg2/libmpeg2.a libs/ilclient/libilclient.a libs/vgfont/libvgfont.a -lmpg123 -lfaad -la52 -lfreetype -lavahi-client
 
 vo_pi.o: vo_pi.c vo_pi.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o vo_pi.o vo_pi.c
 
 htsp.o: htsp.c htsp.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o htsp.o htsp.c
+
+avahi.o: avahi.c avahi.h htsp.h
+	$(CC) $(INCLUDES) $(CFLAGS) -c -o avahi.o avahi.c
 
 channels.o: channels.c channels.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o channels.o channels.c

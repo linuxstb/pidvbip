@@ -61,7 +61,7 @@ struct htsp_subscription_t
 
 void htsp_dump_message(struct htsp_message_t* msg);
 void htsp_destroy_message(struct htsp_message_t* msg);
-int htsp_connect(struct htsp_t* htsp, char* host, int port);
+int htsp_connect(struct htsp_t* htsp);
 int htsp_create_message(struct htsp_message_t* msg, ...);
 int htsp_send_message(struct htsp_t* htsp, struct htsp_message_t* msg);
 int htsp_recv_message(struct htsp_t* htsp, struct htsp_message_t* msg);

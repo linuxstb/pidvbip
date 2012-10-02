@@ -3,11 +3,28 @@
 #include <string.h>
 #include <stdarg.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 
 #include "htsp.h"
 #include "debug.h"
+
+void htsp_init(struct htsp_t* htsp)
+{
+    htsp->subscriptionId = 0;
+    pthread_mutex_init(&htsp->htsp_mutex,NULL);
+}
+
+void htsp_lock(struct htsp_t* htsp)
+{
+  pthread_mutex_lock(&htsp->htsp_mutex);
+}
+
+void htsp_unlock(struct htsp_t* htsp)
+{
+  pthread_mutex_unlock(&htsp->htsp_mutex);
+}
 
 static int create_tcp_socket()
 {
@@ -288,17 +305,27 @@ int htsp_send_message(struct htsp_t* htsp, struct htsp_message_t* msg)
   return 0;
 }
 
-int htsp_recv_message(struct htsp_t* htsp, struct htsp_message_t* msg)
+int htsp_recv_message(struct htsp_t* htsp, struct htsp_message_t* msg, int timeout)
 {
   int res;
   unsigned char buf[4];
+
+  if (timeout) {
+    struct timeval tv = { 0L, timeout*1000 };  /* timeout in ms */
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(htsp->sock, &fds);
+    if (select(htsp->sock + 1, &fds, NULL, NULL, &tv)==0) {
+      return 1;
+    }
+  }
 
   //fprintf(stderr,"Waiting for response...\n");
   res = recv(htsp->sock, buf, 4, 0);
 
   if (res < 4) {
     fprintf(stderr,"Error in recv - res=%d\n",res);
-    return 1;
+    return 2;
   }
 
   msg->msglen = get_uint32_be(buf);
@@ -317,7 +344,7 @@ int htsp_recv_message(struct htsp_t* htsp, struct htsp_message_t* msg)
 
     if (res < 0) {
       fprintf(stderr,"Error in recv\n");
-      return 1;
+      return 3;
     }
 
     p += res;
@@ -347,7 +374,7 @@ int htsp_login(struct htsp_t* htsp)
 
   htsp_destroy_message(&msg);
 
-  res = htsp_recv_message(htsp,&msg);
+  res = htsp_recv_message(htsp,&msg,0);
 
   if (res > 0) {
     fprintf(stderr,"Error receiving login response\n");

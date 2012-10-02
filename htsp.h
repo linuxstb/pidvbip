@@ -2,6 +2,7 @@
 #define _HTSP_H
 
 #include <stdint.h>
+#include <pthread.h>
 
 struct htsp_t 
 {
@@ -11,6 +12,8 @@ struct htsp_t
     char* host;
     int port;
     unsigned char challange[32];
+    int subscriptionId;
+    pthread_mutex_t htsp_mutex;
 };
 
 struct htsp_message_t
@@ -59,12 +62,15 @@ struct htsp_subscription_t
 #define HMF_LIST 5
 #define HMF_DBL  6
 
+void htsp_init(struct htsp_t* htsp);
+void htsp_lock(struct htsp_t* htsp);
+void htsp_unlock(struct htsp_t* htsp);
 void htsp_dump_message(struct htsp_message_t* msg);
 void htsp_destroy_message(struct htsp_message_t* msg);
 int htsp_connect(struct htsp_t* htsp);
 int htsp_create_message(struct htsp_message_t* msg, ...);
 int htsp_send_message(struct htsp_t* htsp, struct htsp_message_t* msg);
-int htsp_recv_message(struct htsp_t* htsp, struct htsp_message_t* msg);
+int htsp_recv_message(struct htsp_t* htsp, struct htsp_message_t* msg, int timeout);
 int htsp_login(struct htsp_t* htsp);
 char* htsp_get_string(struct htsp_message_t* msg, char* name);
 int htsp_get_int(struct htsp_message_t* msg, char* name, int32_t* val);

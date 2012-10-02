@@ -71,7 +71,7 @@ Once running, the following keys are mapped to actions:
     '0' to '9' - direct channel number entry
     'n' - next channel
     'p' - previous channel
-    'i' - show current event information
+    'i' - show/hide current event information
     'h' - toggle auto-switching to HD versions of programmes from an SD channel
     'c' - display list of channels and current events to the console
 

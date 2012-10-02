@@ -573,8 +573,14 @@ next_channel:
             goto done;
 
           case 'i':
-            osd_show_info(&osd,user_channel_id);
-            osd_cleartime = get_time() + 5000;
+            if (osd_cleartime) {
+              /* Hide info if currently shown */
+              osd_clear(&osd);
+              osd_cleartime = 0;
+	    } else {
+              osd_show_info(&osd,user_channel_id);
+              osd_cleartime = get_time() + 20000; /* 20 second timeout */
+            }
 
             break;
 

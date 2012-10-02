@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "channels.h"
+#include "events.h"
 
 struct channel_t
 {
@@ -108,7 +109,14 @@ void channels_dump(void)
   struct channel_t* p = channels;
 
   while (p) {
-    fprintf(stderr,"%5d  %5d - %s\n",p->id,p->lcn,p->name);
+    fprintf(stderr,"%5d  %5d - %s",p->id,p->lcn,p->name);
+    int i = 25 - strlen(p->name);
+    while (i--)
+      fprintf(stderr," ");
+
+    struct event_t* event = event_copy(p->eventId);
+    fprintf(stderr,"%s\n",event->title);
+    event_free(event);
     p = p->next;
   }
 }

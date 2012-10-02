@@ -464,8 +464,6 @@ int main(int argc, char* argv[])
       exit(1);
     }
 
-    channels_dump();
-
     /* We have finished the initial connection and sync, now start the
        receiving thread */
     pthread_create(&htspthread,NULL,(void * (*)(void *))htsp_receiver_thread,(void*)&codecs);
@@ -578,6 +576,10 @@ next_channel:
             osd_show_info(&osd,user_channel_id);
             osd_cleartime = get_time() + 5000;
 
+            break;
+
+          case 'c':
+            channels_dump();
             break;
 
           case 'h':

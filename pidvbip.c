@@ -528,7 +528,7 @@ next_channel:
 
     int new_channel;
     double new_channel_timeout;
-wait_for_key:
+
     new_channel = -1;
     new_channel_timeout = 0;
     while (1) {

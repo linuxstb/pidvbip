@@ -37,6 +37,7 @@
 #include "htsp.h"
 
 static char* tvh_hostname = NULL;
+static char* tvh_ip = NULL;
 static int tvh_port = 0;
 
 static AvahiSimplePoll *simple_poll = NULL;
@@ -75,6 +76,7 @@ static void resolve_callback(
             /* Copy hostname and port to global variables, ready to be returned later */
             if (tvh_hostname == NULL) {
               tvh_hostname = strdup(host_name);
+              tvh_ip = strdup(a);
               tvh_port = port;
             }
 

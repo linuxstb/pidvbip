@@ -364,6 +364,7 @@ int main(int argc, char* argv[])
     double osd_cleartime = 0;
 
     htsp.host = NULL;
+    htsp.ip = NULL;
 
     if (argc == 1) {
       /* No arguments, try avahi discovery */

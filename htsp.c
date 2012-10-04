@@ -60,7 +60,8 @@ int htsp_connect(struct htsp_t* htsp)
     int res;
 
     htsp->sock = create_tcp_socket();
-    htsp->ip = get_ip(htsp->host);
+    if (htsp->ip == NULL)
+      htsp->ip = get_ip(htsp->host);
 
     fprintf(stderr,"Connecting to %s (%s) port %d...\n",htsp->host,htsp->ip,htsp->port);    
 

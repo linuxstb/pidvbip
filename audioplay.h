@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-#include "bcm_host.h"
-#include "ilclient.h"
+#include <bcm_host.h>
+#include "libs/ilclient/ilclient.h"
 
 typedef struct {
    sem_t sema;

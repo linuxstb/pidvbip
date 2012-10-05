@@ -6,8 +6,8 @@
 #include <unistd.h>
 #include <time.h>
 
-#include "vgfont.h"
-#include "bcm_host.h"
+#include <bcm_host.h>
+#include "libs/vgfont/vgfont.h"
 #include "tiresias_pcfont.h"
 #include "osd.h"
 #include "channels.h"

@@ -5,7 +5,7 @@
 #include <pthread.h>
 
 #include "vo_pi.h"
-#include "ilclient.h"
+#include "libs/ilclient/ilclient.h"
 
 struct packet_t
 {

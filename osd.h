@@ -1,7 +1,7 @@
 #ifndef _OSD_H
 #define _OSD_H
 
-#include "vgfont.h"
+#include "libs/vgfont/vgfont.h"
 
 struct osd_t {
   GRAPHICS_RESOURCE_HANDLE img_bg;

@@ -216,6 +216,7 @@ fail:
 
     if (tvh_hostname) {
       htsp->host = tvh_hostname;
+      htsp->ip = tvh_ip;
       htsp->port = tvh_port;
     }
 

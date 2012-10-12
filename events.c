@@ -149,8 +149,10 @@ struct event_t* event_copy(uint32_t eventId)
   pthread_mutex_lock(&events_mutex);
   event = event_get_nolock(eventId);
 
-  if (event==NULL)
+  if (event==NULL) {
+    pthread_mutex_unlock(&events_mutex);
     return NULL;
+  }
 
   copy = malloc(sizeof(struct event_t));
 
@@ -175,6 +177,7 @@ void event_dump(struct event_t* event)
 
   if (event==NULL) {
     fprintf(stderr,"NULL event\n");
+    pthread_mutex_unlock(&events_mutex);
     return;
   }
 

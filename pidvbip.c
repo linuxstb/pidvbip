@@ -58,13 +58,13 @@ void process_message(char* method,struct htsp_message_t* msg,char* debugtext)
 {
   if ((strcmp(method,"eventAdd")==0) || (strcmp(method,"eventUpdate")==0)) {
     process_event_message(method,msg);
-  } else if (strcmp(method,"eventDeleted")==0) {
+  } else if (strcmp(method,"eventDelete")==0) {
     uint32_t eventId;
     if (htsp_get_uint(msg,"eventId",&eventId)==0) {
-      fprintf(stderr,"eventDeleted: %d\n",eventId);
+      fprintf(stderr,"eventDelete: %d\n",eventId);
       event_delete(eventId);
     } else {
-      fprintf(stderr,"Warning eventDeleted event not found (%d)\n",eventId);
+      fprintf(stderr,"Warning eventDelete event not found (%d)\n",eventId);
     }
   } else if ((strcmp(method,"channelAdd")==0) || (strcmp(method,"channelUpdate")==0)) {
     // channelName, channelNumber, channelId

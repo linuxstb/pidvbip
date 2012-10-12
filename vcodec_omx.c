@@ -127,12 +127,14 @@ static void* vcodec_omx_thread(struct codec_t* codec)
       int port_settings_changed = 0;
       int first_packet = 1;
 
+#if 0
       OMX_PARAM_BRCMVIDEODECODEERRORCONCEALMENTTYPE ec;
       memset (&ec, 0, sizeof ec);
       ec.nSize = sizeof ec;
       ec.nVersion.nVersion = OMX_VERSION;
       ec.bStartWithValidFrame = OMX_FALSE;
       OMX_SetParameter(ILC_GET_HANDLE(video_decode), OMX_IndexParamBrcmVideoDecodeErrorConcealment, &ec);
+#endif
 
       ilclient_change_component_state(video_decode, OMX_StateExecuting);
 

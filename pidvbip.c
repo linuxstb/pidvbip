@@ -455,11 +455,11 @@ int main(int argc, char* argv[])
     if ((inputfd = open(inputdevice, O_RDONLY)) >= 0) {
       ioctl (inputfd, EVIOCGNAME (sizeof (inputname)), inputname);
       fprintf(stderr,"Using %s - %s\n", inputdevice, inputname);
-    }
 
-    /* Disable auto-repeat (for now...) */
-    int ioctl_params[2] = { 0, 0 };
-    ioctl(inputfd,EVIOCSREP,ioctl_params);
+      /* Disable auto-repeat (for now...) */
+      int ioctl_params[2] = { 0, 0 };
+      ioctl(inputfd,EVIOCSREP,ioctl_params);
+    }
 
     osd_init(&osd);
 
@@ -608,7 +608,7 @@ next_channel:
         if (FD_ISSET(0,&fds)) {
           c = getchar();
         }
-        if (FD_ISSET(inputfd,&fds)) {
+        if ((inputfd >= 0) && (FD_ISSET(inputfd,&fds))) {
           c = get_input_key(inputfd);
         }
         DEBUGF("char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));

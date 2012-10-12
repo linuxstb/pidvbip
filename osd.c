@@ -166,14 +166,18 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event)
   int s;
   struct tm start_time;
   struct tm stop_time;
-  int duration = event->stop - event->start;
+  int duration;
   int width = 1920-2*OSD_XMARGIN;
   int height = 380-OSD_YMARGIN;
 
+  osd_draw_window(osd,OSD_XMARGIN,700,width,height);
+
+  if (event==NULL)
+    return;
+
   localtime_r((time_t*)&event->start,&start_time);
   localtime_r((time_t*)&event->stop,&stop_time);
-
-  osd_draw_window(osd,OSD_XMARGIN,700,width,height);
+  duration = event->stop - event->start;
 
   snprintf(str,sizeof(str),"%02d:%02d - %02d:%02d",start_time.tm_hour,start_time.tm_min,stop_time.tm_hour,stop_time.tm_min);
   s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 720,

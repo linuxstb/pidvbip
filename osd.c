@@ -14,7 +14,9 @@
 #include "events.h"
 
 #define SCREEN 0
-#define LAYER 1
+#define BG_LAYER 0
+#define FG_LAYER 2
+#define OSD_LAYER 3
 
 #define OSD_XMARGIN 32
 #define OSD_YMARGIN 18
@@ -111,17 +113,39 @@ void osd_init(struct osd_t* osd)
    assert(s == 0);
    //fprintf(stderr,"Display width=%d, height=%d\n",display_width,display_height);
 
+   /* The main OSD image */
    s = gx_create_window(SCREEN, display_width, display_height, GRAPHICS_RESOURCE_RGBA32, &osd->img);
    assert(s == 0);
    graphics_resource_fill(osd->img, 0, 0, display_width, display_height, GRAPHICS_RGBA32(0,0,0,0));
 
-   graphics_display_resource(osd->img, 0, LAYER, 0, 0, GRAPHICS_RESOURCE_WIDTH, GRAPHICS_RESOURCE_HEIGHT, VC_DISPMAN_ROT0, 1);
+   graphics_display_resource(osd->img, 0, OSD_LAYER, 0, 0, GRAPHICS_RESOURCE_WIDTH, GRAPHICS_RESOURCE_HEIGHT, VC_DISPMAN_ROT0, 1);
+
+   /* A full-screen black image to either remove any left-over console text (BG_LAYER) or to hide the video (FG_LAYER) */
+   s = gx_create_window(SCREEN, display_width, display_height, GRAPHICS_RESOURCE_RGBA32, &osd->img_blank);
+   assert(s == 0);
+   graphics_resource_fill(osd->img_blank, 0, 0, display_width, display_height, GRAPHICS_RGBA32(0,0,0,255));
+
+   graphics_display_resource(osd->img_blank, 0, BG_LAYER, 0, 0, GRAPHICS_RESOURCE_WIDTH, GRAPHICS_RESOURCE_HEIGHT, VC_DISPMAN_ROT0, 1);
+}
+
+void osd_blank_video(struct osd_t* osd, int on_off)
+{
+  if (on_off) {
+    /* Display on top of video */
+    graphics_display_resource(osd->img_blank, 0, FG_LAYER, 0, 0, GRAPHICS_RESOURCE_WIDTH, GRAPHICS_RESOURCE_HEIGHT, VC_DISPMAN_ROT0, 1);
+  } else {
+    /* Display underneath video */
+    graphics_display_resource(osd->img_blank, 0, BG_LAYER, 0, 0, GRAPHICS_RESOURCE_WIDTH, GRAPHICS_RESOURCE_HEIGHT, VC_DISPMAN_ROT0, 1);
+  }
 }
 
 void osd_done(struct osd_t* osd)
 {
-   graphics_display_resource(osd->img, 0, LAYER, 0, 0, GRAPHICS_RESOURCE_WIDTH, GRAPHICS_RESOURCE_HEIGHT, VC_DISPMAN_ROT0, 0);
+   graphics_display_resource(osd->img, 0, OSD_LAYER, 0, 0, GRAPHICS_RESOURCE_WIDTH, GRAPHICS_RESOURCE_HEIGHT, VC_DISPMAN_ROT0, 0);
    graphics_delete_resource(osd->img);
+
+   graphics_display_resource(osd->img_blank, 0, BG_LAYER, 0, 0, GRAPHICS_RESOURCE_WIDTH, GRAPHICS_RESOURCE_HEIGHT, VC_DISPMAN_ROT0, 0);
+   graphics_delete_resource(osd->img_blank);
 }
 
 

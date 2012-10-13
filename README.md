@@ -80,6 +80,44 @@ streams, and software decoding of MPEG, AAC and A/52 (AC-3) audio
 streams.  Multi-channel audio streams are downmixed to Stereo.
 
 
+OpenELEC build
+--------------
+
+A modified version of OpenELEC using pidvbip instead of xbmc as the
+mediacenter package can be built from the fork of OpenELEC at:
+
+https://github.com/linuxstb/OpenELEC.tv
+
+This is configured to take the latest "git master" version of pidvbip
+directly from github.  To build, do the following
+
+git clone https://github.com/linuxstb/OpenELEC.tv
+cd OpenELEC.tv
+PROJECT=pidvbip ARCH=arm make release
+
+This will generate (after many hours, and using about 6GB of disk
+space) a .bz2 file within the "target" subdirectory.
+
+To create a bootable SD card, format a SD card as FAT32 (no Linux
+format partitions are needed) and copy the following files:
+
+3rdparty/bootloader/bootcode.bin
+3rdparty/bootloader/start.elf
+target/KERNEL (rename to kernel.img)
+target/SYSTEM
+
+
+In addition, you should add a config.txt file including your MPEG-2
+license key (if required) and any other settings, plus a cmdline.txt
+file containing the following line:
+
+boot=/dev/mmcblk0p1 ssh quiet
+
+(if you don't want to enable the ssh server, remove "ssh" from the
+above line)
+
+
+
 Bugs
 ----
 

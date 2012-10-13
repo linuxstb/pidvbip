@@ -148,6 +148,7 @@ static void* vcodec_omx_thread(struct codec_t* codec)
          data_len += fread(dest, 1, packet_size+(find_start_codes*4)-data_len, in);
 #endif
 
+next_channel:
          /******* Start of new code for vcodec_omx.c */
          if (current == NULL) { 
            current = codec_queue_get_next_item(codec); 
@@ -155,8 +156,9 @@ static void* vcodec_omx_thread(struct codec_t* codec)
 
            if (current->msgtype == MSG_STOP) {
              codec_queue_free_item(codec,current);
+             current = NULL;
              fprintf(stderr,"\nframes_sent=%d\n",frames_sent);
-             goto stop;
+             goto next_channel;
            }
 
            /* Simple implementation of A/V sync - sync video DTS with audio PTS.  
@@ -165,6 +167,7 @@ static void* vcodec_omx_thread(struct codec_t* codec)
            int64_t audio_PTS = codec_get_pts(codec->acodec);
            if (audio_PTS != -1) {
              int64_t delay = current->data->DTS-(audio_PTS+audio_latency);
+             if (delay > 100000) delay = 100000;
              if (delay > 0) {
                //fprintf(stderr,"[vcodec_omx] udelay(%lld)\n",delay);
                usleep(delay);

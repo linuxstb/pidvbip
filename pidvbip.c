@@ -25,7 +25,8 @@
 #include "avahi.h"
 
 struct codecs_t {
-  struct codec_t vcodec; // Video
+  struct codec_t vcodec_mpeg2; // Video
+  struct codec_t vcodec_h264; // Video
   struct codec_t acodec; // Audio
   struct codec_t scodec; // Subtitles
   struct htsp_subscription_t subscription;  // Details of the currently tuned channel
@@ -174,23 +175,6 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
             exit(1);
           }
 
-          if (codecs->subscription.videostream != -1) {
-            if (codecs->subscription.streams[codecs->subscription.videostream].codec == HMF_VIDEO_CODEC_MPEG2) {
-              if (hw_mpeg2) {
-                vcodec_omx_init(&codecs->vcodec,OMX_VIDEO_CodingMPEG2);
-              } else {
-                vcodec_mpeg2_init(&codecs->vcodec);
-              }
-            } else if (codecs->subscription.streams[codecs->subscription.videostream].codec == HMF_VIDEO_CODEC_H264) {
-              vcodec_omx_init(&codecs->vcodec,OMX_VIDEO_CodingAVC);
-            } else {
-              fprintf(stderr,"UNKNOWN VIDEO FORMAT\n");
-              exit(1);
-            }
-
-            codecs->vcodec.acodec = &codecs->acodec;
-          }
-
           if (codecs->subscription.streams[codecs->subscription.audiostream].codec == HMF_AUDIO_CODEC_MPEG) {
             acodec_mpeg_init(&codecs->acodec);
             DEBUGF("Initialised mpeg codec\n");
@@ -218,7 +202,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
           htsp_get_int(&msg,"subscriptionId",&subscriptionId);
 
           if (subscriptionId == current_subscriptionId) {
-            if ((codecs->vcodec.is_running) && (stream==codecs->subscription.streams[codecs->subscription.videostream].index)) {
+            if (stream==codecs->subscription.streams[codecs->subscription.videostream].index) {
               packet = malloc(sizeof(*packet));
               packet->buf = msg.msg;
 
@@ -237,7 +221,12 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
 #ifdef DUMP_VIDEO
                   write(fd,packet->packet,packet->packetlength);
 #endif
-                  codec_queue_add_item(&codecs->vcodec,packet);
+                  if (codecs->subscription.streams[codecs->subscription.videostream].codec == HMF_VIDEO_CODEC_MPEG2) {
+                    codec_queue_add_item(&codecs->vcodec_mpeg2,packet);
+                  } else if (codecs->subscription.streams[codecs->subscription.videostream].codec == HMF_VIDEO_CODEC_H264) {
+                    codec_queue_add_item(&codecs->vcodec_h264,packet);
+                  }
+
                   free_msg = 0;   // Don't free this message
                 }
               }
@@ -535,26 +524,31 @@ int main(int argc, char* argv[])
 
     actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
 
-    memset(&codecs.vcodec,0,sizeof(codecs.vcodec));
+    memset(&codecs.vcodec_mpeg2,0,sizeof(codecs.vcodec_mpeg2));
+    memset(&codecs.vcodec_h264,0,sizeof(codecs.vcodec_h264));
     memset(&codecs.acodec,0,sizeof(codecs.acodec));
 
-next_channel:
-    fprintf(stderr,"lock3\n");
-    if (codecs.vcodec.thread) {
-      codec_stop(&codecs.vcodec);
-      pthread_join(codecs.vcodec.thread,NULL);
+    /* Start video codec threads - we keep one of each type running continuously */
+    if (hw_mpeg2) {
+      vcodec_omx_init(&codecs.vcodec_mpeg2,OMX_VIDEO_CodingMPEG2);
+    } else {
+      vcodec_mpeg2_init(&codecs.vcodec_mpeg2);
     }
-    fprintf(stderr,"lock4\n");
+    vcodec_omx_init(&codecs.vcodec_h264,OMX_VIDEO_CodingAVC);
+    codecs.vcodec_mpeg2.acodec = &codecs.acodec;
+    codecs.vcodec_h264.acodec = &codecs.acodec;
 
+next_channel:
+    fprintf(stderr,"lock1\n");
     if (codecs.acodec.thread) {
       codec_stop(&codecs.acodec);
       pthread_join(codecs.acodec.thread,NULL);
     }
-    fprintf(stderr,"lock5\n");
+    fprintf(stderr,"lock3\n");
 
-    fprintf(stderr,"lock1\n");
+    fprintf(stderr,"lock4\n");
     htsp_lock(&htsp);
-    fprintf(stderr,"lock2\n");
+    fprintf(stderr,"lock5\n");
 
     if (htsp.subscriptionId > 0) {
       res = htsp_create_message(&msg,HMF_STR,"method","unsubscribe",HMF_S64,"subscriptionId",htsp.subscriptionId,HMF_NULL);
@@ -562,7 +556,6 @@ next_channel:
       htsp_destroy_message(&msg);
     }
 
-    memset(&codecs.vcodec,0,sizeof(codecs.vcodec));
     memset(&codecs.acodec,0,sizeof(codecs.acodec));
     
     fprintf(stderr,"lock6\n");

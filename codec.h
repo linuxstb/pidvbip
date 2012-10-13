@@ -55,5 +55,6 @@ struct codec_queue_t* codec_queue_get_next_item(struct codec_t* codec);
 void codec_set_pts(struct codec_t* codec, int64_t PTS);
 int64_t codec_get_pts(struct codec_t* codec);
 int codec_is_running(struct codec_t* codec);
+void codec_flush_queue(struct codec_t* codec);
 
 #endif

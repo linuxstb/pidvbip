@@ -30,6 +30,24 @@ int codec_is_running(struct codec_t* codec)
   return res;
 }
 
+void codec_flush_queue(struct codec_t* codec)
+{
+  /* Empty the queue */
+
+  pthread_mutex_lock(&codec->queue_mutex);
+
+  struct codec_queue_t* p = codec->queue_head;
+  while (p) {
+    struct codec_queue_t* tmp = p;
+    p = p->next;
+    codec_queue_free_item(codec,tmp);
+  }
+
+  codec->queue_count = 0;
+
+  pthread_mutex_unlock(&codec->queue_mutex);
+}
+
 void codec_stop(struct codec_t* codec)
 {
   struct codec_queue_t* new = malloc(sizeof(struct codec_queue_t));
@@ -66,6 +84,7 @@ void codec_stop(struct codec_t* codec)
   }
   codec->queue_count=1;
 
+  codec_set_pts(codec,-1);
   pthread_mutex_unlock(&codec->queue_mutex);
 }
 

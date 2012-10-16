@@ -126,10 +126,15 @@ void osd_init(struct osd_t* osd)
    graphics_resource_fill(osd->img_blank, 0, 0, display_width, display_height, GRAPHICS_RGBA32(0,0,0,255));
 
    graphics_display_resource(osd->img_blank, 0, BG_LAYER, 0, 0, GRAPHICS_RESOURCE_WIDTH, GRAPHICS_RESOURCE_HEIGHT, VC_DISPMAN_ROT0, 1);
+
+   osd->video_blanked = 0;
+
+   pthread_mutex_init(&osd->osd_mutex,NULL);
 }
 
 void osd_blank_video(struct osd_t* osd, int on_off)
 {
+  pthread_mutex_lock(&osd->osd_mutex);
   if (on_off) {
     /* Display on top of video */
     graphics_display_resource(osd->img_blank, 0, FG_LAYER, 0, 0, GRAPHICS_RESOURCE_WIDTH, GRAPHICS_RESOURCE_HEIGHT, VC_DISPMAN_ROT0, 1);
@@ -137,6 +142,7 @@ void osd_blank_video(struct osd_t* osd, int on_off)
     /* Display underneath video */
     graphics_display_resource(osd->img_blank, 0, BG_LAYER, 0, 0, GRAPHICS_RESOURCE_WIDTH, GRAPHICS_RESOURCE_HEIGHT, VC_DISPMAN_ROT0, 1);
   }
+  pthread_mutex_unlock(&osd->osd_mutex);
 }
 
 void osd_done(struct osd_t* osd)
@@ -271,6 +277,8 @@ void osd_show_info(struct osd_t* osd, int channel_id)
   event_dump(event);
 
   snprintf(str,sizeof(str),"%03d - %s",channels_getlcn(channel_id),channels_getname(channel_id));
+
+  pthread_mutex_lock(&osd->osd_mutex);
   osd_show_channelname(osd,str);
 
   osd_show_time(osd);
@@ -278,6 +286,7 @@ void osd_show_info(struct osd_t* osd, int channel_id)
   osd_show_eventinfo(osd,event);
 
   graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
+  pthread_mutex_unlock(&osd->osd_mutex);
 
   event_free(event);
 }
@@ -298,24 +307,30 @@ void osd_show_newchannel(struct osd_t* osd, int channel)
     }
   }
   fprintf(stderr,"New channel = %s\n",str);
+  pthread_mutex_lock(&osd->osd_mutex);
   osd_show_channelname(osd,str);
   graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
+  pthread_mutex_unlock(&osd->osd_mutex);
 }
 
 void osd_clear_newchannel(struct osd_t* osd)
 {
   /* TODO: Only clear channel area */
 
+  pthread_mutex_lock(&osd->osd_mutex);
   graphics_resource_fill(osd->img, 0, 0, osd->display_width, osd->display_height, GRAPHICS_RGBA32(0,0,0,0));
   graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
+  pthread_mutex_unlock(&osd->osd_mutex);
 
   fprintf(stderr,"Clearing OSD...\n");
 }
 
 void osd_clear(struct osd_t* osd)
 {
+  pthread_mutex_lock(&osd->osd_mutex);
   graphics_resource_fill(osd->img, 0, 0, osd->display_width, osd->display_height, GRAPHICS_RGBA32(0,0,0,0));
   graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
+  pthread_mutex_unlock(&osd->osd_mutex);
 
   fprintf(stderr,"Clearing OSD...\n");
 }

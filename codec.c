@@ -44,6 +44,8 @@ void codec_flush_queue(struct codec_t* codec)
   }
 
   codec->queue_count = 0;
+  codec->queue_head = NULL;
+  codec->queue_tail = NULL;
 
   pthread_mutex_unlock(&codec->queue_mutex);
 }

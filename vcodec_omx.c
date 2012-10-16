@@ -167,7 +167,7 @@ next_channel:
            int64_t audio_PTS = codec_get_pts(codec->acodec);
            if (audio_PTS != -1) {
              int64_t delay = current->data->DTS-(audio_PTS+audio_latency);
-             if (delay > 100000) delay = 100000;
+             if (delay > 50000) delay = 50000;
              if (delay > 0) {
                //fprintf(stderr,"[vcodec_omx] udelay(%lld)\n",delay);
                usleep(delay);

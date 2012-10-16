@@ -539,6 +539,12 @@ int main(int argc, char* argv[])
     codecs.vcodec_h264.acodec = &codecs.acodec;
 
 next_channel:
+    osd_blank_video(&osd,0); /* Don't blank the screen for now - leave the transition visbible for debugging */
+    double blank_video_timeout = get_time() + 1000;
+
+    codec_flush_queue(&codecs.vcodec_mpeg2);
+    codec_flush_queue(&codecs.vcodec_h264);
+
     fprintf(stderr,"lock1\n");
     if (codecs.acodec.thread) {
       codec_stop(&codecs.acodec);
@@ -678,6 +684,11 @@ next_channel:
       if ((osd_cleartime) && (get_time() > osd_cleartime)) {
         osd_clear(&osd);
         osd_cleartime = 0;
+      }
+
+      if ((blank_video_timeout) && (get_time() > blank_video_timeout)) {
+        osd_blank_video(&osd,0);
+        blank_video_timeout = 0;
       }
 
       if ((new_channel_timeout) && (get_time() >= new_channel_timeout)) {

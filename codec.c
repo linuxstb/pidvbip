@@ -14,6 +14,7 @@ void codec_queue_init(struct codec_t* codec)
 
   pthread_mutex_init(&codec->queue_mutex,NULL);
   pthread_cond_init(&codec->queue_count_cv,NULL);
+  pthread_cond_init(&codec->resume_cv,NULL);
   pthread_mutex_init(&codec->PTS_mutex,NULL);
   pthread_mutex_init(&codec->isrunning_mutex,NULL);
 }
@@ -88,6 +89,44 @@ void codec_stop(struct codec_t* codec)
 
   codec_set_pts(codec,-1);
   pthread_mutex_unlock(&codec->queue_mutex);
+}
+
+void codec_pause(struct codec_t* codec)
+{
+  struct codec_queue_t* new = malloc(sizeof(struct codec_queue_t));
+
+  if (new == NULL) {
+    fprintf(stderr,"FATAL ERROR: out of memory adding to queue\n");
+    exit(1);
+  }
+  new->msgtype = MSG_PAUSE;
+  new->data = NULL;
+
+  pthread_mutex_lock(&codec->queue_mutex);
+
+  /* End to end of queue */
+  if (codec->queue_tail == NULL) {
+    new->next = NULL;
+    new->prev = NULL;
+    codec->queue_head = new;
+    codec->queue_tail = new;
+
+    pthread_cond_signal(&codec->queue_count_cv);
+  } else {
+    new->next = NULL;
+    new->prev = codec->queue_tail;
+    new->prev->next = new;
+    codec->queue_tail = new;
+  }
+
+  codec->queue_count++;
+
+  pthread_mutex_unlock(&codec->queue_mutex);
+}
+
+void codec_resume(struct codec_t* codec)
+{
+  pthread_cond_signal(&codec->resume_cv);
 }
 
 void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet)

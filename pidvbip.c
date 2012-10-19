@@ -395,6 +395,7 @@ int main(int argc, char* argv[])
     int user_channel_id = -1;
     int actual_channel_id = -1;
     int auto_hdtv = 0;
+    int is_paused = 0;
     struct htsp_message_t msg;
     struct codecs_t codecs;
     struct osd_t osd;
@@ -666,6 +667,33 @@ next_channel:
               actual_channel_id = new_actual_channel_id;
               goto next_channel;
             }
+            break;
+
+          case ' ':
+            if (is_paused == 1) {
+	      /* Currently paused, resume playback */
+              fprintf(stderr,"[RESUME]\n");
+              codec_resume(&codecs.acodec);
+              codec_resume(&codecs.vcodec_h264);
+              codec_resume(&codecs.vcodec_mpeg2);
+              is_paused = 0;
+            } else {
+              /* Currently playing, pause */
+              fprintf(stderr,"[PAUSE]\n");
+              codec_pause(&codecs.acodec);
+              codec_pause(&codecs.vcodec_h264);
+              codec_pause(&codecs.vcodec_mpeg2);
+              is_paused = 1;
+            }
+
+            htsp_lock(&htsp);
+            res = htsp_create_message(&msg,HMF_STR,"method","subscriptionSpeed",
+				           HMF_S64,"speed",(is_paused == 0 ? 100 : 0),
+                                           HMF_S64,"subscriptionId",htsp.subscriptionId,
+                                           HMF_NULL);
+            res = htsp_send_message(&htsp,&msg);
+            htsp_unlock(&htsp);
+            htsp_destroy_message(&msg);
             break;
 
           case 'n':

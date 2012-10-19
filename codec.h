@@ -18,6 +18,7 @@ struct packet_t
 
 #define MSG_PACKET  1
 #define MSG_STOP    2
+#define MSG_PAUSE    3
 
 struct codec_queue_t
 {
@@ -34,6 +35,7 @@ struct codec_t
   pthread_t thread;
   pthread_mutex_t queue_mutex;
   pthread_cond_t queue_count_cv;
+  pthread_cond_t resume_cv;
   struct codec_queue_t* queue_head;
   struct codec_queue_t* queue_tail;
   int queue_count;
@@ -49,6 +51,8 @@ struct codec_t
 
 void codec_queue_init(struct codec_t* codec);
 void codec_stop(struct codec_t* codec);
+void codec_pause(struct codec_t* codec);
+void codec_resume(struct codec_t* codec);
 void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet);
 void codec_queue_free_item(struct codec_t* codec,struct codec_queue_t* item);
 struct codec_queue_t* codec_queue_get_next_item(struct codec_t* codec);

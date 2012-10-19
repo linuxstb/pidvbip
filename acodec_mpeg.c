@@ -69,6 +69,7 @@ static void* acodec_mpeg_thread(struct codec_t* codec)
   size_t outc = 0;
   mpg123_handle *m;
   int ret;
+  int is_paused = 0;
 
   int dest = 1;            // 0=headphones, 1=hdmi
   int nchannels = 2;        // numnber of audio channels
@@ -96,12 +97,26 @@ static void* acodec_mpeg_thread(struct codec_t* codec)
 
   while(1) /* Read and write until everything is through. */
   {
+next_packet:
+    if (is_paused) {
+      // Wait for resume message
+      //fprintf(stderr,"acodec: Waiting for resume\n");
+      pthread_cond_wait(&codec->resume_cv,&codec->queue_mutex);
+      is_paused = 0;
+      pthread_mutex_unlock(&codec->queue_mutex);
+    }
     current = codec_queue_get_next_item(codec);
 
     if (current->msgtype == MSG_STOP) {
       DEBUGF("[acodec_mpeg] Stopping\n");
       codec_queue_free_item(codec,current);
       goto stop;
+    } else if (current->msgtype == MSG_PAUSE) {
+      //fprintf(stderr,"acodec: Paused\n");
+      codec_queue_free_item(codec,current);
+      current = NULL;
+      is_paused = 1;
+      goto next_packet;
     }
 
     /* Feed input chunk and get first chunk of decoded audio. */

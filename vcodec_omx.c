@@ -53,6 +53,7 @@ static void* vcodec_omx_thread(struct codec_t* codec)
    unsigned int data_len = 0;
    int packet_size = 16<<10; // NOTE: 16KB
    int frames_sent = 0;
+   int is_paused = 0;
 
    memset(list, 0, sizeof(list));
    memset(tunnel, 0, sizeof(tunnel));
@@ -148,9 +149,16 @@ static void* vcodec_omx_thread(struct codec_t* codec)
          data_len += fread(dest, 1, packet_size+(find_start_codes*4)-data_len, in);
 #endif
 
-next_channel:
+next_packet:
          /******* Start of new code for vcodec_omx.c */
-         if (current == NULL) { 
+         if (current == NULL) {
+           if (is_paused) {
+	     // Wait for resume message
+             //fprintf(stderr,"vcodec: Waiting for resume\n");
+             pthread_cond_wait(&codec->resume_cv,&codec->queue_mutex);
+             pthread_mutex_unlock(&codec->queue_mutex);
+             is_paused = 0;
+           }
            current = codec_queue_get_next_item(codec); 
            current_used = 0; 
 
@@ -158,7 +166,13 @@ next_channel:
              codec_queue_free_item(codec,current);
              current = NULL;
              fprintf(stderr,"\nframes_sent=%d\n",frames_sent);
-             goto next_channel;
+             goto next_packet;
+           } else if (current->msgtype == MSG_PAUSE) {
+             //fprintf(stderr,"vcodec: Paused\n");
+             codec_queue_free_item(codec,current);
+             current = NULL;
+             is_paused = 1;
+             goto next_packet;
            }
 
            /* Simple implementation of A/V sync - sync video DTS with audio PTS.  

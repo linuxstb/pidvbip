@@ -576,7 +576,11 @@ next_channel:
     fprintf(stderr,"Waiting for lock\n");
     htsp_lock(&htsp);
     fprintf(stderr,"locked\n");
-    res = htsp_create_message(&msg,HMF_STR,"method","subscribe",HMF_S64,"channelId",actual_channel_id,HMF_S64,"subscriptionId",++htsp.subscriptionId,HMF_NULL);
+    res = htsp_create_message(&msg,HMF_STR,"method","subscribe",
+                                   HMF_S64,"channelId",actual_channel_id,
+                                   HMF_S64,"timeshiftPeriod",3600,
+                                   HMF_S64,"subscriptionId",++htsp.subscriptionId,
+                                   HMF_NULL);
     res = htsp_send_message(&htsp,&msg);
     htsp_unlock(&htsp);
 

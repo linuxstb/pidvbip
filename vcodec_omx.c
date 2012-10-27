@@ -54,6 +54,7 @@ static void* vcodec_omx_thread(struct codec_t* codec)
    int packet_size = 16<<10; // NOTE: 16KB
    int frames_sent = 0;
    int is_paused = 0;
+   int64_t prev_DTS = -1;
 
    memset(list, 0, sizeof(list));
    memset(tunnel, 0, sizeof(tunnel));
@@ -179,6 +180,10 @@ next_packet:
               The proper way is to use OMX clocks */
            int64_t audio_latency = 70000; /* 70ms - a guess which seems to work */
            int64_t audio_PTS = codec_get_pts(codec->acodec);
+           if ((prev_DTS != -1) && ((prev_DTS + 40000) != current->data->DTS)) {
+             fprintf(stderr,"DTS discontinuity - DTS=%lld, prev_DTS=%lld (diff = %lld)\n",current->data->DTS,prev_DTS,current->data->DTS-prev_DTS);
+           }
+           prev_DTS = current->data->DTS;
            if (audio_PTS != -1) {
              int64_t delay = current->data->DTS-(audio_PTS+audio_latency);
              if (delay > 50000) delay = 50000;

@@ -27,7 +27,7 @@ The platform being used to develop pidvbip is Raspbian (2012-08-16 image).
 
 pidvbip requires the following dependencies:
 
-libmpg123-dev libfaad-dev liba52-dev libavahi-client-dev
+libmpg123-dev libfaad-dev liba52-dev libavahi-client-dev libfreetype6-dev
 
 After installing these with "apt-get install", you can build pidvbip by
 typing "make" in the source code directory.

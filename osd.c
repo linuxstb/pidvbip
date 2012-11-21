@@ -23,14 +23,14 @@
 
 int32_t render_paragraph(GRAPHICS_RESOURCE_HANDLE img, const char *text, const uint32_t text_size, const uint32_t x_offset, const uint32_t y_offset)
 {
-   uint32_t text_length = strlen(text);
+   uint32_t text_length;
    uint32_t line_length;
    uint32_t width=0, height=0;
    const char *split = text;
    int32_t s=0;
    uint32_t img_w = 1400;;
 
-   if (text_length==0)
+   if ((!text) || ((text_length=strlen(text))==0))
       return 0;
 
    //fprintf(stderr,"render_paragraph(\"%s\",%d)\n",text,text_length);

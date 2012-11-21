@@ -3,9 +3,11 @@
 
 #include <stdint.h>
 
-#define CTYPE_SDTV  1
-#define CTYPE_HDTV  2
-#define CTYPE_RADIO 3
+#define CTYPE_NONE    0
+#define CTYPE_UNKNOWN 1
+#define CTYPE_SDTV    2
+#define CTYPE_HDTV    3
+#define CTYPE_RADIO   4
 
 void channels_init(void);
 void channels_add(int lcn, int id, char* name, int type, uint32_t eventId, uint32_t nextEventId);

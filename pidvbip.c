@@ -83,7 +83,7 @@ void process_message(char* method,struct htsp_message_t* msg,char* debugtext)
 
       if (htsp_get_list(msg,"services",&list,&listlen) > 0)
       {
-        channelType = 0;
+        channelType = CTYPE_NONE;
       } else {
         unsigned char* buf = list;
         int type = buf[0]; if (type > 6) { type = 0; }
@@ -97,20 +97,24 @@ void process_message(char* method,struct htsp_message_t* msg,char* debugtext)
         tmpmsg.msglen = datalength;
 
         char* typestr = htsp_get_string(&tmpmsg,"type");
-        if (strncmp(typestr,"SDTV",4)==0) {
-          //fprintf(stderr,"Type=SDTV\n");
-          channelType = CTYPE_SDTV;
-        } else if (strncmp(typestr,"HDTV",4)==0) {
-          //fprintf(stderr,"Type=HDTV\n");
-          channelType = CTYPE_HDTV;
-        } else if (strncmp(typestr,"Radio",4)==0) {
-          //fprintf(stderr,"Type=RADIO\n");
-          channelType = CTYPE_RADIO;
+        if (!typestr) {
+          channelType = CTYPE_UNKNOWN;
         } else {
-          fprintf(stderr,"Type=%s (unknown - defaulting to SDTV\n",typestr);
-          channelType = CTYPE_SDTV;
+          if (strncmp(typestr,"SDTV",4)==0) {
+            //fprintf(stderr,"Type=SDTV\n");
+            channelType = CTYPE_SDTV;
+          } else if (strncmp(typestr,"HDTV",4)==0) {
+            //fprintf(stderr,"Type=HDTV\n");
+            channelType = CTYPE_HDTV;
+          } else if (strncmp(typestr,"Radio",4)==0) {
+            //fprintf(stderr,"Type=RADIO\n");
+            channelType = CTYPE_RADIO;
+          } else {
+            fprintf(stderr,"Type=%s (unknown)\n",typestr);
+            channelType = CTYPE_UNKNOWN;
+          }
+          free(typestr);
         }
-        free(typestr);
       }
 
       if (strcmp(method,"channelAdd")==0) {

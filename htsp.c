@@ -306,6 +306,25 @@ int htsp_send_message(struct htsp_t* htsp, struct htsp_message_t* msg)
   return 0;
 }
 
+int safe_recv(int sock, unsigned char* p, int bytesleft)
+{
+  int res;
+
+  while (bytesleft) {
+    res = recv(sock, p, bytesleft, 0);
+
+    if (res < 0) {
+      fprintf(stderr,"Error in recv\n");
+      return res;
+    }
+
+    p += res;
+    bytesleft -= res;
+  }
+
+  return 0;
+}
+
 int htsp_recv_message(struct htsp_t* htsp, struct htsp_message_t* msg, int timeout)
 {
   int res;
@@ -322,9 +341,9 @@ int htsp_recv_message(struct htsp_t* htsp, struct htsp_message_t* msg, int timeo
   }
 
   //fprintf(stderr,"Waiting for response...\n");
-  res = recv(htsp->sock, buf, 4, 0);
-
-  if (res < 4) {
+  res = safe_recv(htsp->sock, buf, 4);
+  
+  if (res < 0) {
     fprintf(stderr,"Error in recv - res=%d\n",res);
     return 2;
   }
@@ -338,19 +357,7 @@ int htsp_recv_message(struct htsp_t* htsp, struct htsp_message_t* msg, int timeo
   }
   memcpy(msg->msg, buf, 4);
 
-  int bytesleft = msg->msglen;
-  unsigned char* p = msg->msg + 4;
-  while (bytesleft) {
-    res = recv(htsp->sock, p, bytesleft, 0);
-
-    if (res < 0) {
-      fprintf(stderr,"Error in recv\n");
-      return 3;
-    }
-
-    p += res;
-    bytesleft -= res;
-  }
+  res = safe_recv(htsp->sock, msg->msg+4, msg->msglen);
 
   return 0;
 }

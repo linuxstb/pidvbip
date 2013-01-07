@@ -122,7 +122,7 @@ static void sample1 (RECT_VARS_T* vars, int fd)
             // Inspired by http://read.pudn.com/downloads129/sourcecode/unix_linux/554088/vlc-0.9.2/vlc-0.9.2/modules/codec/libmpeg2.c__.htm
             fprintf(stderr,"SEQUENCE: nframes=%d\n",nframes);
             fprintf(stderr,"Video is %d x %d\n",sequence->width,sequence->height);
-            int pitch = ALIGN_UP(sequence->width,32);
+            int pitch = VO_ALIGN_UP(sequence->width,32);
 
             int i;
             for (i = 0; i < 3 ; i++) {

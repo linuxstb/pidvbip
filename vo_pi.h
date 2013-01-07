@@ -3,7 +3,7 @@
 
 #include <bcm_host.h>
 
-#define ALIGN_UP(x,y)  ((x + (y)-1) & ~((y)-1))
+#define VO_ALIGN_UP(x,y)  ((x + (y)-1) & ~((y)-1))
 
 typedef struct
 {

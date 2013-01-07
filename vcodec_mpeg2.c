@@ -51,7 +51,7 @@ static void* vcodec_mpeg2_thread(struct codec_t* codec)
         case STATE_SEQUENCE:
 	    DEBUGF("SEQUENCE: nframes=%d\n",nframes);
 	    DEBUGF("Video is %d x %d\n",sequence->width,sequence->height);
-            int pitch = ALIGN_UP(sequence->width,32);
+            int pitch = VO_ALIGN_UP(sequence->width,32);
 
             int i;
             for (i = 0; i < 3 ; i++) {

@@ -80,5 +80,6 @@ int htsp_get_bin(struct htsp_message_t* msg, char* name, unsigned char** data,in
 int htsp_get_list(struct htsp_message_t* msg, char* name, unsigned char** data,int* size);
 
 int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscription_t*);
+int htsp_send_skip(struct htsp_t* htsp, int time);
 
 #endif

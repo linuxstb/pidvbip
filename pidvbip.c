@@ -405,6 +405,10 @@ int get_input_key(int fd)
           case KEY_P: return 'p';
           case KEY_PAGEUP: return 'n';
           case KEY_PAGEDOWN: return 'p';
+          case KEY_UP: return 'u';
+          case KEY_DOWN: return 'd';
+          case KEY_LEFT: return 'l';
+          case KEY_RIGHT: return 'r';
     
           default: break;
         }
@@ -743,6 +747,24 @@ next_channel:
             actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
 
             goto next_channel;
+
+          case 'u':
+            htsp_send_skip(&htsp,10*60);  // +10 minutes
+            break;
+
+          case 'd':
+            htsp_send_skip(&htsp,-10*60); // -10 minutes
+            break;
+
+          case 'l':
+            htsp_send_skip(&htsp,-30);    // -30 seconds
+            break;
+
+          case 'r':
+            htsp_send_skip(&htsp,30);     // +30 seconds
+            break;
+
+            break;
 
           default:
             break;            

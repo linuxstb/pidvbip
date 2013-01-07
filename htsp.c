@@ -200,7 +200,8 @@ int htsp_create_message(struct htsp_message_t* msg, ...)
   int fieldnamelen;
   int datalen;
   char* s;
-  int i,ii;
+  int i;
+  unsigned int ii;
   unsigned char* d;
   unsigned char* p;
   
@@ -223,9 +224,10 @@ int htsp_create_message(struct htsp_message_t* msg, ...)
 
       case HMF_S64:
          i = va_arg(argp,int);
-         while (i > 0) {
+         ii = i;
+         while (ii > 0) {
            msg->msglen++;
-           i >>= 8;
+           ii >>= 8;
          }
          break;
 
@@ -282,9 +284,10 @@ int htsp_create_message(struct htsp_message_t* msg, ...)
          put_uint32_be(p,datalen); p += 4;
          memcpy(p,fieldname,fieldnamelen); p += fieldnamelen;
 
-         while (i != 0) {
-           *p++ = (i & 0xff);
-           i >>= 8;
+         ii = i;
+         while (ii > 0) {
+           *p++ = (ii & 0xff);
+           ii >>= 8;
          }
          break;
 
@@ -663,4 +666,25 @@ int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscri
   }
 
   return 0;
+}
+
+int htsp_send_skip(struct htsp_t* htsp, int time)
+{
+  int res;
+  struct htsp_message_t msg;
+
+  htsp_lock(htsp);
+  res = htsp_create_message(&msg,HMF_STR,"method","subscriptionSkip",
+                                 HMF_S64,"time",time*1000000,
+                                 HMF_S64,"subscriptionId",htsp->subscriptionId,
+                                 HMF_NULL);
+  res = htsp_send_message(htsp,&msg);
+
+  fprintf(stderr,"Sent subscriptionSkip(%d) message, res=%d\n",time,res);
+
+  htsp_unlock(htsp);
+
+  htsp_destroy_message(&msg);
+
+  return res;
 }

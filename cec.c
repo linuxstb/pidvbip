@@ -113,6 +113,14 @@ static int CecKeyPress(void *(cbParam), const cec_keypress (key))
         cec_add_keypress('8'); break;
       case CEC_USER_CONTROL_CODE_NUMBER9:
         cec_add_keypress('9'); break;
+      case CEC_USER_CONTROL_CODE_UP:
+        cec_add_keypress('u'); break;
+      case CEC_USER_CONTROL_CODE_DOWN:
+        cec_add_keypress('d'); break;
+      case CEC_USER_CONTROL_CODE_LEFT:
+        cec_add_keypress('l'); break;
+      case CEC_USER_CONTROL_CODE_RIGHT:
+        cec_add_keypress('r'); break;
       default:
         break;
     }

@@ -29,8 +29,19 @@ pidvbip requires the following dependencies:
 
 libmpg123-dev libfaad-dev liba52-dev libavahi-client-dev libfreetype6-dev
 
-After installing these with "apt-get install", you can build pidvbip by
-typing "make" in the source code directory.
+At the time of writing (January 2013), the version of libcec shipped
+with Raspbian does not work with pidvbip.  Install the latest verison
+from git with the following commands:
+
+git clone https://github.com/Pulse-Eight/libcec.git
+cd libcec
+./bootstrap
+./configure --with-rpi-include-path=/opt/vc/include --with-rpi-lib-path=/opt/vc/lib/
+make
+sudo make install
+
+After installing the above libraries, you can build pidvbip by typing
+"make" in the source code directory.
 
 
 MPEG-2 decoding

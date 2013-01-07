@@ -1,10 +1,10 @@
 CFLAGS+=-DSTANDALONE -D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS -DTARGET_POSIX -D_LINUX -fPIC -DPIC -D_REENTRANT -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -U_FORTIFY_SOURCE -Wall -g -DHAVE_LIBOPENMAX=2 -DOMX -DOMX_SKIP64BIT -ftree-vectorize -pipe -DUSE_EXTERNAL_OMX -DHAVE_LIBBCM_HOST -DUSE_EXTERNAL_LIBBCM_HOST -DUSE_VCHIQ_ARM -Wno-psabi -O2
 
-LIBS=-lGLESv2 -lEGL -lopenmaxil -lbcm_host -lvcos -lvchiq_arm -lpthread -lavahi-common -lavahi-client -lfreetype -lmpg123 -lfaad -la52 -Llibs/ilclient -Llibs/vgfont
+LIBS=-lGLESv2 -lEGL -lopenmaxil -lbcm_host -lvcos -lvchiq_arm -lpthread -lavahi-common -lavahi-client -lfreetype -lmpg123 -lfaad -la52 -Llibs/ilclient -Llibs/vgfont -lcec
 
 # The following can be overridden with a command argument (e.g. with building in OpenELEC)
 LDFLAGS=-L/opt/vc/lib
-INCLUDES=-I/opt/vc/include/ -I/opt/vc/include/interface/vcos/pthreads -I/usr/include/freetype2 -I/usr/include/arm-linux-gnueabi 
+INCLUDES=-I/opt/vc/include/ -I/opt/vc/include/interface/vcos/pthreads -I/usr/include/freetype2 -I/usr/include/arm-linux-gnueabi -I/usr/local/include
 
 TARGETS=mpeg2test pidvbip flvtoh264
 
@@ -19,8 +19,8 @@ flvtoh264: flvtoh264.c
 mpeg2test: mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
 	$(CC) $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o mpeg2test mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a $(LIBS)
 
-pidvbip: pidvbip.c libmpeg2/libmpeg2.a vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o acodec_mpeg.o acodec_aac.o acodec_a52.o channels.o events.o avahi.o libs/vgfont/libvgfont.a libs/ilclient/libilclient.a osd.o tiresias_pcfont.o avl.o
-	$(CC) $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o pidvbip pidvbip.c vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o  acodec_aac.o acodec_a52.o acodec_mpeg.o channels.o events.o avahi.o osd.o tiresias_pcfont.o avl.o libmpeg2/libmpeg2.a libs/ilclient/libilclient.a libs/vgfont/libvgfont.a $(LIBS)
+pidvbip: pidvbip.c libmpeg2/libmpeg2.a vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o acodec_mpeg.o acodec_aac.o acodec_a52.o channels.o events.o avahi.o libs/vgfont/libvgfont.a libs/ilclient/libilclient.a osd.o tiresias_pcfont.o avl.o cec.o
+	$(CC) $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o pidvbip pidvbip.c vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o  acodec_aac.o acodec_a52.o acodec_mpeg.o channels.o events.o avahi.o osd.o tiresias_pcfont.o avl.o cec.o libmpeg2/libmpeg2.a libs/ilclient/libilclient.a libs/vgfont/libvgfont.a $(LIBS)
 
 vo_pi.o: vo_pi.c vo_pi.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o vo_pi.o vo_pi.c
@@ -42,6 +42,9 @@ codec.o: codec.c codec.h
 
 osd.o: osd.c osd.h tiresias_pcfont.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o osd.o osd.c
+
+cec.o: cec.c cec.h
+	$(CC) $(INCLUDES) $(CFLAGS) -c -o cec.o cec.c
 
 avl.o: avl.c avl.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o avl.o avl.c
@@ -77,7 +80,7 @@ libs/vgfont/libvgfont.a:
 	make -C libs/vgfont/ INCLUDES='$(INCLUDES)'
 
 clean:
-	rm -f $(TARGETS) vo_pi.o codec.o htsp.o vcodec_mpeg2.o vcodec_omx.o channels.o events.o avl.o *~
+	rm -f $(TARGETS) vo_pi.o codec.o htsp.o vcodec_mpeg2.o vcodec_omx.o channels.o events.o avl.o cec.o *~
 	make -C libmpeg2 clean
 	make -C libs/ilclient clean
 	make -C libs/vgfont clean

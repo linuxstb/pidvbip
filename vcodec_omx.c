@@ -1,4 +1,28 @@
 /*
+
+pidvbip - tvheadend client for the Raspberry Pi
+
+(C) Dave Chapman 2012-2013
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+
+This file was based on the hello_video.c sample program which had the
+following (C):
+
+
 Copyright (c) 2012, Broadcom Europe Ltd
 All rights reserved.
 
@@ -180,7 +204,7 @@ next_packet:
               The proper way is to use OMX clocks */
            int64_t audio_latency = 70000; /* 70ms - a guess which seems to work */
            int64_t audio_PTS = codec_get_pts(codec->acodec);
-           if ((prev_DTS != -1) && ((prev_DTS + 40000) != current->data->DTS)) {
+           if ((prev_DTS != -1) && ((prev_DTS + 40000) != current->data->DTS) && ((prev_DTS + 20000) != current->data->DTS)) {
              fprintf(stderr,"DTS discontinuity - DTS=%lld, prev_DTS=%lld (diff = %lld)\n",current->data->DTS,prev_DTS,current->data->DTS-prev_DTS);
            }
            prev_DTS = current->data->DTS;

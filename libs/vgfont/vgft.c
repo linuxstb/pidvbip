@@ -255,7 +255,7 @@ void vgft_font_term(VGFT_FONT_T *font)
    memset(font, 0, sizeof(*font));
 }
 
-#define GLYPHS_COUNT_MAX 200
+#define GLYPHS_COUNT_MAX 4096
 
 static VGuint glyph_indices[GLYPHS_COUNT_MAX];
 static VGfloat adjustments_x[GLYPHS_COUNT_MAX];

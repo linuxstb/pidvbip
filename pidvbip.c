@@ -48,8 +48,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "cec.h"
 
 struct codecs_t {
-  struct codec_t vcodec_mpeg2; // Video
-  struct codec_t vcodec_h264; // Video
+  struct codec_t vcodec; // Video
   struct codec_t acodec; // Audio
   struct codec_t scodec; // Subtitles
   struct htsp_subscription_t subscription;  // Details of the currently tuned channel
@@ -152,6 +151,8 @@ void process_message(char* method,struct htsp_message_t* msg,char* debugtext)
     /* Are we interested? */
   } else if (strcmp(method,"signalStatus")== 0) {
     /* Are we interested? */
+  } else if (strcmp(method,"dvrEntryAdd")==0) {
+    /* TODO */
   } else {
     fprintf(stderr,"%s: Received message %s\n",debugtext,method);
     //htsp_dump_message(msg);
@@ -202,6 +203,20 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
             exit(1);
           }
 
+	  fprintf(stderr,"[htsp_receiver_thread] - creating video codec\n");
+          if (codecs->subscription.videostream >= 0) {
+            if (codecs->subscription.streams[codecs->subscription.videostream].codec == HMF_VIDEO_CODEC_MPEG2) {
+              if (hw_mpeg2) {
+                vcodec_omx_init(&codecs->vcodec,OMX_VIDEO_CodingMPEG2);
+              } else {
+                vcodec_mpeg2_init(&codecs->vcodec);
+              }
+            } else {
+              vcodec_omx_init(&codecs->vcodec,OMX_VIDEO_CodingAVC);
+            }
+            codecs->vcodec.acodec = &codecs->acodec;
+          }
+
           if (codecs->subscription.streams[codecs->subscription.audiostream].codec == HMF_AUDIO_CODEC_MPEG) {
             acodec_mpeg_init(&codecs->acodec);
             DEBUGF("Initialised mpeg codec\n");
@@ -248,11 +263,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
 #ifdef DUMP_VIDEO
                   write(fd,packet->packet,packet->packetlength);
 #endif
-                  if (codecs->subscription.streams[codecs->subscription.videostream].codec == HMF_VIDEO_CODEC_MPEG2) {
-                    codec_queue_add_item(&codecs->vcodec_mpeg2,packet);
-                  } else if (codecs->subscription.streams[codecs->subscription.videostream].codec == HMF_VIDEO_CODEC_H264) {
-                    codec_queue_add_item(&codecs->vcodec_h264,packet);
-                  }
+                  codec_queue_add_item(&codecs->vcodec,packet);
 
                   free_msg = 0;   // Don't free this message
                 }
@@ -558,31 +569,25 @@ int main(int argc, char* argv[])
 
     actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
 
-    memset(&codecs.vcodec_mpeg2,0,sizeof(codecs.vcodec_mpeg2));
-    memset(&codecs.vcodec_h264,0,sizeof(codecs.vcodec_h264));
+    memset(&codecs.vcodec,0,sizeof(codecs.vcodec));
     memset(&codecs.acodec,0,sizeof(codecs.acodec));
-
-    /* Start video codec threads - we keep one of each type running continuously */
-    if (hw_mpeg2) {
-      vcodec_omx_init(&codecs.vcodec_mpeg2,OMX_VIDEO_CodingMPEG2);
-    } else {
-      vcodec_mpeg2_init(&codecs.vcodec_mpeg2);
-    }
-    vcodec_omx_init(&codecs.vcodec_h264,OMX_VIDEO_CodingAVC);
-    codecs.vcodec_mpeg2.acodec = &codecs.acodec;
-    codecs.vcodec_h264.acodec = &codecs.acodec;
 
 next_channel:
     osd_blank_video(&osd,0); /* Don't blank the screen for now - leave the transition visbible for debugging */
     double blank_video_timeout = get_time() + 1000;
 
-    codec_flush_queue(&codecs.vcodec_mpeg2);
-    codec_flush_queue(&codecs.vcodec_h264);
+    fprintf(stderr,"lock0\n");
+    if (codecs.vcodec.thread) {
+      codec_stop(&codecs.vcodec);
+      pthread_join(codecs.vcodec.thread,NULL);
+      fprintf(stderr,"[main thread] - killed video thread\n");
+    }
 
     fprintf(stderr,"lock1\n");
     if (codecs.acodec.thread) {
       codec_stop(&codecs.acodec);
       pthread_join(codecs.acodec.thread,NULL);
+      fprintf(stderr,"[main thread] - killed audio thread\n");
     }
     fprintf(stderr,"lock3\n");
 
@@ -612,6 +617,7 @@ next_channel:
     res = htsp_create_message(&msg,HMF_STR,"method","subscribe",
                                    HMF_S64,"channelId",actual_channel_id,
                                    HMF_S64,"timeshiftPeriod",3600,
+//                                   HMF_S64,"normts",1,
                                    HMF_S64,"subscriptionId",++htsp.subscriptionId,
                                    HMF_NULL);
     res = htsp_send_message(&htsp,&msg);
@@ -718,15 +724,13 @@ next_channel:
 	      /* Currently paused, resume playback */
               fprintf(stderr,"[RESUME]\n");
               codec_resume(&codecs.acodec);
-              codec_resume(&codecs.vcodec_h264);
-              codec_resume(&codecs.vcodec_mpeg2);
+              codec_resume(&codecs.vcodec);
               is_paused = 0;
             } else {
               /* Currently playing, pause */
               fprintf(stderr,"[PAUSE]\n");
               codec_pause(&codecs.acodec);
-              codec_pause(&codecs.vcodec_h264);
-              codec_pause(&codecs.vcodec_mpeg2);
+              codec_pause(&codecs.vcodec);
               is_paused = 1;
             }
 

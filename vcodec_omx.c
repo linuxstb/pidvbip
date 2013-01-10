@@ -64,7 +64,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 static void* vcodec_omx_thread(struct codec_t* codec)
 {
-  struct codec_queue_t* current = NULL;
+   struct codec_queue_t* current = NULL;
    int current_used = 0;
    OMX_VIDEO_PARAM_PORTFORMATTYPE format;
    OMX_TIME_CONFIG_CLOCKSTATETYPE cstate;
@@ -153,14 +153,15 @@ static void* vcodec_omx_thread(struct codec_t* codec)
       int port_settings_changed = 0;
       int first_packet = 1;
 
-#if 0
-      OMX_PARAM_BRCMVIDEODECODEERRORCONCEALMENTTYPE ec;
-      memset (&ec, 0, sizeof ec);
-      ec.nSize = sizeof ec;
-      ec.nVersion.nVersion = OMX_VERSION;
-      ec.bStartWithValidFrame = OMX_FALSE;
-      OMX_SetParameter(ILC_GET_HANDLE(video_decode), OMX_IndexParamBrcmVideoDecodeErrorConcealment, &ec);
-#endif
+      /* Enable error concealment for H264 only - without this, HD channels don't work reliably */
+      if (codec->codectype == OMX_VIDEO_CodingAVC) {
+        OMX_PARAM_BRCMVIDEODECODEERRORCONCEALMENTTYPE ec;
+        memset (&ec, 0, sizeof ec);
+        ec.nSize = sizeof ec;
+        ec.nVersion.nVersion = OMX_VERSION;
+        ec.bStartWithValidFrame = OMX_FALSE;
+        OMX_SetParameter(ILC_GET_HANDLE(video_decode), OMX_IndexParamBrcmVideoDecodeErrorConcealment, &ec);
+      }
 
       ilclient_change_component_state(video_decode, OMX_StateExecuting);
 
@@ -191,7 +192,7 @@ next_packet:
              codec_queue_free_item(codec,current);
              current = NULL;
              fprintf(stderr,"\nframes_sent=%d\n",frames_sent);
-             goto next_packet;
+             goto stop;
            } else if (current->msgtype == MSG_PAUSE) {
              //fprintf(stderr,"vcodec: Paused\n");
              codec_queue_free_item(codec,current);

@@ -201,7 +201,7 @@ int htsp_create_message(struct htsp_message_t* msg, ...)
   int datalen;
   char* s;
   int i;
-  unsigned int ii;
+  uint64_t ii;
   unsigned char* d;
   unsigned char* p;
   

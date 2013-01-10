@@ -115,8 +115,12 @@ void channels_dump(void)
       fprintf(stderr," ");
 
     struct event_t* event = event_copy(p->eventId);
-    fprintf(stderr,"%s\n",event->title);
-    event_free(event);
+    if (event) { 
+      fprintf(stderr,"%s\n",event->title);
+      event_free(event);
+    } else {
+      fprintf(stderr,"[no event]\n");
+    }
     p = p->next;
   }
 }

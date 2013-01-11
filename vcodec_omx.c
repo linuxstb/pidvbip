@@ -354,7 +354,7 @@ done:
 
    ilclient_cleanup_components(vstate.list);
 
-   OMX_Deinit();
+   //OMX_Deinit();
 
    ilclient_destroy(vstate.client);
 

@@ -121,6 +121,9 @@ static int CecKeyPress(void *(cbParam), const cec_keypress (key))
         cec_add_keypress('l'); break;
       case CEC_USER_CONTROL_CODE_RIGHT:
         cec_add_keypress('r'); break;
+      case CEC_USER_CONTROL_CODE_PAUSE:
+      case CEC_USER_CONTROL_CODE_F2_RED:
+        cec_add_keypress(' '); break;
       default:
         break;
     }

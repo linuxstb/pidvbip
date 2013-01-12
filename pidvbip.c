@@ -52,6 +52,7 @@ struct codecs_t {
   struct codec_t acodec; // Audio
   struct codec_t scodec; // Subtitles
   struct htsp_subscription_t subscription;  // Details of the currently tuned channel
+  int is_paused;
 };
 
 /* TODO: Should this be global? */
@@ -84,7 +85,7 @@ void process_message(char* method,struct htsp_message_t* msg,char* debugtext)
   } else if (strcmp(method,"eventDelete")==0) {
     uint32_t eventId;
     if (htsp_get_uint(msg,"eventId",&eventId)==0) {
-      fprintf(stderr,"eventDelete: %d\n",eventId);
+      //fprintf(stderr,"eventDelete: %d\n",eventId);
       event_delete(eventId);
     } else {
       fprintf(stderr,"Warning eventDelete event not found (%d)\n",eventId);
@@ -159,6 +160,28 @@ void process_message(char* method,struct htsp_message_t* msg,char* debugtext)
   }
 }
 
+static void do_pause(struct codecs_t* codecs, int pause)
+{
+  if (pause) {
+    if (!codecs->is_paused) {
+      /* Currently playing, pause */
+      fprintf(stderr,"[PAUSE]\n");
+      codec_pause(&codecs->acodec);
+      codec_pause(&codecs->vcodec);
+      codecs->is_paused = 1;
+    }
+  } else {
+    if (codecs->is_paused) {
+      /* Currently paused, resume playback */
+      fprintf(stderr,"[RESUME]\n");
+      codec_resume(&codecs->acodec);
+      codec_resume(&codecs->vcodec);
+      codecs->is_paused = 0;
+    }
+  }
+}
+
+
 /* The HTSP thread reads from the network and passes the incoming stream packets to the
    appropriate codec (video/audio/subtitle) */
 void* htsp_receiver_thread(struct codecs_t* codecs)
@@ -203,8 +226,8 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
             exit(1);
           }
 
-	  fprintf(stderr,"[htsp_receiver_thread] - creating video codec\n");
           if (codecs->subscription.videostream >= 0) {
+            fprintf(stderr,"[htsp_receiver_thread] - creating video codec\n");
             if (codecs->subscription.streams[codecs->subscription.videostream].codec == HMF_VIDEO_CODEC_MPEG2) {
               if (hw_mpeg2) {
                 vcodec_omx_init(&codecs->vcodec,OMX_VIDEO_CodingMPEG2);
@@ -285,6 +308,10 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
               }
             }
           }
+        } else if (strcmp(method,"subscriptionSkip")==0) {
+          codec_flush_queue(&codecs->vcodec);
+          codec_flush_queue(&codecs->acodec);
+          do_pause(codecs,0);
         } else {
           process_message(method,&msg,"htsp_receiver_thread");
         }
@@ -437,7 +464,6 @@ int main(int argc, char* argv[])
     int user_channel_id = -1;
     int actual_channel_id = -1;
     int auto_hdtv = 0;
-    int is_paused = 0;
     struct htsp_message_t msg;
     struct codecs_t codecs;
     struct osd_t osd;
@@ -571,6 +597,7 @@ int main(int argc, char* argv[])
 
     memset(&codecs.vcodec,0,sizeof(codecs.vcodec));
     memset(&codecs.acodec,0,sizeof(codecs.acodec));
+    codecs.is_paused = 0;
 
 next_channel:
     osd_blank_video(&osd,0); /* Don't blank the screen for now - leave the transition visbible for debugging */
@@ -720,23 +747,11 @@ next_channel:
             break;
 
           case ' ':
-            if (is_paused == 1) {
-	      /* Currently paused, resume playback */
-              fprintf(stderr,"[RESUME]\n");
-              codec_resume(&codecs.acodec);
-              codec_resume(&codecs.vcodec);
-              is_paused = 0;
-            } else {
-              /* Currently playing, pause */
-              fprintf(stderr,"[PAUSE]\n");
-              codec_pause(&codecs.acodec);
-              codec_pause(&codecs.vcodec);
-              is_paused = 1;
-            }
+            do_pause(&codecs,1-codecs.is_paused);
 
             htsp_lock(&htsp);
             res = htsp_create_message(&msg,HMF_STR,"method","subscriptionSpeed",
-				           HMF_S64,"speed",(is_paused == 0 ? 100 : 0),
+				           HMF_S64,"speed",(codecs.is_paused == 0 ? 100 : 0),
                                            HMF_S64,"subscriptionId",htsp.subscriptionId,
                                            HMF_NULL);
             res = htsp_send_message(&htsp,&msg);
@@ -753,18 +768,22 @@ next_channel:
             goto next_channel;
 
           case 'u':
+            do_pause(&codecs,1);
             htsp_send_skip(&htsp,10*60);  // +10 minutes
             break;
 
           case 'd':
+            do_pause(&codecs,1);
             htsp_send_skip(&htsp,-10*60); // -10 minutes
             break;
 
           case 'l':
+            do_pause(&codecs,1);
             htsp_send_skip(&htsp,-30);    // -30 seconds
             break;
 
           case 'r':
+            do_pause(&codecs,1);
             htsp_send_skip(&htsp,30);     // +30 seconds
             break;
 

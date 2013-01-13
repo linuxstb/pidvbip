@@ -39,6 +39,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "audioplay.h"
 
+// Audio destination - "local" or "hdmi" (yes, these are strings)
+#define AUDIO_DEST "hdmi"
 
 static void input_buffer_callback(void *data, COMPONENT_T *comp)
 {
@@ -178,6 +180,8 @@ int32_t audioplay_create(AUDIOPLAY_STATE_T **handle,
          }
 
          ilclient_change_component_state(st->audio_render, OMX_StateExecuting);
+
+         audioplay_set_dest(st, AUDIO_DEST);
       }
    }
 

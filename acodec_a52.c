@@ -21,8 +21,6 @@
 #define CTTW_SLEEP_TIME 10
 #define MIN_LATENCY_TIME 20
 
-static const char *audio_dest[] = {"local", "hdmi"};
-
 #define BUFFER_SIZE_SAMPLES 1152
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -168,14 +166,11 @@ static void* acodec_a52_thread(struct codec_t* codec)
   int bit_rate;
   int is_paused = 0;
 
-  int dest = 1;            // 0=headphones, 1=hdmi
   int nchannels = 2;        // numnber of audio channels
   int bitdepth = 16;       // number of bits per sample
 
   AUDIOPLAY_STATE_T *st;
   int buffer_size = (BUFFER_SIZE_SAMPLES * bitdepth * nchannels)>>3;
-
-  assert(dest == 0 || dest == 1);
 
   /* Intialise the A52 decoder and check for success */
   state = a52_init(0);
@@ -183,9 +178,6 @@ static void* acodec_a52_thread(struct codec_t* codec)
   /* Initialise audio output - hardcoded to 48000/Stereo/16-bit */
 
   ret = audioplay_create(&st, 48000, 2, 16, 10, buffer_size);
-  assert(ret == 0);
-
-  ret = audioplay_set_dest(st, audio_dest[dest]);
   assert(ret == 0);
 
   while(1)

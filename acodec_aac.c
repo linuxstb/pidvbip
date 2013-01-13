@@ -21,8 +21,6 @@
 #define CTTW_SLEEP_TIME 10
 #define MIN_LATENCY_TIME 20
 
-static const char *audio_dest[] = {"local", "hdmi"};
-
 #define BUFFER_SIZE_SAMPLES 1152
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -102,7 +100,6 @@ static void* acodec_aac_thread(struct codec_t* codec)
   int ret;
   int is_paused = 0;
 
-  int dest = 1;            // 0=headphones, 1=hdmi
   long unsigned int samplerate = 48000;  // audio sample rate in Hz
   unsigned char nchannels = NCHANNELS;        // numnber of audio channels
   int bitdepth = 16;       // number of bits per sample
@@ -111,12 +108,7 @@ static void* acodec_aac_thread(struct codec_t* codec)
   int buffer_size = (BUFFER_SIZE_SAMPLES * bitdepth * nchannels)>>3;
   int err;
 
-  assert(dest == 0 || dest == 1);
-
   ret = audioplay_create(&st, samplerate, nchannels, bitdepth, 10, buffer_size);
-  assert(ret == 0);
-
-  ret = audioplay_set_dest(st, audio_dest[dest]);
   assert(ret == 0);
 
   // Check if decoder has the needed capabilities

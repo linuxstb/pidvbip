@@ -22,8 +22,6 @@
 #define CTTW_SLEEP_TIME 10
 #define MIN_LATENCY_TIME 20
 
-static const char *audio_dest[] = {"local", "hdmi"};
-
 #define BUFFER_SIZE_SAMPLES 1152
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -71,14 +69,11 @@ static void* acodec_mpeg_thread(struct codec_t* codec)
   int ret;
   int is_paused = 0;
 
-  int dest = 1;            // 0=headphones, 1=hdmi
   int nchannels = 2;        // numnber of audio channels
   int bitdepth = 16;       // number of bits per sample
 
   AUDIOPLAY_STATE_T *st;
   int buffer_size = (BUFFER_SIZE_SAMPLES * bitdepth * nchannels)>>3;
-
-  assert(dest == 0 || dest == 1);
 
   mpg123_init();
 
@@ -131,10 +126,6 @@ next_packet:
 
       ret = audioplay_create(&st, rate, channels, bitdepth, 10, buffer_size);
       assert(ret == 0);
-
-      ret = audioplay_set_dest(st, audio_dest[dest]);
-      assert(ret == 0);
-
     }
 
     output_pcm(st, out, size, buffer_size);

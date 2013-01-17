@@ -42,7 +42,7 @@ struct htsp_stream_t
   int index;
   int type;
   int codec;
-  char lang[3];
+  char lang[4];
 };
 
 struct htsp_subscription_t

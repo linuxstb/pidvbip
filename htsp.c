@@ -568,6 +568,27 @@ int htsp_get_list(struct htsp_message_t* msg, char* name, unsigned char** data,i
 }
 
 
+/* Calculate a priority value (higher the better) for a language string.
+   This is currently hard-coded, but should be user-configurable. */
+static int audio_lang_priority(char* lang)
+{
+  if (!lang) return 0;
+
+  /* Whitelist */
+  if (!strcmp(lang,"eng")) return 99;
+  /* The following are the codes used on Spanish DVB-T for alternative (mostly English) language tracks */
+  if (!strcmp(lang,"v.o")) return 1;
+  if (!strcmp(lang,"und")) return 1;
+  if (!strcmp(lang,"qaa")) return 1;
+  if (!strcmp(lang,"mul")) return 1;
+
+  /* Blacklist */
+  if (!strcmp(lang,"cat")) return -1;
+  if (!strcmp(lang,"spa")) return -2;
+
+  return 0;
+}
+
 int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscription_t* subscription)
 {
   unsigned char* list;
@@ -611,11 +632,16 @@ int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscri
     htsp_get_int(&tmpmsg,"index",&subscription->streams[i].index);
 
     char* typestr = htsp_get_string(&tmpmsg,"type");
-    char* lang = htsp_get_string(&tmpmsg,"lang");
+    char* lang = htsp_get_string(&tmpmsg,"language");
+
+    fprintf(stderr,"%d %s %s\n",subscription->streams[i].index, typestr, lang);
 
     if (typestr==NULL)
       return 1;    
 
+    if (lang)
+      strncpy(subscription->streams[i].lang,lang,4);
+   
     if (strcmp(typestr,"MPEG2VIDEO")==0) {
       subscription->streams[i].type = HMF_STREAM_VIDEO;
       subscription->streams[i].codec = HMF_VIDEO_CODEC_MPEG2;
@@ -629,24 +655,24 @@ int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscri
     } else if (strcmp(typestr,"MPEG2AUDIO")==0) {
       subscription->streams[i].type = HMF_STREAM_AUDIO;
       subscription->streams[i].codec = HMF_AUDIO_CODEC_MPEG;
-      if (subscription->audiostream == -1) {
+      if ((subscription->audiostream == -1) || (audio_lang_priority(lang) > audio_lang_priority(subscription->streams[subscription->audiostream].lang))) {
         subscription->audiostream = i;
-        DEBUGF("Audio stream is index %d: MPEG (i=%d)\n",subscription->streams[i].index,i);
+        fprintf(stderr,"Audio stream is index %d: MPEG (i=%d)\n",subscription->streams[i].index,i);
       }
     } else if (strcmp(typestr,"AAC")==0) {
       subscription->streams[i].type = HMF_STREAM_AUDIO;
       subscription->streams[i].codec = HMF_AUDIO_CODEC_AAC;
-      if (subscription->audiostream == -1) {
+      if ((subscription->audiostream == -1) || (audio_lang_priority(lang) > audio_lang_priority(subscription->streams[subscription->audiostream].lang))) {
         subscription->audiostream = i;
-        DEBUGF("Audio stream is index %d: AAC\n",subscription->streams[i].index);
+        fprintf(stderr,"Audio stream is index %d: AAC\n",subscription->streams[i].index);
       }
     } else if (strcmp(typestr,"AC3")==0) {
       subscription->streams[i].type = HMF_STREAM_AUDIO;
       subscription->streams[i].codec = HMF_AUDIO_CODEC_AC3;
-      /* AC3 takes precedence over MPEG */
-      if ((subscription->audiostream == -1) || (subscription->streams[subscription->audiostream].codec == HMF_AUDIO_CODEC_MPEG)) {
+      /* AC3 takes precedence over MPEG, if the language is the same or greater priority */
+      if ((subscription->audiostream == -1) || ((subscription->streams[subscription->audiostream].codec == HMF_AUDIO_CODEC_MPEG) || (audio_lang_priority(lang) >= audio_lang_priority(subscription->streams[subscription->audiostream].lang)))) {
         subscription->audiostream = i;
-        DEBUGF("Audio stream is index %d: A/52\n",subscription->streams[i].index);
+        fprintf(stderr,"Audio stream is index %d: A/52\n",subscription->streams[i].index);
       }
     } else if (strcmp(typestr,"DVBSUB")==0) {
       subscription->streams[i].type = HMF_STREAM_SUB;

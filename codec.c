@@ -131,6 +131,11 @@ void codec_resume(struct codec_t* codec)
 
 void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet)
 {
+  if (packet == NULL) {
+    fprintf(stderr,"ERROR: Adding NULL packet to queue, skipping\n");
+    return;
+  }
+
   struct codec_queue_t* new = malloc(sizeof(struct codec_queue_t));
 
   if (new == NULL) {

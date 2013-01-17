@@ -80,7 +80,7 @@ libs/vgfont/libvgfont.a:
 	make -C libs/vgfont/ INCLUDES='$(INCLUDES)'
 
 clean:
-	rm -f $(TARGETS) vo_pi.o codec.o htsp.o vcodec_mpeg2.o vcodec_omx.o channels.o events.o avl.o cec.o *~
+	rm -f $(TARGETS) vo_pi.o codec.o htsp.o vcodec_mpeg2.o vcodec_omx.o channels.o events.o avl.o cec.o acodec_a52.o acodec_aac.o acodec_mpeg.o audioplay.o avahi.o osd.o tiresias_pcfont.o *~
 	make -C libmpeg2 clean
 	make -C libs/ilclient clean
 	make -C libs/vgfont clean

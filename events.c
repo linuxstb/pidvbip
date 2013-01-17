@@ -8,6 +8,8 @@
 #include "events.h"
 #include "channels.h"
 
+//#define DEBUG_EVENTS
+
 static struct avl_tree events;
 static pthread_mutex_t events_mutex;
 
@@ -84,11 +86,13 @@ void process_event_message(char* method, struct htsp_message_t* msg)
   pthread_mutex_lock(&events_mutex);
   event = event_get_nolock(eventId);
 
-  //  if (strcmp(method,"eventUpdate")==0) {
-  //    fprintf(stderr,"eventUpdate - %d\n",eventId);
-  //  } else {
-  //    fprintf(stderr,"eventAdd - %d\n",eventId);
-  //  }
+#ifdef DEBUG_EVENTS
+  if (strcmp(method,"eventUpdate")==0) {
+    fprintf(stderr,"eventUpdate - %d\n",eventId);
+  } else {
+    fprintf(stderr,"eventAdd - %d\n",eventId);
+  }
+#endif
 
   if (event == NULL) {
     do_insert = 1;
@@ -120,6 +124,12 @@ void process_event_message(char* method, struct htsp_message_t* msg)
 
   if (do_insert) {
     avl_insert(&events,(struct avl*)event);
+#ifdef DEBUG_EVENTS
+    struct event_t* event2 = event_get_nolock(eventId);
+    if (event2 == NULL) {
+      fprintf(stderr,"ERROR: Inserted event %d but could not retrieve it.\n",eventId);
+    }
+#endif
   }
   pthread_mutex_unlock(&events_mutex);
 }

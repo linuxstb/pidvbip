@@ -267,6 +267,10 @@ next_packet:
 
      int to_copy = packet_size - data_len;
 
+     if (current->data == NULL) {
+       fprintf(stderr,"ERROR: data is NULL (expect segfault!)");
+     }
+
      if (to_copy > (current->data->packetlength - current_used))
          to_copy = current->data->packetlength - current_used;
 

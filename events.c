@@ -10,11 +10,20 @@
 
 //#define DEBUG_EVENTS
 
+//#define USE_AVL
+
+#ifdef USE_AVL
 static struct avl_tree events;
+static struct event_t* searched_event;
+#else
+#define MAX_EVENT_ID 300000
+static struct event_t* events[MAX_EVENT_ID+1];
+#endif
+
 static pthread_mutex_t events_mutex;
 
-static struct event_t* searched_event;
 
+#ifdef USE_AVL
 static int iter(struct avl* a)
 {
   searched_event = (struct event_t*)a;
@@ -22,9 +31,11 @@ static int iter(struct avl* a)
 
   return 0;
 }
+#endif
 
 static struct event_t* event_get_nolock(uint32_t eventId)
 {
+#ifdef USE_AVL
   struct event_t event;
   event.eventId = eventId;
 
@@ -32,6 +43,13 @@ static struct event_t* event_get_nolock(uint32_t eventId)
   searched_event = NULL;
   avl_range(&events,(struct avl*)&event,(struct avl*)&event,iter);
   return searched_event;
+#else
+  if (eventId <= MAX_EVENT_ID) {
+    return events[eventId];
+  } else {
+    return NULL;
+  }
+#endif
 }
 
 struct event_t* event_get(uint32_t eventId)
@@ -43,7 +61,7 @@ struct event_t* event_get(uint32_t eventId)
   return event;
 }
 
-
+#ifdef USE_AVL
 static int cmp_event(void* a, void* b)
 {
   int aa, bb;
@@ -51,6 +69,7 @@ static int cmp_event(void* a, void* b)
   bb = ((struct event_t*)b)->eventId;
   return aa - bb;
 }
+#endif
 
 static void event_free_items(struct event_t* event)
 {
@@ -123,7 +142,13 @@ void process_event_message(char* method, struct htsp_message_t* msg)
   //htsp_dump_message(msg);
 
   if (do_insert) {
+#ifdef USE_AVL
     avl_insert(&events,(struct avl*)event);
+#else
+    if (eventId < MAX_EVENT_ID)
+      events[eventId] = event;
+#endif
+
 #ifdef DEBUG_EVENTS
     struct event_t* event2 = event_get_nolock(eventId);
     if (event2 == NULL) {
@@ -137,7 +162,7 @@ void process_event_message(char* method, struct htsp_message_t* msg)
 void event_delete(uint32_t eventId)
 {
   pthread_mutex_lock(&events_mutex);
-
+#ifdef USE_AVL
   struct event_t* event = event_get_nolock(eventId);
 
   //fprintf(stderr,"DELETING EVENT:\n");
@@ -148,6 +173,14 @@ void event_delete(uint32_t eventId)
     event_free_items(event);
     free(event);
   }
+#else
+  if (eventId < MAX_EVENT_ID) {
+    if (events[eventId]) {
+      event_free(events[eventId]);
+      events[eventId] = NULL;
+    }
+  }
+#endif
   pthread_mutex_unlock(&events_mutex);
 }
 
@@ -208,6 +241,7 @@ void event_dump(struct event_t* event)
   pthread_mutex_unlock(&events_mutex);
 }
 
+#ifdef USE_AVL
 static int find_hd_version(struct avl* a,struct event_t* sd_event){
   int res = -1;
   struct event_t* events = (struct event_t*)a;
@@ -232,6 +266,7 @@ static int find_hd_version(struct avl* a,struct event_t* sd_event){
 
   return res;
 }
+#endif
 
 int event_find_hd_version(int eventId)
 {
@@ -240,7 +275,21 @@ int event_find_hd_version(int eventId)
   struct event_t* current_event = event_get_nolock(eventId);
 
   fprintf(stderr,"Searching for episode %d\n",current_event->episodeId);
+#if USE_AVL
   int res = find_hd_version(events.root,current_event);
+#else
+  int i;
+  int res = -1;
+  for (i=0;i<=MAX_EVENT_ID && res==-1;i++) {
+    if ((i != eventId) && (events[i])) {
+      if ((events[i]->episodeId == current_event->episodeId) && 
+          (events[i]->start == current_event->start) && 
+          (channels_gettype(events[i]->channelId)==CTYPE_HDTV)) {
+        res = events[i]->channelId;
+      }
+    }
+  }
+#endif
   fprintf(stderr,"HERE - res=%d\n",res);
   
   pthread_mutex_unlock(&events_mutex);
@@ -250,7 +299,11 @@ int event_find_hd_version(int eventId)
 
 void events_init(void)
 {
+#ifdef USE_AVL
   events.root = NULL;
   events.compar = cmp_event;
+#else
+  memset(events,0,sizeof(events));
+#endif
   pthread_mutex_init(&events_mutex,NULL);
 }

@@ -87,7 +87,7 @@ int htsp_connect(struct htsp_t* htsp)
 
     fprintf(stderr,"Connecting to %s (%s) port %d...\n",htsp->host,htsp->ip,htsp->port);    
 
-    htsp->remote = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in *));
+    htsp->remote = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in));
     htsp->remote->sin_family = AF_INET;
 
     res = inet_pton(AF_INET, htsp->ip, (void *)(&(htsp->remote->sin_addr.s_addr)));

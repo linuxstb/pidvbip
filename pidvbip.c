@@ -502,7 +502,9 @@ int main(int argc, char* argv[])
     fprintf(stderr,"Using host \"%s:%d\"\n",htsp.host,htsp.port);
     bcm_host_init();
 
+#ifdef ENABLE_CEC
     cec_init(0);
+#endif
 
     hw_mpeg2 = mpeg2_codec_enabled();
 
@@ -683,9 +685,11 @@ next_channel:
         }
       }
 
+#ifdef ENABLE_CEC
       if (c==-1) {
         c = cec_get_keypress();
       }
+#endif
 
       if (c != -1) {
         DEBUGF("char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));

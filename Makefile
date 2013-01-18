@@ -6,7 +6,15 @@ LIBS=-lGLESv2 -lEGL -lopenmaxil -lbcm_host -lvcos -lvchiq_arm -lpthread -lavahi-
 LDFLAGS=-L/opt/vc/lib
 INCLUDES=-I/opt/vc/include/ -I/opt/vc/include/interface/vcos/pthreads -I/usr/include/freetype2 -I/usr/include/arm-linux-gnueabi -I/usr/local/include
 
+OBJS=vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o acodec_mpeg.o acodec_aac.o acodec_a52.o channels.o events.o avahi.o osd.o tiresias_pcfont.o avl.o
+
 TARGETS=mpeg2test pidvbip flvtoh264
+
+ifndef NOCEC
+  CFLAGS += -DENABLE_CEC
+  LIBS += -lcec
+  OBJS += cec.o
+endif
 
 # disable asserts
 CFLAGS+=-DNDEBUG
@@ -19,8 +27,8 @@ flvtoh264: flvtoh264.c
 mpeg2test: mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a
 	$(CC) $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o mpeg2test mpeg2test.c vo_pi.o libmpeg2/libmpeg2.a $(LIBS)
 
-pidvbip: pidvbip.c libmpeg2/libmpeg2.a vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o acodec_mpeg.o acodec_aac.o acodec_a52.o channels.o events.o avahi.o libs/vgfont/libvgfont.a libs/ilclient/libilclient.a osd.o tiresias_pcfont.o avl.o cec.o
-	$(CC) $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o pidvbip pidvbip.c vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o  acodec_aac.o acodec_a52.o acodec_mpeg.o channels.o events.o avahi.o osd.o tiresias_pcfont.o avl.o cec.o libmpeg2/libmpeg2.a libs/ilclient/libilclient.a libs/vgfont/libvgfont.a $(LIBS)
+pidvbip: pidvbip.c libmpeg2/libmpeg2.a libs/vgfont/libvgfont.a libs/ilclient/libilclient.a $(OBJS)
+	$(CC) $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o pidvbip pidvbip.c $(OBJS) libmpeg2/libmpeg2.a libs/ilclient/libilclient.a libs/vgfont/libvgfont.a $(LIBS)
 
 vo_pi.o: vo_pi.c vo_pi.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o vo_pi.o vo_pi.c
@@ -80,7 +88,7 @@ libs/vgfont/libvgfont.a:
 	make -C libs/vgfont/ INCLUDES='$(INCLUDES)'
 
 clean:
-	rm -f $(TARGETS) vo_pi.o codec.o htsp.o vcodec_mpeg2.o vcodec_omx.o channels.o events.o avl.o cec.o acodec_a52.o acodec_aac.o acodec_mpeg.o audioplay.o avahi.o osd.o tiresias_pcfont.o *~
+	rm -f $(TARGETS) $(OBJS)
 	make -C libmpeg2 clean
 	make -C libs/ilclient clean
 	make -C libs/vgfont clean

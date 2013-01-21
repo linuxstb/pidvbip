@@ -646,7 +646,7 @@ next_channel:
     res = htsp_create_message(&msg,HMF_STR,"method","subscribe",
                                    HMF_S64,"channelId",actual_channel_id,
                                    HMF_S64,"timeshiftPeriod",3600,
-//                                   HMF_S64,"normts",1,
+                                   HMF_S64,"normts",1,
                                    HMF_S64,"subscriptionId",++htsp.subscriptionId,
                                    HMF_NULL);
     res = htsp_send_message(&htsp,&msg);

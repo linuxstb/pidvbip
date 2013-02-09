@@ -188,7 +188,7 @@ static OMX_ERRORTYPE omx_event_handler(OMX_IN OMX_HANDLETYPE hComponent,
       break;
 
     case OMX_EventPortSettingsChanged: 
-      //fprintf(stderr,"[EVENT] %s %p port %d settings changed.\n", mapcomponent(pipe, hComponent), hComponent, (unsigned int)nData1);
+      fprintf(stderr,"[EVENT] %s %p port %d settings changed.\n", mapcomponent(pipe, hComponent), hComponent, (unsigned int)nData1);
       if (hComponent == pipe->video_decode) {
         //fprintf(stderr,"[EVENT] video_decode - port_settings_changed=1\n");
         pipe->port_settings_changed = 1;
@@ -451,12 +451,12 @@ OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTY
   OERR(OMX_SetParameter(pipe->video_decode, OMX_IndexParamVideoPortFormat, &format));
 
    /* Enable error concealment for H264 only - without this, HD channels don't work reliably */
-  //   if (codec->codectype == OMX_VIDEO_CodingAVC) {
+  if (video_codec == OMX_VIDEO_CodingAVC) {
      OMX_PARAM_BRCMVIDEODECODEERRORCONCEALMENTTYPE ec;
      OMX_INIT_STRUCTURE(ec);
      ec.bStartWithValidFrame = OMX_FALSE;
      OERR(OMX_SetParameter(pipe->video_decode, OMX_IndexParamBrcmVideoDecodeErrorConcealment, &ec));
-  //   }
+  }
 
 
   /* Enable video decoder input port */

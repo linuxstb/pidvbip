@@ -40,10 +40,10 @@ static OMX_TICKS pts_to_omx(uint64_t pts)
 
 static void* vcodec_omx_thread(struct codec_t* codec)
 {
+   OMX_VIDEO_CODINGTYPE coding;
+   int width, height;
    struct omx_pipeline_t pipe;
-   int current_used = 0;
-   struct codec_queue_t* current;
-   int status = 0;
+   struct codec_queue_t* current = NULL;
    unsigned char *data = NULL;
    unsigned int data_len = 0;
    int frames_sent = 0;
@@ -53,10 +53,8 @@ static void* vcodec_omx_thread(struct codec_t* codec)
    OMX_BUFFERHEADERTYPE *buf;
    int first_packet = 1;
 
-   OERR(OMX_Init());
-
-   omx_setup_pipeline(&pipe, codec->codectype);
-
+next_channel:
+   coding = OMX_VIDEO_CodingUnused;
    while (1)
    {
 next_packet:
@@ -69,7 +67,6 @@ next_packet:
          is_paused = 0;
        }
        current = codec_queue_get_next_item(codec); 
-       current_used = 0; 
 
        if (current->msgtype == MSG_STOP) {
          codec_queue_free_item(codec,current);
@@ -83,7 +80,6 @@ next_packet:
          is_paused = 1;
          goto next_packet;
        }
-
        if ((prev_DTS != -1) && ((prev_DTS + 40000) != current->data->DTS) && ((prev_DTS + 20000) != current->data->DTS)) {
          fprintf(stderr,"DTS discontinuity - DTS=%lld, prev_DTS=%lld (diff = %lld)\n",current->data->DTS,prev_DTS,current->data->DTS-prev_DTS);
        }
@@ -92,6 +88,21 @@ next_packet:
 
      if (current->data == NULL) {
        fprintf(stderr,"ERROR: data is NULL (expect segfault!)");
+     }
+
+     if (coding == OMX_VIDEO_CodingUnused) {
+       fprintf(stderr,"Setting up OMX pipeline... - codectype=%d\n",codec->codectype);
+       omx_setup_pipeline(&pipe, codec->codectype);
+       fprintf(stderr,"Done setting up OMX pipeline.\n");
+       coding = codec->codectype;
+       width = codec->width;
+       height = codec->height;
+       fprintf(stderr,"Initialised video codec - %s width=%d, height=%d\n",((coding == OMX_VIDEO_CodingAVC) ? "H264" : "MPEG-2"), width, height);
+     } else if ((coding != codec->codectype) || (width != codec->width) || (height != codec->height)) {
+       fprintf(stderr,"Change of codec detected, restarting video codec\n");
+       coding = OMX_VIDEO_CodingUnused;
+       first_packet = 1;
+       goto stop;
      }
 
      int bytes_left = current->data->packetlength;
@@ -120,6 +131,7 @@ next_packet:
        if (pipe.port_settings_changed == 1)
        {
          pipe.port_settings_changed = 0;
+	 fprintf(stderr,"port_settings_changed = 1\n");
 
          OERR(OMX_SetupTunnel(pipe.video_decode, 131, pipe.video_scheduler, 10));
          omx_send_command_and_wait(&pipe, pipe.video_decode, OMX_CommandPortEnable, 131, NULL);
@@ -131,6 +143,8 @@ next_packet:
        if (pipe.port_settings_changed == 2)
        {
          pipe.port_settings_changed = 0;
+	 fprintf(stderr,"port_settings_changed = 2\n");
+
          OERR(OMX_SetupTunnel(pipe.video_scheduler, 11, pipe.video_render, 90));  
          omx_send_command_and_wait(&pipe, pipe.video_scheduler, OMX_CommandPortEnable, 11, NULL);
          omx_send_command_and_wait(&pipe, pipe.video_render, OMX_CommandPortEnable, 90, NULL);
@@ -215,16 +229,15 @@ done:
    OERR(OMX_FreeHandle(pipe.video_render));
    OERR(OMX_FreeHandle(pipe.clock));
 
-   //OMX_Deinit();
+   DEBUGF("End of omx thread\n");
+   goto next_channel;
 
-   DEBUGF("End of omx thread - status=%d\n",status);
-
-   return status;
+   return 0;
 }
 
-void vcodec_omx_init(struct codec_t* codec, OMX_IMAGE_CODINGTYPE codectype)
+void vcodec_omx_init(struct codec_t* codec)
 {
-  codec->codectype = codectype;
+  codec->codectype = OMX_VIDEO_CodingUnused;
   codec_queue_init(codec);
   pthread_create(&codec->thread,NULL,(void * (*)(void *))vcodec_omx_thread,(void*)codec);
 }

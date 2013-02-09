@@ -46,7 +46,8 @@ struct codec_t
   int codecdatasize;
   struct codec_t* acodec;
   OMX_VIDEO_CODINGTYPE codectype;
-  RECT_VARS_T vars;    // Used by video codecs
+  int width;
+  int height;
 };
 
 void codec_queue_init(struct codec_t* codec);

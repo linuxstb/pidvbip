@@ -34,7 +34,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include <interface/vmcs_host/vcgencmd.h>
 
 #include "bcm_host.h"
-#include "vcodec_mpeg2.h"
 #include "vcodec_omx.h"
 #include "acodec_mpeg.h"
 #include "acodec_aac.h"
@@ -46,9 +45,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "osd.h"
 #include "avahi.h"
 #include "cec.h"
+#include "omx_utils.h"
 
 struct codecs_t {
-  struct codec_t vcodec; // Video
+  struct codec_t vcodec;
   struct codec_t acodec; // Audio
   struct codec_t scodec; // Subtitles
   struct htsp_subscription_t subscription;  // Details of the currently tuned channel
@@ -57,8 +57,6 @@ struct codecs_t {
 
 /* TODO: Should this be global? */
 struct htsp_t htsp;
-
-int hw_mpeg2;
 
 int mpeg2_codec_enabled(void)
 {
@@ -226,19 +224,13 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
             exit(1);
           }
 
-          if (codecs->subscription.videostream >= 0) {
-            fprintf(stderr,"[htsp_receiver_thread] - creating video codec\n");
-            if (codecs->subscription.streams[codecs->subscription.videostream].codec == HMF_VIDEO_CODEC_MPEG2) {
-              if (hw_mpeg2) {
-                vcodec_omx_init(&codecs->vcodec,OMX_VIDEO_CodingMPEG2);
-              } else {
-                vcodec_mpeg2_init(&codecs->vcodec);
-              }
-            } else {
-              vcodec_omx_init(&codecs->vcodec,OMX_VIDEO_CodingAVC);
-            }
-            codecs->vcodec.acodec = &codecs->acodec;
+          if (codecs->subscription.streams[codecs->subscription.videostream].codec == HMF_VIDEO_CODEC_MPEG2) {
+            codecs->vcodec.codectype = OMX_VIDEO_CodingMPEG2;
+          } else {
+            codecs->vcodec.codectype = OMX_VIDEO_CodingAVC;
           }
+          codecs->vcodec.width = codecs->subscription.streams[codecs->subscription.videostream].width;
+          codecs->vcodec.height = codecs->subscription.streams[codecs->subscription.videostream].height;
 
           if (codecs->subscription.streams[codecs->subscription.audiostream].codec == HMF_AUDIO_CODEC_MPEG) {
             acodec_mpeg_init(&codecs->acodec);
@@ -250,7 +242,6 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
             acodec_a52_init(&codecs->acodec);
             DEBUGF("Initialised A/52 codec\n");
           }
-
           // TODO: Subtitle thread
 
         } else if (strcmp(method,"subscriptionStatus")==0) {
@@ -502,16 +493,14 @@ int main(int argc, char* argv[])
     fprintf(stderr,"Using host \"%s:%d\"\n",htsp.host,htsp.port);
     bcm_host_init();
 
+    OERR(OMX_Init());
+
 #ifdef ENABLE_CEC
     cec_init(0);
 #endif
 
-    hw_mpeg2 = mpeg2_codec_enabled();
-
-    if (hw_mpeg2) {
-      fprintf(stderr,"Using hardware MPEG-2 decoding\n");
-    } else {
-      fprintf(stderr,"Using software MPEG-2 decoding\n");
+    if (! mpeg2_codec_enabled()) {
+      fprintf(stderr,"WARNING: No hardware MPEG-2 license detected - MPEG-2 video will not work\n");
     }
 
     if ((inputfd = open(inputdevice, O_RDONLY)) >= 0) {
@@ -601,16 +590,18 @@ int main(int argc, char* argv[])
     memset(&codecs.acodec,0,sizeof(codecs.acodec));
     codecs.is_paused = 0;
 
+    vcodec_omx_init(&codecs.vcodec);
+    codecs.vcodec.acodec = &codecs.acodec;
+
 next_channel:
     osd_blank_video(&osd,0); /* Don't blank the screen for now - leave the transition visbible for debugging */
     double blank_video_timeout = get_time() + 1000;
 
     fprintf(stderr,"lock0\n");
-    if (codecs.vcodec.thread) {
-      codec_stop(&codecs.vcodec);
-      pthread_join(codecs.vcodec.thread,NULL);
-      fprintf(stderr,"[main thread] - killed video thread\n");
-    }
+
+    //    if (codecs.vcodec.thread) {
+    //      codec_stop(&codecs.vcodec);
+    //    }
 
     fprintf(stderr,"lock1\n");
     if (codecs.acodec.thread) {
@@ -826,5 +817,7 @@ next_channel:
 
 done:
     tcsetattr(0, TCSANOW, &orig);
+
+    OERR(OMX_Deinit());
     return 0;
 }

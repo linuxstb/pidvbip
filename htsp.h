@@ -42,6 +42,8 @@ struct htsp_stream_t
   int index;
   int type;
   int codec;
+  int width;
+  int height;
   char lang[4];
 };
 

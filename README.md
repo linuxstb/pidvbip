@@ -16,7 +16,6 @@ git clone https://githib.com/tvheadend/tvheadend.git
 In addition to pidvbip itself, this repository contains some
 experimental software:
 
-* mpeg2test - test decoding of mpeg-2 elementary streams
 * flvtoh264 - Simple parser to extract an h264 video stream from an FLV file
 
 
@@ -33,12 +32,12 @@ At the time of writing (January 2013), the version of libcec shipped
 with Raspbian does not work with pidvbip.  Install the latest verison
 from git with the following commands:
 
-git clone https://github.com/Pulse-Eight/libcec.git
-cd libcec
-./bootstrap
-./configure --with-rpi-include-path=/opt/vc/include --with-rpi-lib-path=/opt/vc/lib/
-make
-sudo make install
+    git clone https://github.com/Pulse-Eight/libcec.git
+    cd libcec
+    ./bootstrap
+    ./configure --with-rpi-include-path=/opt/vc/include --with-rpi-lib-path=/opt/vc/lib/
+    make
+    sudo make install
 
 After installing the above libraries, you can build pidvbip by typing
 "make" in the source code directory.
@@ -47,11 +46,10 @@ After installing the above libraries, you can build pidvbip by typing
 MPEG-2 decoding
 ---------------
 
-pidvbip will detect whether the MPEG-2 hardware codec is enabled, and
-fall back to software decoding otherwise.  Software MPEG-2 only works
-for relatively low bitrate SD streams - it is recommended to overclock
-your Pi as high as possible if you want to use software decoding.
-
+pidvbip requires that the MPEG-2 hardware codec is enabled (by
+purchase of the license).  Early versions of pidvbip has a software
+MPEG-2 decoder but this was removed in February 2013 to simplify
+maintenance and development of the main hardware playback code.
 
 Usage
 -----
@@ -94,6 +92,9 @@ streams.  Multi-channel audio streams are downmixed to Stereo.
 
 OpenELEC build
 --------------
+
+NOTE: As of January 2013 the OE build is not functioning.  I hope to
+fix this soon.
 
 A modified version of OpenELEC using pidvbip instead of xbmc as the
 mediacenter package can be built from the fork of OpenELEC at:
@@ -140,7 +141,7 @@ not implemented yet.  See the file BUGS for more information.
 Copyright
 ---------
 
-(C) Dave Chapman 2012
+(C) Dave Chapman 2012-2013
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

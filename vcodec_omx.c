@@ -18,57 +18,16 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-
-This file was based on the hello_video.c sample program which had the
-following (C):
-
-
-Copyright (c) 2012, Broadcom Europe Ltd
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above copyright
-      notice, this list of conditions and the following disclaimer in the
-      documentation and/or other materials provided with the distribution.
-    * Neither the name of the copyright holder nor the
-      names of its contributors may be used to endorse or promote products
-      derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY
-DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-
-// Video deocode demo using OpenMAX IL though the ilcient helper library
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <bcm_host.h>
-#include "libs/ilclient/ilclient.h"
-
+#include "omx_utils.h"
 #include "vcodec_omx.h"
 #include "codec.h"
 #include "debug.h"
-
-#define OMX_INIT_STRUCTURE(a) \
-   memset(&(a), 0, sizeof(a)); \
-   (a).nSize = sizeof(a); \
-   (a).nVersion.s.nVersionMajor = OMX_VERSION_MAJOR; \
-   (a).nVersion.s.nVersionMinor = OMX_VERSION_MINOR; \
-   (a).nVersion.s.nRevision = OMX_VERSION_REVISION; \
-   (a).nVersion.s.nStep = OMX_VERSION_STEP
 
 /* Convert the presentation timestamp into an OMX compatible format */
 static OMX_TICKS pts_to_omx(uint64_t pts)
@@ -79,142 +38,28 @@ static OMX_TICKS pts_to_omx(uint64_t pts)
   return ticks;
 }
 
-struct vstate_t {
-  ILCLIENT_T *client;
-  COMPONENT_T* video_decode;
-  COMPONENT_T* video_scheduler;
-  COMPONENT_T* video_render;
-  COMPONENT_T* clock;
-  COMPONENT_T* list[5];
-  TUNNEL_T tunnel[4];
-};
-
 static void* vcodec_omx_thread(struct codec_t* codec)
 {
-   OMX_VIDEO_PARAM_PORTFORMATTYPE format;
-   OMX_TIME_CONFIG_CLOCKSTATETYPE cstate;
-   OMX_CONFIG_DISPLAYREGIONTYPE configDisplay;
+   struct omx_pipeline_t pipe;
    int current_used = 0;
    struct codec_queue_t* current;
    int status = 0;
    unsigned char *data = NULL;
    unsigned int data_len = 0;
-   int packet_size = 16<<10; // NOTE: 16KB
    int frames_sent = 0;
    int is_paused = 0;
    int64_t prev_DTS = -1;
    int err;
-   struct vstate_t vstate;
    OMX_BUFFERHEADERTYPE *buf;
-   int port_settings_changed = 0;
    int first_packet = 1;
 
-   memset(&vstate, 0, sizeof(vstate));
+   OERR(OMX_Init());
 
-   if((vstate.client = ilclient_init()) == NULL)
+   omx_setup_pipeline(&pipe, codec->codectype);
+
+   while (1)
    {
-      fprintf(stderr,"Could not init ilclient\n");
-      exit(1);
-      return -3;
-   }
-
-   if(OMX_Init() != OMX_ErrorNone)
-   {
-      ilclient_destroy(vstate.client);
-      fprintf(stderr,"Could not init OMX\n");
-      exit(1);
-      return -4;
-   }
-
-   // create video_decode
-   if(ilclient_create_component(vstate.client, &vstate.video_decode, "video_decode", ILCLIENT_DISABLE_ALL_PORTS | ILCLIENT_ENABLE_INPUT_BUFFERS) != 0)
-      status = -14;
-   vstate.list[0] = vstate.video_decode;
-
-   // create video_render
-   if(status == 0 && ilclient_create_component(vstate.client, &vstate.video_render, "video_render", ILCLIENT_DISABLE_ALL_PORTS) != 0)
-      status = -14;
-   vstate.list[1] = vstate.video_render;
-
-#if 0
-   /* Example to playback video in part of the screen 
-      See http://home.nouwen.name/RaspberryPi/documentation/ilcomponents/prop.html#OMX_IndexConfigDisplayRegion for documentation
-    */
-   OMX_INIT_STRUCTURE(configDisplay);
-   configDisplay.set     = OMX_DISPLAY_SET_DEST_RECT | OMX_DISPLAY_SET_FULLSCREEN;
-   configDisplay.fullscreen = OMX_FALSE;
-   configDisplay.nPortIndex = 90;
-   configDisplay.nVersion.nVersion = OMX_VERSION;
-   configDisplay.dest_rect.x_offset  = 100;
-   configDisplay.dest_rect.y_offset  = 100;
-   configDisplay.dest_rect.width     = 1024;
-   configDisplay.dest_rect.height    = 576;
-
-   if (vstate.video_render != NULL && ((err = OMX_SetConfig(ILC_GET_HANDLE(vstate.video_render), OMX_IndexConfigDisplayRegion, &configDisplay)) != OMX_ErrorNone)) {
-     fprintf(stderr,"Error configuring video renderer - err=%d\n",err);
-     status = -14;
-   }
-    
-#endif
-
-   // create clock
-   if(status == 0 && ilclient_create_component(vstate.client, &vstate.clock, "clock", ILCLIENT_DISABLE_ALL_PORTS) != 0)
-      status = -14;
-   vstate.list[2] = vstate.clock;
-
-   OMX_INIT_STRUCTURE(cstate);
-   cstate.eState = OMX_TIME_ClockStateWaitingForStartTime;
-   cstate.nWaitMask = 1;
-   if(vstate.clock != NULL && OMX_SetParameter(ILC_GET_HANDLE(vstate.clock), OMX_IndexConfigTimeClockState, &cstate) != OMX_ErrorNone)
-      status = -13;
-
-   // create video_scheduler
-   if(status == 0 && ilclient_create_component(vstate.client, &vstate.video_scheduler, "video_scheduler", ILCLIENT_DISABLE_ALL_PORTS) != 0)
-      status = -14;
-   vstate.list[3] = vstate.video_scheduler;
-
-   set_tunnel(vstate.tunnel, vstate.video_decode, 131, vstate.video_scheduler, 10);
-   set_tunnel(vstate.tunnel+1, vstate.video_scheduler, 11, vstate.video_render, 90);
-   set_tunnel(vstate.tunnel+2, vstate.clock, 80, vstate.video_scheduler, 12);
-
-   // setup clock tunnel first
-   if(status == 0 && ilclient_setup_tunnel(vstate.tunnel+2, 0, 0) != 0)
-      status = -15;
-   else
-      ilclient_change_component_state(vstate.clock, OMX_StateExecuting);
-
-   if(status == 0)
-      ilclient_change_component_state(vstate.video_decode, OMX_StateIdle);
-
-   OMX_INIT_STRUCTURE(format);
-   format.nPortIndex = 130;
-   format.eCompressionFormat = codec->codectype;
-   //   format.xFramerate = 25 * (1 << 16);
-
-   if(status != 0 || 
-      OMX_SetParameter(ILC_GET_HANDLE(vstate.video_decode), OMX_IndexParamVideoPortFormat, &format) != OMX_ErrorNone ||
-      ilclient_enable_port_buffers(vstate.video_decode, 130, NULL, NULL, NULL) != 0)
-   {
-      goto done;
-   }
-
-   /* Enable error concealment for H264 only - without this, HD channels don't work reliably */
-   if (codec->codectype == OMX_VIDEO_CodingAVC) {
-     OMX_PARAM_BRCMVIDEODECODEERRORCONCEALMENTTYPE ec;
-     OMX_INIT_STRUCTURE(ec);
-     ec.bStartWithValidFrame = OMX_FALSE;
-     OMX_SetParameter(ILC_GET_HANDLE(vstate.video_decode), OMX_IndexParamBrcmVideoDecodeErrorConcealment, &ec);
-   }
-
-   ilclient_change_component_state(vstate.video_decode, OMX_StateExecuting);
-
-   while((buf = ilclient_get_input_buffer(vstate.video_decode, 130, 1)) != NULL)
-   {
-     // feed data and wait until we get port settings changed
-     unsigned char *dest = buf->pBuffer;
-
 next_packet:
-     /******* Start of new code for vcodec_omx.c */
      if (current == NULL) {
        if (is_paused) {
          // Wait for resume message
@@ -243,124 +88,134 @@ next_packet:
          fprintf(stderr,"DTS discontinuity - DTS=%lld, prev_DTS=%lld (diff = %lld)\n",current->data->DTS,prev_DTS,current->data->DTS-prev_DTS);
        }
        prev_DTS = current->data->DTS;
-
-#if 1
-       /* Simple implementation of A/V sync - sync video DTS with audio PTS.  
-          The proper way is to use OMX clocks */
-       int64_t audio_latency = 70000; /* 70ms - a guess which seems to work */
-       int64_t audio_PTS = codec_get_pts(codec->acodec);
-       if (audio_PTS != -1) {
-         int64_t delay = current->data->DTS-(audio_PTS+audio_latency);
-         if (delay > 50000) delay = 50000;
-         if (delay > 0) {
-           //fprintf(stderr,"[vcodec_omx] udelay(%lld)\n",delay);
-           usleep(delay);
-         }
-       }
-#endif
      }
-
-     if (data_len == 0) { // First buffer, set PTS
-       //buf->nTimeStamp = pts_to_omx(current->data->PTS);
-       frames_sent++;
-     }
-
-     int to_copy = packet_size - data_len;
 
      if (current->data == NULL) {
        fprintf(stderr,"ERROR: data is NULL (expect segfault!)");
      }
 
-     if (to_copy > (current->data->packetlength - current_used))
-         to_copy = current->data->packetlength - current_used;
+     int bytes_left = current->data->packetlength;
+     unsigned char* p = current->data->packet;
+     //fprintf(stderr,"Processing video packet - %d bytes\n",bytes_left);
+     while (bytes_left > 0) {
+       fprintf(stderr,"OMX buffers: %02d/20 free, vcodec queue: %4d, acodec queue: %4d\r",omx_get_free_buffer_count(&pipe,pipe.video_buffers),codec->queue_count, codec->acodec->queue_count);
+       buf = get_next_buffer(&pipe);   /* This will block if there are no empty buffers */
 
-     memcpy(dest,current->data->packet + current_used,to_copy);
-     data_len += to_copy;
-     current_used += to_copy;
+       int to_copy = OMX_MIN(bytes_left,buf->nAllocLen);
+       //fprintf(stderr,"Copying %d bytes\n",to_copy);
 
-     if (current_used == current->data->packetlength)
-     {
-       codec_queue_free_item(codec,current);
-       current = NULL;
+       memcpy(buf->pBuffer, p, to_copy);
+       p += to_copy;
+       bytes_left -= to_copy;
+       buf->nFilledLen = to_copy;
+
+       if(first_packet)
+       {
+         buf->nFlags = OMX_BUFFERFLAG_STARTTIME;
+         first_packet = 0;
+       }
+       else
+         buf->nFlags = OMX_BUFFERFLAG_TIME_UNKNOWN;
+
+       if (pipe.port_settings_changed == 1)
+       {
+         pipe.port_settings_changed = 0;
+
+         OERR(OMX_SetupTunnel(pipe.video_decode, 131, pipe.video_scheduler, 10));
+         omx_send_command_and_wait(&pipe, pipe.video_decode, OMX_CommandPortEnable, 131, NULL);
+         omx_send_command_and_wait(&pipe, pipe.video_scheduler, OMX_CommandPortEnable, 10, NULL);
+         omx_send_command_and_wait(&pipe, pipe.video_scheduler, OMX_CommandStateSet, OMX_StateExecuting, NULL);
+         omx_send_command_and_wait(&pipe, pipe.video_render, OMX_CommandStateSet, OMX_StateIdle, NULL);
+       }
+
+       if (pipe.port_settings_changed == 2)
+       {
+         pipe.port_settings_changed = 0;
+         OERR(OMX_SetupTunnel(pipe.video_scheduler, 11, pipe.video_render, 90));  
+         omx_send_command_and_wait(&pipe, pipe.video_scheduler, OMX_CommandPortEnable, 11, NULL);
+         omx_send_command_and_wait(&pipe, pipe.video_render, OMX_CommandPortEnable, 90, NULL);
+         omx_send_command_and_wait(&pipe, pipe.video_render, OMX_CommandStateSet, OMX_StateExecuting, NULL);
+       }
+
+       OERR(OMX_EmptyThisBuffer(pipe.video_decode, buf));
      }
-     /******* End of new code for vcodec_omx.c */
 
-     if(port_settings_changed == 0 &&
-        ((data_len > 0 && ilclient_remove_event(vstate.video_decode, OMX_EventPortSettingsChanged, 131, 0, 0, 1) == 0) ||
-         (data_len == 0 && ilclient_wait_for_event(vstate.video_decode, OMX_EventPortSettingsChanged, 131, 0, 0, 1,
-                                                   ILCLIENT_EVENT_ERROR | ILCLIENT_PARAMETER_CHANGED, 10000) == 0)))
-     {
-        port_settings_changed = 1;
-
-        if(ilclient_setup_tunnel(vstate.tunnel, 0, 0) != 0)
-        {
-           status = -7;
-           break;
-        }
-
-        ilclient_change_component_state(vstate.video_scheduler, OMX_StateExecuting);
-
-        // now setup tunnel to video_render
-        if(ilclient_setup_tunnel(vstate.tunnel+1, 0, 1000) != 0)
-        {
-           status = -12;
-           break;
-        }
-            
-        ilclient_change_component_state(vstate.video_render, OMX_StateExecuting);
-     }
-
-     if(!data_len)
-       break;
-
-     buf->nFilledLen = data_len;
-     data_len = 0;
-
-     buf->nOffset = 0;
-     if(first_packet)
-     {
-       buf->nFlags = OMX_BUFFERFLAG_STARTTIME;
-       first_packet = 0;
-     }
-     else
-       buf->nFlags = OMX_BUFFERFLAG_TIME_UNKNOWN;
-
-     if(OMX_EmptyThisBuffer(ILC_GET_HANDLE(vstate.video_decode), buf) != OMX_ErrorNone) {
-       status = -6;
-       break;
-     }
-         
+     codec_queue_free_item(codec,current);
+     current = NULL;
    }
 
 stop:
+   buf = get_next_buffer(&pipe);
+
    buf->nFilledLen = 0;
    buf->nFlags = OMX_BUFFERFLAG_TIME_UNKNOWN | OMX_BUFFERFLAG_EOS;
+   
+   OERR(OMX_EmptyThisBuffer(pipe.video_decode, buf));
 
-   if(OMX_EmptyThisBuffer(ILC_GET_HANDLE(vstate.video_decode), buf) != OMX_ErrorNone)
-      status = -20;
-      
-   // wait for EOS from render
-   ilclient_wait_for_event(vstate.video_render, OMX_EventBufferFlag, 90, 0, OMX_BUFFERFLAG_EOS, 0,
-                           ILCLIENT_BUFFER_FLAG_EOS, 10000);
+   /* NOTE: Three events are sent after the previous command:
 
-   // need to flush the renderer to allow video_decode to disable its input port
-   ilclient_flush_tunnels(vstate.tunnel, 0);
-   ilclient_disable_port_buffers(vstate.video_decode, 130, NULL, NULL, NULL);
+      [EVENT] Got an event of type 4 on video_decode 0x426a10 (d1: 83, d2 1)
+      [EVENT] Got an event of type 4 on video_scheduler 0x430d10 (d1: b, d2 1)
+      [EVENT] Got an event of type 4 on video_render 0x430b30 (d1: 5a, d2 1)  5a = port (90) 1 = OMX_BUFFERFLAG_EOS
+   */
+
+   /* Wait for video_render to shutdown */
+   pthread_mutex_lock(&pipe.video_render_eos_mutex);
+   while (!pipe.video_render_eos)
+     pthread_cond_wait(&pipe.video_render_eos_cv,&pipe.video_render_eos_mutex);
+   pthread_mutex_unlock(&pipe.video_render_eos_mutex);
+
+   /* Flush all tunnels */
+   omx_flush_tunnel(&pipe, pipe.video_decode, 131, pipe.video_scheduler, 10);
+   omx_flush_tunnel(&pipe, pipe.video_scheduler, 11, pipe.video_render, 90);
+   omx_flush_tunnel(&pipe, pipe.clock, 80, pipe.video_scheduler, 12);
+
+   /* Disable video_decode input port and buffers */
+   omx_send_command_and_wait0(&pipe, pipe.video_decode, OMX_CommandPortDisable, 130, NULL);
+   omx_free_buffers(&pipe, pipe.video_decode, 130);
+   omx_send_command_and_wait1(&pipe, pipe.video_decode, OMX_CommandPortDisable, 130, NULL);
 
 done:
-   ilclient_disable_tunnel(vstate.tunnel);
-   ilclient_disable_tunnel(vstate.tunnel+1);
-   ilclient_disable_tunnel(vstate.tunnel+2);
-   ilclient_teardown_tunnels(vstate.tunnel);
+   omx_send_command_and_wait(&pipe, pipe.video_decode, OMX_CommandPortDisable, 131, NULL);
+   omx_send_command_and_wait(&pipe, pipe.video_scheduler, OMX_CommandPortDisable, 10, NULL);
 
-   ilclient_state_transition(vstate.list, OMX_StateIdle);
-   ilclient_state_transition(vstate.list, OMX_StateLoaded);
+   omx_send_command_and_wait(&pipe, pipe.video_scheduler, OMX_CommandPortDisable, 11, NULL);
+   omx_send_command_and_wait(&pipe, pipe.video_render, OMX_CommandPortDisable, 90, NULL);
 
-   ilclient_cleanup_components(vstate.list);
+   /* NOTE: The clock disable doesn't complete until after the video scheduler port is 
+      disabled (but it completes before the video scheduler port disabling completes). */
+   OERR(OMX_SendCommand(pipe.clock, OMX_CommandPortDisable, 80, NULL));
+   omx_send_command_and_wait(&pipe, pipe.video_scheduler, OMX_CommandPortDisable, 12, NULL);
+
+   /* Teardown tunnels */
+   OERR(OMX_SetupTunnel(pipe.video_decode, 131, NULL, 0));
+   OERR(OMX_SetupTunnel(pipe.video_scheduler, 10, NULL, 0));
+
+   OERR(OMX_SetupTunnel(pipe.video_scheduler, 11, NULL, 0));
+   OERR(OMX_SetupTunnel(pipe.video_render, 90, NULL, 0));
+
+   OERR(OMX_SetupTunnel(pipe.clock, 80, NULL, 0));
+   OERR(OMX_SetupTunnel(pipe.video_scheduler, 12, NULL, 0));
+
+   /* Transition all components to Idle */
+   omx_send_command_and_wait(&pipe, pipe.video_decode, OMX_CommandStateSet, OMX_StateIdle, NULL);
+   omx_send_command_and_wait(&pipe, pipe.video_scheduler, OMX_CommandStateSet, OMX_StateIdle, NULL);
+   omx_send_command_and_wait(&pipe, pipe.video_render, OMX_CommandStateSet, OMX_StateIdle, NULL);
+   omx_send_command_and_wait(&pipe, pipe.clock, OMX_CommandStateSet, OMX_StateIdle, NULL);
+
+   /* Transition all components to Loaded */
+   omx_send_command_and_wait(&pipe, pipe.video_decode, OMX_CommandStateSet, OMX_StateLoaded, NULL);
+   omx_send_command_and_wait(&pipe, pipe.video_scheduler, OMX_CommandStateSet, OMX_StateLoaded, NULL);
+   omx_send_command_and_wait(&pipe, pipe.video_render, OMX_CommandStateSet, OMX_StateLoaded, NULL);
+   omx_send_command_and_wait(&pipe, pipe.clock, OMX_CommandStateSet, OMX_StateLoaded, NULL);
+
+   /* Finally free the component handles */
+   OERR(OMX_FreeHandle(pipe.video_decode));
+   OERR(OMX_FreeHandle(pipe.video_scheduler));
+   OERR(OMX_FreeHandle(pipe.video_render));
+   OERR(OMX_FreeHandle(pipe.clock));
 
    //OMX_Deinit();
-
-   ilclient_destroy(vstate.client);
 
    DEBUGF("End of omx thread - status=%d\n",status);
 

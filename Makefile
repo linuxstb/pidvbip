@@ -6,7 +6,7 @@ LIBS=-lGLESv2 -lEGL -lopenmaxil -lbcm_host -lvcos -lvchiq_arm -lpthread -lavahi-
 LDFLAGS=-L/opt/vc/lib
 INCLUDES=-I/opt/vc/include/ -I/opt/vc/include/interface/vcos/pthreads -I/usr/include/freetype2 -I/usr/include/arm-linux-gnueabi -I/usr/local/include
 
-OBJS=vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o acodec_mpeg.o acodec_aac.o acodec_a52.o channels.o events.o avahi.o osd.o tiresias_pcfont.o avl.o
+OBJS=vcodec_mpeg2.o vcodec_omx.o htsp.o vo_pi.o codec.o audioplay.o acodec_mpeg.o acodec_aac.o acodec_a52.o channels.o events.o avahi.o osd.o tiresias_pcfont.o avl.o omx_utils.o
 
 TARGETS=mpeg2test pidvbip flvtoh264
 
@@ -32,6 +32,9 @@ pidvbip: pidvbip.c libmpeg2/libmpeg2.a libs/vgfont/libvgfont.a libs/ilclient/lib
 
 vo_pi.o: vo_pi.c vo_pi.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o vo_pi.o vo_pi.c
+
+omx_utils.o: omx_utils.c omx_utils.h
+	$(CC) $(INCLUDES) $(CFLAGS) -c -o omx_utils.o omx_utils.c
 
 htsp.o: htsp.c htsp.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o htsp.o htsp.c

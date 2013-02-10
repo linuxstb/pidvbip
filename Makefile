@@ -72,7 +72,7 @@ acodec_a52.o: acodec_a52.c acodec_a52.h codec.h
 acodec_mpeg.o: acodec_mpeg.c acodec_mpeg.h codec.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o acodec_mpeg.o acodec_mpeg.c
 
-vcodec_omx.o: vcodec_omx.c vcodec_omx.h codec.h
+vcodec_omx.o: vcodec_omx.c vcodec_omx.h codec.h omx_utils.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o vcodec_omx.o vcodec_omx.c
 
 libs/ilclient/libilclient.a:

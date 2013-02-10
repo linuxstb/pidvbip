@@ -56,35 +56,47 @@ struct omx_cmd_t
   OMX_PTR pCmdData;
 };
 
-struct omx_pipeline_t
+struct omx_component_t
 {
-  OMX_HANDLETYPE video_decode;
-  OMX_HANDLETYPE video_scheduler;
-  OMX_HANDLETYPE video_render;
-  OMX_HANDLETYPE clock;
-  OMX_BUFFERHEADERTYPE *video_buffers;
+  OMX_HANDLETYPE h;
+  OMX_CALLBACKTYPE callbacks;
 
-  int port_settings_changed;
   /* Variables for handling asynchronous commands */
+  struct omx_cmd_t cmd;
   pthread_mutex_t cmd_queue_mutex;
   pthread_cond_t cmd_queue_count_cv;
-  pthread_mutex_t vidbuf_mutex;
-  int vidbuf_notempty;
-  pthread_cond_t vidbuf_notempty_cv;
-  pthread_mutex_t video_render_eos_mutex;
-  int video_render_eos;
-  pthread_cond_t video_render_eos_cv;
-  struct omx_cmd_t cmd;
+
+  /* Pointer to parent pipeline */
+  struct omx_pipeline_t* pipe;
+
+  OMX_BUFFERHEADERTYPE *buffers;
+  int port_settings_changed;
+
+  pthread_mutex_t buf_mutex;
+  int buf_notempty;
+  pthread_cond_t buf_notempty_cv;
+
+  pthread_mutex_t eos_mutex;
+  int eos;
+  pthread_cond_t eos_cv;
+};
+
+struct omx_pipeline_t
+{
+  struct omx_component_t video_decode;
+  struct omx_component_t video_scheduler;
+  struct omx_component_t video_render;
+  struct omx_component_t clock;
 };
 
 OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTYPE video_codec);
-OMX_ERRORTYPE omx_send_command_and_wait(struct omx_pipeline_t* pipe, OMX_HANDLETYPE *hComponent, OMX_COMMANDTYPE Cmd, OMX_U32 nParam, OMX_PTR pCmdData);
-OMX_BUFFERHEADERTYPE *get_next_buffer(struct omx_pipeline_t* pipe);
-OMX_ERRORTYPE omx_flush_tunnel(struct omx_pipeline_t* pipe, OMX_HANDLETYPE source, int source_port, OMX_HANDLETYPE sink, int sink_port);
-void omx_free_buffers(struct omx_pipeline_t *pipe, OMX_HANDLETYPE component, int port);
-OMX_ERRORTYPE omx_send_command_and_wait0(struct omx_pipeline_t* pipe, OMX_HANDLETYPE *hComponent, OMX_COMMANDTYPE Cmd, OMX_U32 nParam, OMX_PTR pCmdData);
-OMX_ERRORTYPE omx_send_command_and_wait1(struct omx_pipeline_t* pipe, OMX_HANDLETYPE *hComponent, OMX_COMMANDTYPE Cmd, OMX_U32 nParam, OMX_PTR pCmdData);
+OMX_BUFFERHEADERTYPE *get_next_buffer(struct omx_component_t* component);
+OMX_ERRORTYPE omx_flush_tunnel(struct omx_component_t* source, int source_port, struct omx_component_t* sink, int sink_port);
+void omx_free_buffers(struct omx_component_t *component, int port);
+OMX_ERRORTYPE omx_send_command_and_wait(struct omx_component_t* component, OMX_COMMANDTYPE Cmd, OMX_U32 nParam, OMX_PTR pCmdData);
+OMX_ERRORTYPE omx_send_command_and_wait0(struct omx_component_t* component, OMX_COMMANDTYPE Cmd, OMX_U32 nParam, OMX_PTR pCmdData);
+OMX_ERRORTYPE omx_send_command_and_wait1(struct omx_component_t* component, OMX_COMMANDTYPE Cmd, OMX_U32 nParam, OMX_PTR pCmdData);
 void summarise_buffers(OMX_BUFFERHEADERTYPE *buffers);
-int omx_get_free_buffer_count(struct omx_pipeline_t* pipe, OMX_BUFFERHEADERTYPE *buffers);
+int omx_get_free_buffer_count(struct omx_component_t* component);
 
 #endif

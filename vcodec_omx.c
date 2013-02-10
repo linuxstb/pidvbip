@@ -109,8 +109,8 @@ next_packet:
      unsigned char* p = current->data->packet;
      //fprintf(stderr,"Processing video packet - %d bytes\n",bytes_left);
      while (bytes_left > 0) {
-       fprintf(stderr,"OMX buffers: %02d/20 free, vcodec queue: %4d, acodec queue: %4d\r",omx_get_free_buffer_count(&pipe,pipe.video_buffers),codec->queue_count, codec->acodec->queue_count);
-       buf = get_next_buffer(&pipe);   /* This will block if there are no empty buffers */
+       fprintf(stderr,"OMX buffers: %02d/20 free, vcodec queue: %4d, acodec queue: %4d\r",omx_get_free_buffer_count(&pipe.video_decode),codec->queue_count, codec->acodec->queue_count);
+       buf = get_next_buffer(&pipe.video_decode);   /* This will block if there are no empty buffers */
 
        int to_copy = OMX_MIN(bytes_left,buf->nAllocLen);
        //fprintf(stderr,"Copying %d bytes\n",to_copy);
@@ -128,30 +128,30 @@ next_packet:
        else
          buf->nFlags = OMX_BUFFERFLAG_TIME_UNKNOWN;
 
-       if (pipe.port_settings_changed == 1)
+       if (pipe.video_decode.port_settings_changed == 1)
        {
-         pipe.port_settings_changed = 0;
-	 fprintf(stderr,"port_settings_changed = 1\n");
+         pipe.video_decode.port_settings_changed = 0;
+	 fprintf(stderr,"video_decode port_settings_changed = 1\n");
 
-         OERR(OMX_SetupTunnel(pipe.video_decode, 131, pipe.video_scheduler, 10));
-         omx_send_command_and_wait(&pipe, pipe.video_decode, OMX_CommandPortEnable, 131, NULL);
-         omx_send_command_and_wait(&pipe, pipe.video_scheduler, OMX_CommandPortEnable, 10, NULL);
-         omx_send_command_and_wait(&pipe, pipe.video_scheduler, OMX_CommandStateSet, OMX_StateExecuting, NULL);
-         omx_send_command_and_wait(&pipe, pipe.video_render, OMX_CommandStateSet, OMX_StateIdle, NULL);
+         OERR(OMX_SetupTunnel(pipe.video_decode.h, 131, pipe.video_scheduler.h, 10));
+         omx_send_command_and_wait(&pipe.video_decode, OMX_CommandPortEnable, 131, NULL);
+         omx_send_command_and_wait(&pipe.video_scheduler, OMX_CommandPortEnable, 10, NULL);
+         omx_send_command_and_wait(&pipe.video_scheduler, OMX_CommandStateSet, OMX_StateExecuting, NULL);
+         omx_send_command_and_wait(&pipe.video_render, OMX_CommandStateSet, OMX_StateIdle, NULL);
        }
 
-       if (pipe.port_settings_changed == 2)
+       if (pipe.video_scheduler.port_settings_changed == 1)
        {
-         pipe.port_settings_changed = 0;
-	 fprintf(stderr,"port_settings_changed = 2\n");
+         pipe.video_scheduler.port_settings_changed = 0;
+	 fprintf(stderr,"video_scheduler port_settings_changed = 1\n");
 
-         OERR(OMX_SetupTunnel(pipe.video_scheduler, 11, pipe.video_render, 90));  
-         omx_send_command_and_wait(&pipe, pipe.video_scheduler, OMX_CommandPortEnable, 11, NULL);
-         omx_send_command_and_wait(&pipe, pipe.video_render, OMX_CommandPortEnable, 90, NULL);
-         omx_send_command_and_wait(&pipe, pipe.video_render, OMX_CommandStateSet, OMX_StateExecuting, NULL);
+         OERR(OMX_SetupTunnel(pipe.video_scheduler.h, 11, pipe.video_render.h, 90));  
+         omx_send_command_and_wait(&pipe.video_scheduler, OMX_CommandPortEnable, 11, NULL);
+         omx_send_command_and_wait(&pipe.video_render, OMX_CommandPortEnable, 90, NULL);
+         omx_send_command_and_wait(&pipe.video_render, OMX_CommandStateSet, OMX_StateExecuting, NULL);
        }
 
-       OERR(OMX_EmptyThisBuffer(pipe.video_decode, buf));
+       OERR(OMX_EmptyThisBuffer(pipe.video_decode.h, buf));
      }
 
      codec_queue_free_item(codec,current);
@@ -159,12 +159,12 @@ next_packet:
    }
 
 stop:
-   buf = get_next_buffer(&pipe);
+   buf = get_next_buffer(&pipe.video_decode);
 
    buf->nFilledLen = 0;
    buf->nFlags = OMX_BUFFERFLAG_TIME_UNKNOWN | OMX_BUFFERFLAG_EOS;
    
-   OERR(OMX_EmptyThisBuffer(pipe.video_decode, buf));
+   OERR(OMX_EmptyThisBuffer(pipe.video_decode.h, buf));
 
    /* NOTE: Three events are sent after the previous command:
 
@@ -174,60 +174,60 @@ stop:
    */
 
    /* Wait for video_render to shutdown */
-   pthread_mutex_lock(&pipe.video_render_eos_mutex);
-   while (!pipe.video_render_eos)
-     pthread_cond_wait(&pipe.video_render_eos_cv,&pipe.video_render_eos_mutex);
-   pthread_mutex_unlock(&pipe.video_render_eos_mutex);
+   pthread_mutex_lock(&pipe.video_render.eos_mutex);
+   while (!pipe.video_render.eos)
+     pthread_cond_wait(&pipe.video_render.eos_cv,&pipe.video_render.eos_mutex);
+   pthread_mutex_unlock(&pipe.video_render.eos_mutex);
 
    /* Flush all tunnels */
-   omx_flush_tunnel(&pipe, pipe.video_decode, 131, pipe.video_scheduler, 10);
-   omx_flush_tunnel(&pipe, pipe.video_scheduler, 11, pipe.video_render, 90);
-   omx_flush_tunnel(&pipe, pipe.clock, 80, pipe.video_scheduler, 12);
+   omx_flush_tunnel(&pipe.video_decode, 131, &pipe.video_scheduler, 10);
+   omx_flush_tunnel(&pipe.video_scheduler, 11, &pipe.video_render, 90);
+   omx_flush_tunnel(&pipe.clock, 80, &pipe.video_scheduler, 12);
 
    /* Disable video_decode input port and buffers */
-   omx_send_command_and_wait0(&pipe, pipe.video_decode, OMX_CommandPortDisable, 130, NULL);
-   omx_free_buffers(&pipe, pipe.video_decode, 130);
-   omx_send_command_and_wait1(&pipe, pipe.video_decode, OMX_CommandPortDisable, 130, NULL);
+   omx_send_command_and_wait0(&pipe.video_decode, OMX_CommandPortDisable, 130, NULL);
+   omx_free_buffers(&pipe.video_decode, 130);
+   omx_send_command_and_wait1(&pipe.video_decode, OMX_CommandPortDisable, 130, NULL);
 
 done:
-   omx_send_command_and_wait(&pipe, pipe.video_decode, OMX_CommandPortDisable, 131, NULL);
-   omx_send_command_and_wait(&pipe, pipe.video_scheduler, OMX_CommandPortDisable, 10, NULL);
+   omx_send_command_and_wait(&pipe.video_decode, OMX_CommandPortDisable, 131, NULL);
+   omx_send_command_and_wait(&pipe.video_scheduler, OMX_CommandPortDisable, 10, NULL);
 
-   omx_send_command_and_wait(&pipe, pipe.video_scheduler, OMX_CommandPortDisable, 11, NULL);
-   omx_send_command_and_wait(&pipe, pipe.video_render, OMX_CommandPortDisable, 90, NULL);
+   omx_send_command_and_wait(&pipe.video_scheduler, OMX_CommandPortDisable, 11, NULL);
+   omx_send_command_and_wait(&pipe.video_render, OMX_CommandPortDisable, 90, NULL);
 
    /* NOTE: The clock disable doesn't complete until after the video scheduler port is 
       disabled (but it completes before the video scheduler port disabling completes). */
-   OERR(OMX_SendCommand(pipe.clock, OMX_CommandPortDisable, 80, NULL));
-   omx_send_command_and_wait(&pipe, pipe.video_scheduler, OMX_CommandPortDisable, 12, NULL);
+   OERR(OMX_SendCommand(pipe.clock.h, OMX_CommandPortDisable, 80, NULL));
+   omx_send_command_and_wait(&pipe.video_scheduler, OMX_CommandPortDisable, 12, NULL);
 
    /* Teardown tunnels */
-   OERR(OMX_SetupTunnel(pipe.video_decode, 131, NULL, 0));
-   OERR(OMX_SetupTunnel(pipe.video_scheduler, 10, NULL, 0));
+   OERR(OMX_SetupTunnel(pipe.video_decode.h, 131, NULL, 0));
+   OERR(OMX_SetupTunnel(pipe.video_scheduler.h, 10, NULL, 0));
 
-   OERR(OMX_SetupTunnel(pipe.video_scheduler, 11, NULL, 0));
-   OERR(OMX_SetupTunnel(pipe.video_render, 90, NULL, 0));
+   OERR(OMX_SetupTunnel(pipe.video_scheduler.h, 11, NULL, 0));
+   OERR(OMX_SetupTunnel(pipe.video_render.h, 90, NULL, 0));
 
-   OERR(OMX_SetupTunnel(pipe.clock, 80, NULL, 0));
-   OERR(OMX_SetupTunnel(pipe.video_scheduler, 12, NULL, 0));
+   OERR(OMX_SetupTunnel(pipe.clock.h, 80, NULL, 0));
+   OERR(OMX_SetupTunnel(pipe.video_scheduler.h, 12, NULL, 0));
 
    /* Transition all components to Idle */
-   omx_send_command_and_wait(&pipe, pipe.video_decode, OMX_CommandStateSet, OMX_StateIdle, NULL);
-   omx_send_command_and_wait(&pipe, pipe.video_scheduler, OMX_CommandStateSet, OMX_StateIdle, NULL);
-   omx_send_command_and_wait(&pipe, pipe.video_render, OMX_CommandStateSet, OMX_StateIdle, NULL);
-   omx_send_command_and_wait(&pipe, pipe.clock, OMX_CommandStateSet, OMX_StateIdle, NULL);
+   omx_send_command_and_wait(&pipe.video_decode, OMX_CommandStateSet, OMX_StateIdle, NULL);
+   omx_send_command_and_wait(&pipe.video_scheduler, OMX_CommandStateSet, OMX_StateIdle, NULL);
+   omx_send_command_and_wait(&pipe.video_render, OMX_CommandStateSet, OMX_StateIdle, NULL);
+   omx_send_command_and_wait(&pipe.clock, OMX_CommandStateSet, OMX_StateIdle, NULL);
 
    /* Transition all components to Loaded */
-   omx_send_command_and_wait(&pipe, pipe.video_decode, OMX_CommandStateSet, OMX_StateLoaded, NULL);
-   omx_send_command_and_wait(&pipe, pipe.video_scheduler, OMX_CommandStateSet, OMX_StateLoaded, NULL);
-   omx_send_command_and_wait(&pipe, pipe.video_render, OMX_CommandStateSet, OMX_StateLoaded, NULL);
-   omx_send_command_and_wait(&pipe, pipe.clock, OMX_CommandStateSet, OMX_StateLoaded, NULL);
+   omx_send_command_and_wait(&pipe.video_decode, OMX_CommandStateSet, OMX_StateLoaded, NULL);
+   omx_send_command_and_wait(&pipe.video_scheduler, OMX_CommandStateSet, OMX_StateLoaded, NULL);
+   omx_send_command_and_wait(&pipe.video_render, OMX_CommandStateSet, OMX_StateLoaded, NULL);
+   omx_send_command_and_wait(&pipe.clock, OMX_CommandStateSet, OMX_StateLoaded, NULL);
 
    /* Finally free the component handles */
-   OERR(OMX_FreeHandle(pipe.video_decode));
-   OERR(OMX_FreeHandle(pipe.video_scheduler));
-   OERR(OMX_FreeHandle(pipe.video_render));
-   OERR(OMX_FreeHandle(pipe.clock));
+   OERR(OMX_FreeHandle(pipe.video_decode.h));
+   OERR(OMX_FreeHandle(pipe.video_scheduler.h));
+   OERR(OMX_FreeHandle(pipe.video_render.h));
+   OERR(OMX_FreeHandle(pipe.clock.h));
 
    DEBUGF("End of omx thread\n");
    goto next_channel;

@@ -164,16 +164,6 @@ next_packet:
     codec_queue_free_item(codec,current);
   }
 stop:
-  /* Disable audio_render input port and buffers */
-  omx_send_command_and_wait0(&pipe->audio_render, OMX_CommandPortDisable, 100, NULL);
-  omx_free_buffers(&pipe->audio_render, 100);
-  omx_send_command_and_wait1(&pipe->audio_render, OMX_CommandPortDisable, 100, NULL);
-
-  /* Transition to StateLoaded and free the handle */
-  omx_send_command_and_wait(&pipe->audio_render, OMX_CommandStateSet, OMX_StateIdle, NULL);
-  omx_send_command_and_wait(&pipe->audio_render, OMX_CommandStateSet, OMX_StateLoaded, NULL);
-  OERR(OMX_FreeHandle(pipe->audio_render.h));
-
   /* Done decoding, now just clean up and leave. */
 
   return 0;

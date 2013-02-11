@@ -611,14 +611,6 @@ next_channel:
     //      codec_stop(&codecs.vcodec);
     //    }
 
-    fprintf(stderr,"lock1\n");
-    if (codecs.acodec.thread) {
-      codec_stop(&codecs.acodec);
-      pthread_join(codecs.acodec.thread,NULL);
-      fprintf(stderr,"[main thread] - killed audio thread\n");
-    }
-    fprintf(stderr,"lock3\n");
-
     fprintf(stderr,"lock4\n");
     htsp_lock(&htsp);
     fprintf(stderr,"lock5\n");
@@ -745,7 +737,7 @@ next_channel:
             int new_actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
             if (new_actual_channel_id != actual_channel_id) {
               actual_channel_id = new_actual_channel_id;
-              goto next_channel;
+              goto change_channel;
             }
             break;
 
@@ -768,7 +760,7 @@ next_channel:
             else user_channel_id = channels_getprev(user_channel_id);
             actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
 
-            goto next_channel;
+            goto change_channel;
 
           case 'u':
             do_pause(&codecs,1);
@@ -813,7 +805,7 @@ next_channel:
         if (new_channel_id >= 0) {
           user_channel_id = new_channel_id;
           actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
-          goto next_channel;
+          goto change_channel;
         } else {
           osd_clear_newchannel(&osd);
           fprintf(stderr,"No such channel\n");
@@ -822,6 +814,18 @@ next_channel:
         }
       }
     }
+
+change_channel:
+    fprintf(stderr,"lock1\n");
+    if (codecs.acodec.thread) {
+      codec_stop(&codecs.acodec);
+      pthread_join(codecs.acodec.thread,NULL);
+      fprintf(stderr,"[main thread] - killed audio thread\n");
+    }
+    fprintf(stderr,"lock3\n");
+    //    codec_stop(&codecs.vcodec);
+    fprintf(stderr,"lock3b\n");
+    goto next_channel;
 
 done:
     tcsetattr(0, TCSANOW, &orig);

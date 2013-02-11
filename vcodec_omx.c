@@ -48,7 +48,9 @@ static void* vcodec_omx_thread(struct codec_init_args_t* args)
    free(args);
 
    fprintf(stderr,"Starting vcodec_omx_thread\n");
+
 next_channel:
+   fprintf(stderr,"vcodec_omx_thread: next_channel\n");
    coding = OMX_VIDEO_CodingUnused;
    while (1)
    {
@@ -56,7 +58,7 @@ next_packet:
      if (current == NULL) {
        if (is_paused) {
          // Wait for resume message
-         //fprintf(stderr,"vcodec: Waiting for resume\n");
+         fprintf(stderr,"vcodec: Waiting for resume\n");
          pthread_cond_wait(&codec->resume_cv,&codec->queue_mutex);
          pthread_mutex_unlock(&codec->queue_mutex);
          is_paused = 0;
@@ -157,6 +159,7 @@ next_packet:
    }
 
 stop:
+   /* Indicate end of video stream */
    buf = get_next_buffer(&pipe->video_decode);
 
    buf->nFilledLen = 0;
@@ -187,7 +190,11 @@ stop:
    omx_free_buffers(&pipe->video_decode, 130);
    omx_send_command_and_wait1(&pipe->video_decode, OMX_CommandPortDisable, 130, NULL);
 
-done:
+   /* Disable audio_render input port and buffers */
+   omx_send_command_and_wait0(&pipe->audio_render, OMX_CommandPortDisable, 100, NULL);
+   omx_free_buffers(&pipe->audio_render, 100);
+   omx_send_command_and_wait1(&pipe->audio_render, OMX_CommandPortDisable, 100, NULL);
+
    omx_send_command_and_wait(&pipe->video_decode, OMX_CommandPortDisable, 131, NULL);
    omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandPortDisable, 10, NULL);
 
@@ -197,6 +204,8 @@ done:
    /* NOTE: The clock disable doesn't complete until after the video scheduler port is 
       disabled (but it completes before the video scheduler port disabling completes). */
    OERR(OMX_SendCommand(pipe->clock.h, OMX_CommandPortDisable, 80, NULL));
+   omx_send_command_and_wait(&pipe->audio_render, OMX_CommandPortDisable, 101, NULL);
+   OERR(OMX_SendCommand(pipe->clock.h, OMX_CommandPortDisable, 81, NULL));
    omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandPortDisable, 12, NULL);
 
    /* Teardown tunnels */
@@ -206,25 +215,31 @@ done:
    OERR(OMX_SetupTunnel(pipe->video_scheduler.h, 11, NULL, 0));
    OERR(OMX_SetupTunnel(pipe->video_render.h, 90, NULL, 0));
 
-   OERR(OMX_SetupTunnel(pipe->clock.h, 80, NULL, 0));
+   OERR(OMX_SetupTunnel(pipe->clock.h, 81, NULL, 0));
    OERR(OMX_SetupTunnel(pipe->video_scheduler.h, 12, NULL, 0));
+
+   OERR(OMX_SetupTunnel(pipe->clock.h, 80, NULL, 0));
+   OERR(OMX_SetupTunnel(pipe->audio_render.h, 101, NULL, 0));
 
    /* Transition all components to Idle */
    omx_send_command_and_wait(&pipe->video_decode, OMX_CommandStateSet, OMX_StateIdle, NULL);
    omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandStateSet, OMX_StateIdle, NULL);
    omx_send_command_and_wait(&pipe->video_render, OMX_CommandStateSet, OMX_StateIdle, NULL);
+   omx_send_command_and_wait(&pipe->audio_render, OMX_CommandStateSet, OMX_StateIdle, NULL);
    omx_send_command_and_wait(&pipe->clock, OMX_CommandStateSet, OMX_StateIdle, NULL);
 
    /* Transition all components to Loaded */
    omx_send_command_and_wait(&pipe->video_decode, OMX_CommandStateSet, OMX_StateLoaded, NULL);
    omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandStateSet, OMX_StateLoaded, NULL);
    omx_send_command_and_wait(&pipe->video_render, OMX_CommandStateSet, OMX_StateLoaded, NULL);
+   omx_send_command_and_wait(&pipe->audio_render, OMX_CommandStateSet, OMX_StateLoaded, NULL);
    omx_send_command_and_wait(&pipe->clock, OMX_CommandStateSet, OMX_StateLoaded, NULL);
 
    /* Finally free the component handles */
    OERR(OMX_FreeHandle(pipe->video_decode.h));
    OERR(OMX_FreeHandle(pipe->video_scheduler.h));
    OERR(OMX_FreeHandle(pipe->video_render.h));
+   OERR(OMX_FreeHandle(pipe->audio_render.h));
    OERR(OMX_FreeHandle(pipe->clock.h));
 
    DEBUGF("End of omx thread\n");

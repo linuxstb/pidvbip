@@ -238,7 +238,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
             acodec_mpeg_init(&codecs->acodec, &omxpipe);
             DEBUGF("Initialised mpeg codec\n");
           } else if (codecs->subscription.streams[codecs->subscription.audiostream].codec == HMF_AUDIO_CODEC_AAC) {
-            acodec_aac_init(&codecs->acodec);
+            acodec_aac_init(&codecs->acodec, &omxpipe);
             DEBUGF("Initialised AAC codec\n");
           } else if (codecs->subscription.streams[codecs->subscription.audiostream].codec == HMF_AUDIO_CODEC_AC3) {
             fprintf(stderr,"Initialising A/52 codec\n");

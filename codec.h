@@ -5,6 +5,7 @@
 #include <pthread.h>
 
 #include "vo_pi.h"
+#include "omx_utils.h"
 
 struct codec_init_args_t
 {

@@ -7,6 +7,12 @@
 #include "vo_pi.h"
 #include "libs/ilclient/ilclient.h"
 
+struct codec_init_args_t
+{
+  struct codec_t* codec;
+  struct omx_pipeline_t* pipe;
+};
+
 struct packet_t
 {
   unsigned char* buf;     /* The buffer to be freed after use */

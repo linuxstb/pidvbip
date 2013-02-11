@@ -1,7 +1,6 @@
 
 /* MPEG audio codec using libmpg123.  Based on mpglib.c sample from libmpg123
 
-   Audio code taken from the hello_audio.c sample
  */
 
 #include <stdio.h>
@@ -13,68 +12,23 @@
 #include <mpg123.h>
 #include "codec.h"
 #include "acodec_mpeg.h"
-#include "audioplay.h"
+#include "omx_utils.h"
 #include "debug.h"
 
-#define INBUFF  16384
-#define OUTBUFF 32768 
-
-#define CTTW_SLEEP_TIME 10
-#define MIN_LATENCY_TIME 20
-
-#define BUFFER_SIZE_SAMPLES 1152
-
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
-
-static void output_pcm(AUDIOPLAY_STATE_T *st,unsigned char* data, int size, int buffer_size)
+static void* acodec_mpeg_thread(struct codec_init_args_t* args)
 {
-  uint8_t *buf;
-  int copied = 0;
-  int latency;
-  int samplerate = 48000;  // audio sample rate in Hz
-  int ret;
-
-  while (size > 0) 
-  {
-    while((buf = audioplay_get_buffer(st)) == NULL)
-      usleep(10*1000);
-
-    int to_copy = MIN(size,buffer_size);
-
-    memcpy(buf,data + copied,to_copy);
-    copied += to_copy;
-    size -= to_copy;
-
-    // try and wait for a minimum latency time (in ms) before
-    // sending the next packet
-    while((latency = audioplay_get_latency(st)) > (samplerate * (MIN_LATENCY_TIME + CTTW_SLEEP_TIME) / 1000))
-       usleep(CTTW_SLEEP_TIME*1000);
-
-    ret = audioplay_play_buffer(st, buf, to_copy);
-
-    if (ret != 0) {
-      fprintf(stderr,"[acodec_mpeg] - audioplay_play_buffer() error %d\n",ret);
-      exit(1);
-    }
-  }
-}
-
-static void* acodec_mpeg_thread(struct codec_t* codec)
-{
+  struct codec_t* codec = args->codec;
+  struct omx_pipeline_t* pipe = args->pipe;
   struct codec_queue_t* current = NULL;
   size_t size;
-  unsigned char out[OUTBUFF]; /* output buffer */
-  size_t outc = 0;
   mpg123_handle *m;
   int ret;
   int is_paused = 0;
 
-  int nchannels = 2;        // numnber of audio channels
-  int bitdepth = 16;       // number of bits per sample
+  OMX_BUFFERHEADERTYPE *buf;
+  int first_packet = 1;
 
-  AUDIOPLAY_STATE_T *st;
-  int buffer_size = (BUFFER_SIZE_SAMPLES * bitdepth * nchannels)>>3;
-
+  free(args);
   mpg123_init();
 
   m = mpg123_new(NULL, &ret);
@@ -114,8 +68,20 @@ next_packet:
       goto next_packet;
     }
 
+
+    buf = get_next_buffer(&pipe->audio_render);
+    buf->nTimeStamp = pts_to_omx(current->data->PTS);
+    buf->nFlags = 0;
+    if(first_packet)
+      {
+	buf->nFlags |= OMX_BUFFERFLAG_STARTTIME;
+	first_packet = 0;
+      }
+    buf->nFlags |= OMX_BUFFERFLAG_ENDOFFRAME;
+
+
     /* Feed input chunk and get first chunk of decoded audio. */
-    ret = mpg123_decode(m,current->data->packet,current->data->packetlength,out,OUTBUFF,&size);
+    ret = mpg123_decode(m,current->data->packet,current->data->packetlength,buf->pBuffer,buf->nAllocLen,&buf->nFilledLen);
 
     if(ret == MPG123_NEW_FORMAT)
     {
@@ -124,12 +90,9 @@ next_packet:
       mpg123_getformat(m, &rate, &channels, &enc);
       DEBUGF("New format: %li Hz, %i channels, encoding value %i\n", rate, channels, enc);
 
-      ret = audioplay_create(&st, rate, channels, bitdepth, 10, buffer_size);
       assert(ret == 0);
     }
-
-    output_pcm(st, out, size, buffer_size);
-
+#if 0
     while(ret != MPG123_ERR && ret != MPG123_NEED_MORE)
     { /* Get all decoded audio that is available now before feeding more input. */
       ret = mpg123_decode(m,NULL,0,out,OUTBUFF,&size);
@@ -137,13 +100,24 @@ next_packet:
       outc += size;
     }
     if(ret == MPG123_ERR){ fprintf(stderr, "some error: %s", mpg123_strerror(m)); break; }
+#endif
+
+    OERR(OMX_EmptyThisBuffer(pipe->audio_render.h, buf));
 
     codec_set_pts(codec,current->data->PTS);
 
     codec_queue_free_item(codec,current);
   }
 stop:
-  audioplay_delete(st);
+  /* Disable audio_render input port and buffers */
+  omx_send_command_and_wait0(&pipe->audio_render, OMX_CommandPortDisable, 100, NULL);
+  omx_free_buffers(&pipe->audio_render, 100);
+  omx_send_command_and_wait1(&pipe->audio_render, OMX_CommandPortDisable, 100, NULL);
+
+  /* Transition to StateLoaded and free the handle */
+  omx_send_command_and_wait(&pipe->audio_render, OMX_CommandStateSet, OMX_StateIdle, NULL);
+  omx_send_command_and_wait(&pipe->audio_render, OMX_CommandStateSet, OMX_StateLoaded, NULL);
+  OERR(OMX_FreeHandle(pipe->audio_render.h));
 
   /* Done decoding, now just clean up and leave. */
   mpg123_delete(m);
@@ -152,11 +126,15 @@ stop:
   return 0;
 }
 
-void acodec_mpeg_init(struct codec_t* codec)
+void acodec_mpeg_init(struct codec_t* codec, struct omx_pipeline_t* pipe)
 {
   codec->codecstate = NULL;
 
   codec_queue_init(codec);
 
-  pthread_create(&codec->thread,NULL,(void * (*)(void *))acodec_mpeg_thread,(void*)codec);
+  struct codec_init_args_t* args = malloc(sizeof(struct codec_init_args_t));
+  args->codec = codec;
+  args->pipe = pipe;
+
+  pthread_create(&codec->thread,NULL,(void * (*)(void *))acodec_mpeg_thread,(void*)args);
 }

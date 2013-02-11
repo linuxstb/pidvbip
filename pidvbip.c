@@ -55,6 +55,8 @@ struct codecs_t {
   int is_paused;
 };
 
+struct omx_pipeline_t omxpipe;
+
 /* TODO: Should this be global? */
 struct htsp_t htsp;
 
@@ -233,13 +235,15 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
           codecs->vcodec.height = codecs->subscription.streams[codecs->subscription.videostream].height;
 
           if (codecs->subscription.streams[codecs->subscription.audiostream].codec == HMF_AUDIO_CODEC_MPEG) {
-            acodec_mpeg_init(&codecs->acodec);
+            acodec_mpeg_init(&codecs->acodec, &omxpipe);
             DEBUGF("Initialised mpeg codec\n");
           } else if (codecs->subscription.streams[codecs->subscription.audiostream].codec == HMF_AUDIO_CODEC_AAC) {
             acodec_aac_init(&codecs->acodec);
             DEBUGF("Initialised AAC codec\n");
           } else if (codecs->subscription.streams[codecs->subscription.audiostream].codec == HMF_AUDIO_CODEC_AC3) {
-            acodec_a52_init(&codecs->acodec);
+            fprintf(stderr,"Initialising A/52 codec\n");
+            acodec_a52_init(&codecs->acodec, &omxpipe);
+            fprintf(stderr,"DONE\n");
             DEBUGF("Initialised A/52 codec\n");
           }
           // TODO: Subtitle thread
@@ -293,7 +297,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
                 fprintf(stderr,"ERROR: No PTS in audio packet, dropping\n");
               } else {
                 htsp_get_bin(&msg,"payload",&packet->packet,&packet->packetlength);
-
+ 
                 codec_queue_add_item(&codecs->acodec,packet);
                 free_msg = 0;   // Don't free this message
               }
@@ -467,6 +471,8 @@ int main(int argc, char* argv[])
     htsp.host = NULL;
     htsp.ip = NULL;
 
+    memset(&omxpipe,0,sizeof(omxpipe));
+
     if (argc == 1) {
       /* No arguments, try avahi discovery */
       avahi_discover_tvh(&htsp);
@@ -590,7 +596,9 @@ int main(int argc, char* argv[])
     memset(&codecs.acodec,0,sizeof(codecs.acodec));
     codecs.is_paused = 0;
 
-    vcodec_omx_init(&codecs.vcodec);
+    fprintf(stderr,"1\n");
+    vcodec_omx_init(&codecs.vcodec, &omxpipe);
+    fprintf(stderr,"2\n");
     codecs.vcodec.acodec = &codecs.acodec;
 
 next_channel:

@@ -25,6 +25,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 #include "omx_utils.h"
 
+OMX_TICKS pts_to_omx(uint64_t pts)
+{
+  OMX_TICKS ticks;
+  ticks.nLowPart = pts;
+  ticks.nHighPart = pts >> 32;
+  return ticks;
+};
+
+
 /* From omxtx */
 /* Print some useful information about the state of the port: */
 static void dumpport(OMX_HANDLETYPE handle, int port)
@@ -137,6 +146,7 @@ static char* mapcomponent(struct omx_pipeline_t* pipe, OMX_HANDLETYPE component)
   if (component == pipe->video_decode.h) return "video_decode";
   else if (component == pipe->video_scheduler.h) return "video_scheduler";
   else if (component == pipe->video_render.h) return "video_render";
+  else if (component == pipe->audio_render.h) return "audio_render";
   else if (component == pipe->clock.h) return "clock";
 
   return "<unknown>";
@@ -256,7 +266,7 @@ static void omx_disable_all_ports(struct omx_component_t* component)
 
 /* Based on allocbufs from omxtx.
    Buffers are connected as a one-way linked list using pAppPrivate as the pointer to the next element */
-static OMX_BUFFERHEADERTYPE* omx_alloc_buffers(struct omx_pipeline_t *pipe, OMX_HANDLETYPE component, int port)
+void omx_alloc_buffers(struct omx_component_t *component, int port)
 {
   int i;
   OMX_BUFFERHEADERTYPE *list = NULL, **end = &list;
@@ -265,10 +275,12 @@ static OMX_BUFFERHEADERTYPE* omx_alloc_buffers(struct omx_pipeline_t *pipe, OMX_
   OMX_INIT_STRUCTURE(portdef);
   portdef.nPortIndex = port;
 
-  OERR(OMX_GetParameter(component, OMX_IndexParamPortDefinition, &portdef));
+  OERR(OMX_GetParameter(component->h, OMX_IndexParamPortDefinition, &portdef));
 
-  //fprintf(stderr,"Allocating %d buffers of %d bytes\n",(int)portdef.nBufferCountActual,(int)portdef.nBufferSize);
-  //fprintf(stderr,"portdef.bEnabled=%d\n",portdef.bEnabled);
+  if (component == &component->pipe->audio_render) {
+    fprintf(stderr,"Allocating %d buffers of %d bytes\n",(int)portdef.nBufferCountActual,(int)portdef.nBufferSize);
+    fprintf(stderr,"portdef.bEnabled=%d\n",portdef.bEnabled);
+  }
 
   for (i = 0; i < portdef.nBufferCountActual; i++) {
     OMX_U8 *buf;
@@ -277,12 +289,12 @@ static OMX_BUFFERHEADERTYPE* omx_alloc_buffers(struct omx_pipeline_t *pipe, OMX_
 
     //    printf("Allocated a buffer of %u bytes\n",(unsigned int)portdef.nBufferSize);
 
-    OERR(OMX_UseBuffer(component, end, port, NULL, portdef.nBufferSize, buf));
+    OERR(OMX_UseBuffer(component->h, end, port, NULL, portdef.nBufferSize, buf));
 
     end = (OMX_BUFFERHEADERTYPE **) &((*end)->pAppPrivate);
   }
 
-  return list;
+  component->buffers = list;
 }
 
 void omx_free_buffers(struct omx_component_t *component, int port)
@@ -379,6 +391,55 @@ OMX_ERRORTYPE omx_flush_tunnel(struct omx_component_t* source, int source_port, 
   omx_send_command_and_wait(sink,OMX_CommandFlush,sink_port,NULL);
 }
 
+void omx_config_pcm(struct omx_component_t* audio_render, int samplerate, int channels, int bitdepth)
+{
+  OMX_AUDIO_PARAM_PCMMODETYPE pcm;
+  int32_t s;
+
+  OMX_INIT_STRUCTURE(pcm);
+  pcm.nPortIndex = 100;
+  pcm.nChannels = channels;
+  pcm.eNumData = OMX_NumericalDataSigned;
+  pcm.eEndian = OMX_EndianLittle;
+  pcm.nSamplingRate = samplerate;
+  pcm.bInterleaved = OMX_TRUE;
+  pcm.nBitPerSample = bitdepth;
+  pcm.ePCMMode = OMX_AUDIO_PCMModeLinear;
+
+  switch(channels) {
+    case 1:
+      pcm.eChannelMapping[0] = OMX_AUDIO_ChannelCF;
+      break;
+    case 8:
+      pcm.eChannelMapping[0] = OMX_AUDIO_ChannelLF;
+      pcm.eChannelMapping[1] = OMX_AUDIO_ChannelRF;
+      pcm.eChannelMapping[2] = OMX_AUDIO_ChannelCF;
+      pcm.eChannelMapping[3] = OMX_AUDIO_ChannelLFE;
+      pcm.eChannelMapping[4] = OMX_AUDIO_ChannelLR;
+      pcm.eChannelMapping[5] = OMX_AUDIO_ChannelRR;
+      pcm.eChannelMapping[6] = OMX_AUDIO_ChannelLS;
+      pcm.eChannelMapping[7] = OMX_AUDIO_ChannelRS;
+     break;
+    case 4:
+      pcm.eChannelMapping[0] = OMX_AUDIO_ChannelLF;
+      pcm.eChannelMapping[1] = OMX_AUDIO_ChannelRF;
+      pcm.eChannelMapping[2] = OMX_AUDIO_ChannelLR;
+      pcm.eChannelMapping[3] = OMX_AUDIO_ChannelRR;
+     break;
+    case 2:
+      pcm.eChannelMapping[0] = OMX_AUDIO_ChannelLF;
+      pcm.eChannelMapping[1] = OMX_AUDIO_ChannelRF;
+     break;
+  }
+
+  OERR(OMX_SetParameter(audio_render->h, OMX_IndexParamAudioPcm, &pcm));
+
+  OMX_CONFIG_BRCMAUDIODESTINATIONTYPE ar_dest;
+  OMX_INIT_STRUCTURE(ar_dest);
+  strcpy((char *)ar_dest.sName, "hdmi");
+  OERR(OMX_SetConfig(audio_render->h, OMX_IndexConfigBrcmAudioDestination, &ar_dest));
+}
+
 OMX_ERRORTYPE omx_init_component(struct omx_pipeline_t* pipe, struct omx_component_t* component, char* compname)
 {
   pthread_mutex_init(&component->cmd_queue_mutex, NULL);
@@ -416,18 +477,54 @@ OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTY
 
   OMX_INIT_STRUCTURE(cstate);
   cstate.eState = OMX_TIME_ClockStateWaitingForStartTime;
-  cstate.nWaitMask = OMX_CLOCKPORT0;
+  cstate.nWaitMask = OMX_CLOCKPORT0|OMX_CLOCKPORT1;
   OERR(OMX_SetParameter(pipe->clock.h, OMX_IndexConfigTimeClockState, &cstate));
+
+  OMX_TIME_CONFIG_ACTIVEREFCLOCKTYPE refClock;
+  OMX_INIT_STRUCTURE(refClock);
+  refClock.eClock = OMX_TIME_RefClockAudio;
+  OERR(OMX_SetConfig(pipe->clock.h, OMX_IndexConfigTimeActiveRefClock, &refClock));
 
   omx_init_component(pipe, &pipe->video_scheduler, "OMX.broadcom.video_scheduler");
 
-  /* Setup clock tunnel first */
+  /* Initialise audio output - hardcoded to 48000/Stereo/16-bit */
+  omx_init_component(pipe, &pipe->audio_render, "OMX.broadcom.audio_render");
+
+  OMX_PARAM_PORTDEFINITIONTYPE param;
+  OMX_INIT_STRUCTURE(param);
+  param.nPortIndex = 100;
+
+  OERR(OMX_GetParameter(pipe->audio_render.h, OMX_IndexParamPortDefinition, &param));
+  param.nBufferSize = 8192;  /* Needs to be big enough for one frame of data */
+  param.nBufferCountActual = 32; /* Arbitrary */
+  OERR(OMX_SetParameter(pipe->audio_render.h, OMX_IndexParamPortDefinition, &param));
+
+  omx_config_pcm(&pipe->audio_render, 48000, 2, 16);
+
+  OMX_CONFIG_BOOLEANTYPE configBool;
+  OMX_INIT_STRUCTURE(configBool);
+  configBool.bEnabled = OMX_TRUE;
+  OERR(OMX_SetConfig(pipe->audio_render.h, OMX_IndexConfigBrcmClockReferenceSource, &configBool));
+
+
+  omx_send_command_and_wait(&pipe->audio_render, OMX_CommandStateSet, OMX_StateIdle, NULL);
+
+  omx_send_command_and_wait0(&pipe->audio_render, OMX_CommandPortEnable, 100, NULL);
+  omx_alloc_buffers(&pipe->audio_render, 100);
+  omx_send_command_and_wait1(&pipe->audio_render, OMX_CommandPortEnable, 100, NULL);
+
+
+  /* Setup clock tunnels first */
   omx_send_command_and_wait(&pipe->clock, OMX_CommandStateSet, OMX_StateIdle, NULL);
 
-  OERR(OMX_SetupTunnel(pipe->clock.h, 80, pipe->video_scheduler.h, 12));
+  OERR(OMX_SetupTunnel(pipe->clock.h, 80, pipe->audio_render.h, 101));
+  OERR(OMX_SetupTunnel(pipe->clock.h, 81, pipe->video_scheduler.h, 12));
 
   OERR(OMX_SendCommand(pipe->clock.h, OMX_CommandPortEnable, 80, NULL));
   OERR(OMX_SendCommand(pipe->video_scheduler.h, OMX_CommandPortEnable, 12, NULL));
+
+  OERR(OMX_SendCommand(pipe->clock.h, OMX_CommandPortEnable, 81, NULL));
+  OERR(OMX_SendCommand(pipe->audio_render.h, OMX_CommandPortEnable, 101, NULL));
 
   omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandStateSet, OMX_StateIdle, NULL);
 
@@ -455,13 +552,16 @@ OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTY
   omx_send_command_and_wait0(&pipe->video_decode, OMX_CommandPortEnable, 130, NULL);
 
   /* Allocate input buffers */
-  pipe->video_decode.buffers = omx_alloc_buffers(pipe, pipe->video_decode.h, 130);
+  omx_alloc_buffers(&pipe->video_decode, 130);
 
   /* Wait for input port to be enabled */
   omx_send_command_and_wait1(&pipe->video_decode, OMX_CommandPortEnable, 130, NULL);
 
   /* Change video_decode to OMX_StateExecuting */
   omx_send_command_and_wait(&pipe->video_decode, OMX_CommandStateSet, OMX_StateExecuting, NULL);
+
+  /* Change audio_render to OMX_StateExecuting */
+  omx_send_command_and_wait(&pipe->audio_render, OMX_CommandStateSet, OMX_StateExecuting, NULL);
 
   return OMX_ErrorNone;
 }

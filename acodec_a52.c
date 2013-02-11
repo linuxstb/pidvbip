@@ -1,7 +1,5 @@
 
 /* A52 audio codec using liba52
-
-   Audio code taken from the hello_audio.c sample
  */
 
 #include <stdio.h>
@@ -13,61 +11,16 @@
 #include <a52dec/a52.h>
 #include "codec.h"
 #include "acodec_a52.h"
-#include "audioplay.h"
+#include "omx_utils.h"
 #include "debug.h"
 
-#define OUTBUFF 32768 
-
-#define CTTW_SLEEP_TIME 10
-#define MIN_LATENCY_TIME 20
-
-#define BUFFER_SIZE_SAMPLES 1152
-
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
-
-static void output_pcm(AUDIOPLAY_STATE_T *st,unsigned char* data, int size, int buffer_size)
+static void* acodec_a52_thread(struct codec_init_args_t* args)
 {
-  uint8_t *buf;
-  int copied = 0;
-  int latency;
-  int samplerate = 48000;  // audio sample rate in Hz
-  int ret;
-
-  while (size > 0) 
-  {
-    while((buf = audioplay_get_buffer(st)) == NULL)
-      usleep(10*1000);
-
-    int to_copy = MIN(size,buffer_size);
-
-    memcpy(buf,data + copied,to_copy);
-    copied += to_copy;
-    size -= to_copy;
-
-    // try and wait for a minimum latency time (in ms) before
-    // sending the next packet
-    while((latency = audioplay_get_latency(st)) > (samplerate * (MIN_LATENCY_TIME + CTTW_SLEEP_TIME) / 1000))
-       usleep(CTTW_SLEEP_TIME*1000);
-
-    ret = audioplay_play_buffer(st, buf, to_copy);
-
-    if (ret != 0) {
-      fprintf(stderr,"[acodec_mpeg] - audioplay_play_buffer() error %d\n",ret);
-      exit(1);
-    }
-  }
-}
-
-#define BUFFER_SIZE 4096
-
-#define A52_SAMPLESPERFRAME (6*256)
-
-static void* acodec_a52_thread(struct codec_t* codec)
-{
+  struct codec_t* codec = args->codec;
+  struct omx_pipeline_t* pipe = args->pipe;
+  OMX_PARAM_PORTDEFINITIONTYPE param;
   struct codec_queue_t* current = NULL;
   size_t size;
-  unsigned char out[OUTBUFF]; /* output buffer */
-  size_t outc = 0;
   int ret;
   a52_state_t *state;
   unsigned long samplesdone;
@@ -76,20 +29,13 @@ static void* acodec_a52_thread(struct codec_t* codec)
   int sample_rate;
   int bit_rate;
   int is_paused = 0;
+  OMX_BUFFERHEADERTYPE *buf;
+  int first_packet = 1;
 
-  int nchannels = 2;        // numnber of audio channels
-  int bitdepth = 16;       // number of bits per sample
-
-  AUDIOPLAY_STATE_T *st;
-  int buffer_size = (BUFFER_SIZE_SAMPLES * bitdepth * nchannels)>>3;
+  free(args);
 
   /* Intialise the A52 decoder and check for success */
   state = a52_init(0);
-
-  /* Initialise audio output - hardcoded to 48000/Stereo/16-bit */
-
-  ret = audioplay_create(&st, 48000, 2, 16, 10, buffer_size);
-  assert(ret == 0);
 
   while(1)
   {
@@ -143,6 +89,21 @@ next_packet:
 
     a52_dynrng (state, NULL, NULL);
 
+    buf = get_next_buffer(&pipe->audio_render);
+    buf->nFilledLen = 2 * 2 * 6 * 256;
+    buf->nTimeStamp = pts_to_omx(current->data->PTS);
+
+    buf->nFlags = 0;
+    if(first_packet)
+    {
+      buf->nFlags |= OMX_BUFFERFLAG_STARTTIME;
+      first_packet = 0;
+    }
+
+    buf->nFlags |= OMX_BUFFERFLAG_ENDOFFRAME;
+
+    int16_t* p = (int16_t*)buf->pBuffer;
+
     for (i = 0; i < 6; i++) {
       if (a52_block (state)) {
         fprintf(stderr,"error in a52_block() - i=%d\n",i);
@@ -150,8 +111,8 @@ next_packet:
       }
 
       /* Convert samples to output format */
-      int16_t data[512];
-      int16_t* p = data;
+//      int16_t data[512];
+//      int16_t* p = data;
       int j;
       sample_t* samples = a52_samples(state);
 
@@ -159,8 +120,10 @@ next_packet:
         *p++ = samples[j];
         *p++ = samples[j+256];
       }
-      output_pcm(st, (unsigned char*)data, sizeof(data), buffer_size);
+      //output_pcm(st, (unsigned char*)data, sizeof(data), buffer_size);
     }
+
+    OERR(OMX_EmptyThisBuffer(pipe->audio_render.h, buf));
 error:
 
     codec_set_pts(codec,current->data->PTS);
@@ -168,18 +131,28 @@ error:
     codec_queue_free_item(codec,current);
   }
 stop:
-  audioplay_delete(st);
+  /* Disable audio_render input port and buffers */
+  omx_send_command_and_wait0(&pipe->audio_render, OMX_CommandPortDisable, 100, NULL);
+  omx_free_buffers(&pipe->audio_render, 100);
+  omx_send_command_and_wait1(&pipe->audio_render, OMX_CommandPortDisable, 100, NULL);
 
-  /* Done decoding, now just clean up and leave. */
+  /* Transition to StateLoaded and free the handle */
+  omx_send_command_and_wait(&pipe->audio_render, OMX_CommandStateSet, OMX_StateIdle, NULL);
+  omx_send_command_and_wait(&pipe->audio_render, OMX_CommandStateSet, OMX_StateLoaded, NULL);
+  OERR(OMX_FreeHandle(pipe->audio_render.h));
 
   return 0;
 }
 
-void acodec_a52_init(struct codec_t* codec)
+void acodec_a52_init(struct codec_t* codec, struct omx_pipeline_t* pipe)
 {
   codec->codecstate = NULL;
 
   codec_queue_init(codec);
 
-  pthread_create(&codec->thread,NULL,(void * (*)(void *))acodec_a52_thread,(void*)codec);
+  struct codec_init_args_t* args = malloc(sizeof(struct codec_init_args_t));
+  args->codec = codec;
+  args->pipe = pipe;
+
+  pthread_create(&codec->thread,NULL,(void * (*)(void *))acodec_a52_thread,(void*)args);
 }

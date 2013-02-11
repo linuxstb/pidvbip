@@ -66,7 +66,7 @@ audioplay.o: audioplay.c audioplay.h
 acodec_aac.o: acodec_aac.c acodec_aac.h codec.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o acodec_aac.o acodec_aac.c
 
-acodec_a52.o: acodec_a52.c acodec_a52.h codec.h
+acodec_a52.o: acodec_a52.c acodec_a52.h codec.h omx_utils.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o acodec_a52.o acodec_a52.c
 
 acodec_mpeg.o: acodec_mpeg.c acodec_mpeg.h codec.h

@@ -4,7 +4,7 @@ LIBS=-lGLESv2 -lEGL -lopenmaxil -lbcm_host -lvcos -lvchiq_arm -lpthread -lavahi-
 
 # The following can be overridden with a command argument (e.g. with building in OpenELEC)
 LDFLAGS=-L/opt/vc/lib
-INCLUDES=-I/opt/vc/include/ -I/opt/vc/include/interface/vcos/pthreads -I/usr/include/freetype2 -I/usr/include/arm-linux-gnueabi -I/usr/local/include
+INCLUDES=-I/opt/vc/include/ -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/include/interface/vmcs_host/linux -I/usr/include/freetype2 -I/usr/include/arm-linux-gnueabi -I/usr/local/include
 
 OBJS=vcodec_omx.o htsp.o vo_pi.o codec.o acodec_mpeg.o acodec_aac.o acodec_a52.o channels.o events.o avahi.o osd.o tiresias_pcfont.o avl.o omx_utils.o
 

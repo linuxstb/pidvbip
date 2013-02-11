@@ -5,7 +5,6 @@
 #include <pthread.h>
 
 #include "vo_pi.h"
-#include "libs/ilclient/ilclient.h"
 
 struct codec_init_args_t
 {

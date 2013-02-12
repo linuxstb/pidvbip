@@ -51,9 +51,11 @@ struct codec_t
   unsigned char* codecdata;
   int codecdatasize;
   struct codec_t* acodec;
-  OMX_VIDEO_CODINGTYPE codectype;
+  OMX_VIDEO_CODINGTYPE vcodectype;
   int width;
   int height;
+  OMX_AUDIO_CODINGTYPE acodectype;
+  int first_packet;
 };
 
 void codec_queue_init(struct codec_t* codec);

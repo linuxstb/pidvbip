@@ -35,9 +35,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 #include "bcm_host.h"
 #include "vcodec_omx.h"
-#include "acodec_mpeg.h"
-#include "acodec_aac.h"
-#include "acodec_a52.h"
+#include "acodec_omx.h"
 #include "htsp.h"
 #include "channels.h"
 #include "events.h"
@@ -227,25 +225,15 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
           }
 
           if (codecs->subscription.streams[codecs->subscription.videostream].codec == HMF_VIDEO_CODEC_MPEG2) {
-            codecs->vcodec.codectype = OMX_VIDEO_CodingMPEG2;
+            codecs->vcodec.vcodectype = OMX_VIDEO_CodingMPEG2;
           } else {
-            codecs->vcodec.codectype = OMX_VIDEO_CodingAVC;
+            codecs->vcodec.vcodectype = OMX_VIDEO_CodingAVC;
           }
           codecs->vcodec.width = codecs->subscription.streams[codecs->subscription.videostream].width;
           codecs->vcodec.height = codecs->subscription.streams[codecs->subscription.videostream].height;
 
-          if (codecs->subscription.streams[codecs->subscription.audiostream].codec == HMF_AUDIO_CODEC_MPEG) {
-            acodec_mpeg_init(&codecs->acodec, &omxpipe);
-            DEBUGF("Initialised mpeg codec\n");
-          } else if (codecs->subscription.streams[codecs->subscription.audiostream].codec == HMF_AUDIO_CODEC_AAC) {
-            acodec_aac_init(&codecs->acodec, &omxpipe);
-            DEBUGF("Initialised AAC codec\n");
-          } else if (codecs->subscription.streams[codecs->subscription.audiostream].codec == HMF_AUDIO_CODEC_AC3) {
-            fprintf(stderr,"Initialising A/52 codec\n");
-            acodec_a52_init(&codecs->acodec, &omxpipe);
-            fprintf(stderr,"DONE\n");
-            DEBUGF("Initialised A/52 codec\n");
-          }
+          codecs->acodec.acodectype = codecs->subscription.streams[codecs->subscription.audiostream].codec;
+
           // TODO: Subtitle thread
 
         } else if (strcmp(method,"subscriptionStatus")==0) {
@@ -594,26 +582,18 @@ int main(int argc, char* argv[])
 
     memset(&codecs.vcodec,0,sizeof(codecs.vcodec));
     memset(&codecs.acodec,0,sizeof(codecs.acodec));
+    
     codecs.is_paused = 0;
 
-    fprintf(stderr,"1\n");
-    vcodec_omx_init(&codecs.vcodec, &omxpipe);
-    fprintf(stderr,"2\n");
     codecs.vcodec.acodec = &codecs.acodec;
+    vcodec_omx_init(&codecs.vcodec, &omxpipe);
+    acodec_omx_init(&codecs.acodec, &omxpipe);
 
 next_channel:
     osd_blank_video(&osd,0); /* Don't blank the screen for now - leave the transition visbible for debugging */
     double blank_video_timeout = get_time() + 1000;
 
-    fprintf(stderr,"lock0\n");
-
-    //    if (codecs.vcodec.thread) {
-    //      codec_stop(&codecs.vcodec);
-    //    }
-
-    fprintf(stderr,"lock4\n");
     htsp_lock(&htsp);
-    fprintf(stderr,"lock5\n");
 
     if (htsp.subscriptionId > 0) {
       res = htsp_create_message(&msg,HMF_STR,"method","unsubscribe",HMF_S64,"subscriptionId",htsp.subscriptionId,HMF_NULL);
@@ -621,9 +601,6 @@ next_channel:
       htsp_destroy_message(&msg);
     }
 
-    memset(&codecs.acodec,0,sizeof(codecs.acodec));
-    
-    fprintf(stderr,"lock6\n");
     htsp_unlock(&htsp);
 
     fprintf(stderr,"Tuning to channel %d - \"%s\"\n",channels_getlcn(user_channel_id),channels_getname(user_channel_id));
@@ -816,15 +793,7 @@ next_channel:
     }
 
 change_channel:
-    fprintf(stderr,"lock1\n");
-    if (codecs.acodec.thread) {
-      codec_stop(&codecs.acodec);
-      pthread_join(codecs.acodec.thread,NULL);
-      fprintf(stderr,"[main thread] - killed audio thread\n");
-    }
-    fprintf(stderr,"lock3\n");
-    //    codec_stop(&codecs.vcodec);
-    fprintf(stderr,"lock3b\n");
+    /* TODO: */
     goto next_channel;
 
 done:

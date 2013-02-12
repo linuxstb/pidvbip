@@ -6,7 +6,7 @@ LIBS=-lGLESv2 -lEGL -lopenmaxil -lbcm_host -lvcos -lvchiq_arm -lpthread -lavahi-
 LDFLAGS=-L/opt/vc/lib
 INCLUDES=-I/opt/vc/include/ -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/include/interface/vmcs_host/linux -I/usr/include/freetype2 -I/usr/include/arm-linux-gnueabi -I/usr/local/include
 
-OBJS=vcodec_omx.o htsp.o vo_pi.o codec.o acodec_mpeg.o acodec_aac.o acodec_a52.o channels.o events.o avahi.o osd.o tiresias_pcfont.o avl.o omx_utils.o
+OBJS=vcodec_omx.o htsp.o vo_pi.o codec.o acodec_omx.o channels.o events.o avahi.o osd.o tiresias_pcfont.o avl.o omx_utils.o
 
 TARGETS=pidvbip flvtoh264
 
@@ -60,14 +60,8 @@ avl.o: avl.c avl.h
 tiresias_pcfont.o: tiresias_pcfont.c tiresias_pcfont.h
 	$(CC) -c -o tiresias_pcfont.o tiresias_pcfont.c
 
-acodec_aac.o: acodec_aac.c acodec_aac.h codec.h
-	$(CC) $(INCLUDES) $(CFLAGS) -c -o acodec_aac.o acodec_aac.c
-
-acodec_a52.o: acodec_a52.c acodec_a52.h codec.h omx_utils.h
-	$(CC) $(INCLUDES) $(CFLAGS) -c -o acodec_a52.o acodec_a52.c
-
-acodec_mpeg.o: acodec_mpeg.c acodec_mpeg.h codec.h
-	$(CC) $(INCLUDES) $(CFLAGS) -c -o acodec_mpeg.o acodec_mpeg.c
+acodec_omx.o: acodec_omx.c acodec_omx.h codec.h
+	$(CC) $(INCLUDES) $(CFLAGS) -c -o acodec_omx.o acodec_omx.c
 
 vcodec_omx.o: vcodec_omx.c vcodec_omx.h codec.h omx_utils.h
 	$(CC) $(INCLUDES) $(CFLAGS) -c -o vcodec_omx.o vcodec_omx.c

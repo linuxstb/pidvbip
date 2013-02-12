@@ -88,6 +88,10 @@ struct omx_pipeline_t
   struct omx_component_t video_render;
   struct omx_component_t audio_render;
   struct omx_component_t clock;
+
+  pthread_mutex_t omx_active_mutex;
+  int omx_active;
+  pthread_cond_t omx_active_cv;
 };
 
 OMX_ERRORTYPE omx_init_component(struct omx_pipeline_t* pipe, struct omx_component_t* component, char* compname);

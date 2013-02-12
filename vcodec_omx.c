@@ -43,9 +43,12 @@ static void* vcodec_omx_thread(struct codec_init_args_t* args)
    int64_t prev_DTS = -1;
    int err;
    OMX_BUFFERHEADERTYPE *buf;
-   int first_packet = 1;
 
    free(args);
+
+   codec->first_packet = 1;
+
+   pthread_mutex_lock(&pipe->omx_active_mutex);
 
    fprintf(stderr,"Starting vcodec_omx_thread\n");
 
@@ -88,17 +91,30 @@ next_packet:
      }
 
      if (coding == OMX_VIDEO_CodingUnused) {
-       fprintf(stderr,"Setting up OMX pipeline... - codectype=%d\n",codec->codectype);
-       omx_setup_pipeline(pipe, codec->codectype);
+       fprintf(stderr,"Setting up OMX pipeline... - vcodectype=%d\n",codec->vcodectype);
+       omx_setup_pipeline(pipe, codec->vcodectype);
+ 
        fprintf(stderr,"Done setting up OMX pipeline.\n");
-       coding = codec->codectype;
+       coding = codec->vcodectype;
        width = codec->width;
        height = codec->height;
        fprintf(stderr,"Initialised video codec - %s width=%d, height=%d\n",((coding == OMX_VIDEO_CodingAVC) ? "H264" : "MPEG-2"), width, height);
-     } else if ((coding != codec->codectype) || (width != codec->width) || (height != codec->height)) {
+
+       /* We are ready to go, allow the audio codec back in */
+       pipe->omx_active = 1;
+       pthread_cond_signal(&pipe->omx_active_cv);
+       pthread_mutex_unlock(&pipe->omx_active_mutex);
+     } else if ((coding != codec->vcodectype) || (width != codec->width) || (height != codec->height)) {
        fprintf(stderr,"Change of codec detected, restarting video codec\n");
        coding = OMX_VIDEO_CodingUnused;
-       first_packet = 1;
+
+       /* Tell the audio thread that we are now inactive */
+       //fprintf(stderr,"[vcodec_omx] Trying to lock mutex\n");
+       pthread_mutex_lock(&pipe->omx_active_mutex);
+       //fprintf(stderr,"[vcodec_omx] locked mutex\n");
+
+       codec->first_packet = 1;
+       codec->acodec->first_packet = 1;
        goto stop;
      }
 
@@ -119,10 +135,10 @@ next_packet:
        buf->nFilledLen = to_copy;
 
        buf->nFlags = 0;
-       if(first_packet)
+       if(codec->first_packet)
        {
          buf->nFlags |= OMX_BUFFERFLAG_STARTTIME;
-         first_packet = 0;
+         codec->first_packet = 0;
        }
 
        if (bytes_left == 0)
@@ -159,6 +175,7 @@ next_packet:
    }
 
 stop:
+
    /* Indicate end of video stream */
    buf = get_next_buffer(&pipe->video_decode);
 
@@ -243,6 +260,10 @@ stop:
    OERR(OMX_FreeHandle(pipe->clock.h));
 
    DEBUGF("End of omx thread\n");
+   pipe->omx_active = 0;
+   pthread_mutex_unlock(&pipe->omx_active_mutex);
+   //fprintf(stderr,"[vcodec_omx] Unlocked mutex\n");
+
    goto next_channel;
 
    return 0;
@@ -250,8 +271,11 @@ stop:
 
 void vcodec_omx_init(struct codec_t* codec, struct omx_pipeline_t* pipe)
 {
-  codec->codectype = OMX_VIDEO_CodingUnused;
+  codec->vcodectype = OMX_VIDEO_CodingUnused;
   codec_queue_init(codec);
+
+  pthread_mutex_init(&pipe->omx_active_mutex, NULL);
+  pthread_cond_init(&pipe->omx_active_cv, NULL);
 
   struct codec_init_args_t* args = malloc(sizeof(struct codec_init_args_t));
   args->codec = codec;

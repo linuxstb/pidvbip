@@ -149,8 +149,30 @@ next_packet:
          pipe->video_decode.port_settings_changed = 0;
 	 fprintf(stderr,"video_decode port_settings_changed = 1\n");
 
-         OERR(OMX_SetupTunnel(pipe->video_decode.h, 131, pipe->video_scheduler.h, 10));
-         omx_send_command_and_wait(&pipe->video_decode, OMX_CommandPortEnable, 131, NULL);
+         if (pipe->do_deinterlace) {
+           OERR(OMX_SetupTunnel(pipe->video_decode.h, 131, pipe->image_fx.h, 190));
+           omx_send_command_and_wait(&pipe->video_decode, OMX_CommandPortEnable, 131, NULL);
+
+           omx_send_command_and_wait(&pipe->image_fx, OMX_CommandPortEnable, 190, NULL);
+           omx_send_command_and_wait(&pipe->image_fx, OMX_CommandStateSet, OMX_StateExecuting, NULL);
+         } else {
+           OERR(OMX_SetupTunnel(pipe->video_decode.h, 131, pipe->video_scheduler.h, 10));
+           omx_send_command_and_wait(&pipe->video_decode, OMX_CommandPortEnable, 131, NULL);
+
+           omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandPortEnable, 10, NULL);
+           omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandStateSet, OMX_StateExecuting, NULL);
+           omx_send_command_and_wait(&pipe->video_render, OMX_CommandStateSet, OMX_StateIdle, NULL);
+         }
+       }
+
+       if (pipe->image_fx.port_settings_changed == 1)
+       {
+         pipe->image_fx.port_settings_changed = 0;
+         fprintf(stderr,"image_fx port_settings_changed = 1\n");
+
+         OERR(OMX_SetupTunnel(pipe->image_fx.h, 191, pipe->video_scheduler.h, 10));
+         omx_send_command_and_wait(&pipe->image_fx, OMX_CommandPortEnable, 191, NULL);
+
          omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandPortEnable, 10, NULL);
          omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandStateSet, OMX_StateExecuting, NULL);
          omx_send_command_and_wait(&pipe->video_render, OMX_CommandStateSet, OMX_StateIdle, NULL);

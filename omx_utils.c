@@ -148,6 +148,7 @@ static char* mapcomponent(struct omx_pipeline_t* pipe, OMX_HANDLETYPE component)
   else if (component == pipe->video_render.h) return "video_render";
   else if (component == pipe->audio_render.h) return "audio_render";
   else if (component == pipe->clock.h) return "clock";
+  else if (component == pipe->image_fx.h) return "image_fx";
 
   return "<unknown>";
 }
@@ -471,8 +472,32 @@ OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTY
 
   memset(pipe, 0, sizeof(struct omx_pipeline_t));
 
+  /* TODO: This should be user-configurable, and for any codec where the resolution is <= 720x576 */
+  if (video_codec == OMX_VIDEO_CodingMPEG2) {
+    pipe->do_deinterlace = 1;
+  }
+
   omx_init_component(pipe, &pipe->video_decode, "OMX.broadcom.video_decode");
   omx_init_component(pipe, &pipe->video_render, "OMX.broadcom.video_render");
+
+  if (pipe->do_deinterlace) {
+    fprintf(stderr,"Enabling de-interlacer\n");
+    /* De-interlacer.  Input port 190, Output port 191.  Insert between decoder and scheduler */
+    omx_init_component(pipe, &pipe->image_fx, "OMX.broadcom.image_fx");
+
+    /* Configure image_fx */
+    omx_send_command_and_wait(&pipe->image_fx, OMX_CommandStateSet, OMX_StateIdle, NULL);
+
+    OMX_CONFIG_IMAGEFILTERPARAMSTYPE imagefilter;
+    OMX_INIT_STRUCTURE(imagefilter);
+    imagefilter.nPortIndex=191;
+    imagefilter.nNumParams=1;
+    imagefilter.nParams[0]=3; //???
+    imagefilter.eImageFilter=OMX_ImageFilterDeInterlaceAdvanced;
+
+    OERR(OMX_SetConfig(pipe->image_fx.h, OMX_IndexConfigCommonImageFilterParameters, &imagefilter));
+  }  
+
   omx_init_component(pipe, &pipe->clock, "OMX.broadcom.clock");
 
   OMX_INIT_STRUCTURE(cstate);
@@ -546,7 +571,6 @@ OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTY
      ec.bStartWithValidFrame = OMX_FALSE;
      OERR(OMX_SetParameter(pipe->video_decode.h, OMX_IndexParamBrcmVideoDecodeErrorConcealment, &ec));
   }
-
 
   /* Enable video decoder input port */
   omx_send_command_and_wait0(&pipe->video_decode, OMX_CommandPortEnable, 130, NULL);

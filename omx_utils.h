@@ -88,7 +88,9 @@ struct omx_pipeline_t
   struct omx_component_t video_render;
   struct omx_component_t audio_render;
   struct omx_component_t clock;
+  struct omx_component_t image_fx; /* For deinterlacing */
 
+  int do_deinterlace;
   pthread_mutex_t omx_active_mutex;
   int omx_active;
   pthread_cond_t omx_active_cv;

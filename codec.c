@@ -51,7 +51,7 @@ void codec_flush_queue(struct codec_t* codec)
   pthread_mutex_unlock(&codec->queue_mutex);
 }
 
-void codec_stop(struct codec_t* codec)
+static void codec_stop0(struct codec_t* codec, int msg)
 {
   struct codec_queue_t* new = malloc(sizeof(struct codec_queue_t));
 
@@ -75,7 +75,7 @@ void codec_stop(struct codec_t* codec)
     codec_queue_free_item(codec,tmp);
   }
 
-  new->msgtype = MSG_STOP;
+  new->msgtype = msg;
   new->data = NULL;
   new->next = NULL;
   new->prev = NULL;
@@ -89,6 +89,16 @@ void codec_stop(struct codec_t* codec)
 
   codec_set_pts(codec,-1);
   pthread_mutex_unlock(&codec->queue_mutex);
+}
+
+void codec_stop(struct codec_t* codec)
+{
+  codec_stop0(codec, MSG_STOP);
+}
+
+void codec_new_channel(struct codec_t* codec)
+{
+  codec_stop0(codec, MSG_NEW_CHANNEL);
 }
 
 void codec_pause(struct codec_t* codec)
@@ -154,7 +164,6 @@ void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet)
       new->prev = NULL;
       codec->queue_head = new;
       codec->queue_tail = new;
-
       pthread_cond_signal(&codec->queue_count_cv);
     } else {
       new->next = codec->queue_head;
@@ -165,7 +174,7 @@ void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet)
 
     codec->queue_count++;
   } else {
-    DEBUGF("Dropping packet - codec is stopped.\n");
+    fprintf(stderr,"Dropping packet - codec is stopped.\n");
     free(packet);
   }
 
@@ -189,9 +198,8 @@ struct codec_queue_t* codec_queue_get_next_item(struct codec_t* codec)
   struct codec_queue_t* item;
   pthread_mutex_lock(&codec->queue_mutex);
 
-  if (codec->queue_tail == NULL) {
+  while (codec->queue_tail == NULL)
     pthread_cond_wait(&codec->queue_count_cv,&codec->queue_mutex);
-  }
 
   item = codec->queue_tail;
 

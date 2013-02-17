@@ -189,6 +189,8 @@ static void* acodec_omx_thread(struct codec_init_args_t* args)
   create_aac_codecdata(codec);
   int done_init = 0;
 
+new_channel:
+  codec->first_packet = 1;
 
   while(1)
   {
@@ -203,13 +205,16 @@ next_packet:
     current = codec_queue_get_next_item(codec);
 
     if (current->msgtype == MSG_STOP) {
-      DEBUGF("[acodec_mpeg] Stopping\n");
+      DEBUGF("[acodec] Stopping\n");
       codec_queue_free_item(codec,current);
       goto stop;
+    } else if (current->msgtype == MSG_NEW_CHANNEL) {
+      DEBUGF("[acodec] New channel\n");
+      codec_queue_free_item(codec,current);
+      goto new_channel;;
     } else if (current->msgtype == MSG_PAUSE) {
       //fprintf(stderr,"acodec: Paused\n");
       codec_queue_free_item(codec,current);
-      current = NULL;
       is_paused = 1;
       goto next_packet;
     }

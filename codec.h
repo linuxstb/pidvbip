@@ -22,9 +22,10 @@ struct packet_t
   int64_t DTS;
 };
 
-#define MSG_PACKET  1
-#define MSG_STOP    2
-#define MSG_PAUSE    3
+#define MSG_PACKET       1
+#define MSG_STOP         2
+#define MSG_PAUSE        3
+#define MSG_NEW_CHANNEL  4
 
 struct codec_queue_t
 {
@@ -59,6 +60,7 @@ struct codec_t
 };
 
 void codec_queue_init(struct codec_t* codec);
+void codec_new_channel(struct codec_t* codec);
 void codec_stop(struct codec_t* codec);
 void codec_pause(struct codec_t* codec);
 void codec_resume(struct codec_t* codec);

@@ -4,7 +4,7 @@
 #ifdef NDEBUG
 #define DEBUGF(...)
 #else
-#define DEBUGF(...) fprintf(stderr,...)
+#define DEBUGF(...) fprintf(stderr,__VA_ARGS__)
 #endif
 
 #endif

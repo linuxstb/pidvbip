@@ -1,0 +1,189 @@
+#!/bin/sh
+
+rm -f config.h config.mak conftest*
+
+cc_check() {
+    rm -f conftest.c
+    [ -n "$1" ] && echo "#include <$1>" > conftest.c
+    echo "int main() { $3 return 0; }" >> conftest.c
+    cc_cmd="$CC conftest.c $CFLAGS $2 $LDFLAGS -o conftest"
+    $cc_cmd 2>/dev/null
+
+    return $?
+}
+
+define() {
+    echo "#define $1 1" >> config.h
+}
+
+die() {
+    msg="Error: $1"
+    echo "$msg"
+    exit 1
+}
+
+usage() {
+    cat <<EOF
+Usage: $0 [options]
+
+Options:
+    --disable-libcec            disable libcec support
+    --enable-debug              enable debugging symbols
+    --vc-sdk-path=VC_SDK_PATH   path to VideoCore SDK [/opt/vc]
+EOF
+
+    exit 1
+}
+
+avahi="auto"
+libcec="auto"
+debug="no"
+raspberrypi="auto"
+
+CC="${CC:-gcc}"
+CFLAGS="$CFLAGS -pipe -Wall -I."
+LD="${LD:-$CC -o }"
+LDFLAGS="$LDFLAGS -lm"
+VC_SDK_PATH="${VC_SDK_PATH-/opt/vc}"
+
+for opt do
+    optarg="${opt#*=}"
+    case "$opt" in
+        -h | --help)
+            usage
+            ;;
+        --enable-debug)
+            debug="yes"
+            ;;
+        --disable-libcec)
+            libcec="no"
+            ;;
+        --vc-sdk-path=*)
+            VC_SDK_PATH="$optarg"
+            ;;
+        *)
+            echo "Unknown option: $opt"
+            ;;
+    esac
+done
+
+cc_check || die "No working compiler"
+
+cc_check pthread.h -lpthread && LDFLAGS="$LDFLAGS -lpthread" || die "Failed to locate pthreads"
+
+if [ "$raspberrypi" = "auto" ] ; then
+    raspberrypi="no"
+    if grep BCM2708 /proc/cpuinfo 1>/dev/null ; then
+        PI_CFLAGS="$PI_CFLAGS -I$VC_SDK_PATH/include"
+        PI_CFLAGS="$PI_CFLAGS -I$VC_SDK_PATH/include/interface/vcos/pthreads"
+        PI_CFLAGS="$PI_CFLAGS -I$VC_SDK_PATH/include/interface/vmcs_host/linux"
+        PI_LIBS="-L${VC_SDK_PATH}/lib -lbcm_host -lvcos -lvchiq_arm"
+
+        cc_check "" "-mfloat-abi=hard -mfpu=vfp" && PI_CFLAGS="$PI_CFLAGS -mfloat-abi=hard -mfpu=vfp"
+
+        cc_check bcm_host.h "$PI_CFLAGS -DUSE_VCHIQ_ARM $PI_LIBS" "bcm_host_init();" || die "Failed to locate bcm_host"
+        cc_check interface/vcos/vcos.h "$PI_CFLAGS -DUSE_VCHIQ_ARM $PI_LIBS" "vcos_malloc_aligned(0,0,0);" || die "Failed to locate vcos"
+
+        raspberrypi="yes"
+        define ARCH_RPI
+        define USE_VCHIQ_ARM
+        LDFLAGS="$PI_LIBS $LDFLAGS"
+        CFLAGS="$PI_CFLAGS $CFLAGS"
+    fi
+fi
+
+if pkg-config --exists freetype2 2>/dev/null ; then
+    LDFLAGS="$(freetype-config --libs) $LDFLAGS"
+    CFLAGS="$(freetype-config --cflags) $CFLAGS"
+else
+    die "Failed to locate FreeType"
+fi
+
+cc_check EGL/egl.h "-lEGL -lGLESv2" "eglCreateContext(0,0,0,0);" && LDFLAGS="-lEGL -lGLESv2 $LDFLAGS" || die "Failed to locate GLES"
+
+if cc_check IL/OMX_Core.h "-DOMX_SKIP64BIT -lopenmaxil" "OMX_Init();" ; then
+    LDFLAGS="-lopenmaxil $LDFLAGS"
+    define OMX_SKIP64BIT
+else
+    die "Failed to locate OpenMAX"
+fi
+
+if [ "$libcec" = "auto" ] ; then
+    libcec="no"
+    if pkg-config --exists libcec &>/dev/null ; then
+        CEC_LIBS="$CEC_LIBS $(pkg-config --libs libcec)"
+        CEC_CFLAGS="$CEC_CFLAGS $(pkg-config --cflags libcec)"
+    fi
+    [ -z "$CEC_LIBS" ] &&  CEC_LIBS="-lcec"
+
+    if cc_check libcec/cecc.h "$CEC_CFLAGS $CEC_LIBS" "cec_initialise(0);" ; then
+        libcec="yes"
+        LDFLAGS="$CEC_LIBS $LDFLAGS"
+        CFLAGS="$CEC_CFLAGS $CFLAGS"
+        define HAVE_LIBCEC
+    fi
+fi
+
+if [ "$avahi" = "auto" ] ; then
+    avahi="no"
+    if pkg-config --exists avahi-client &>/dev/null ; then
+        AVAHI_LIBS="$AVAHI_LIBS $(pkg-config --libs avahi-client)"
+        AVAHI_CFLAGS="$AVAHI_CFLAGS $(pkg-config --cflags avahi-client)"
+    fi
+    [ -z "$AVAHI_LIBS" ] && AVAHI_LIBS="-lavahi-client -lavahi-common"
+
+    if cc_check avahi-client/client.h "$AVAHI_CFLAGS $AVAHI_LIBS" "avahi_client_new(0,0,0,0,0);" ; then
+        avahi="yes"
+        LDFLAGS="$AVAHI_LIBS $LDFLAGS"
+        CFLAGS="$AVAHI_CFLAGS $CFLAGS"
+        define HAVE_AVAHI
+    else
+        die "Failed to locate Avahi"
+    fi
+fi
+
+if pkg-config --exists libmpg123 &>/dev/null ; then
+    MPG123_LIBS="$MPG123_LIBS $(pkg-config --libs libmpg123)"
+    MPG123_CFLAGS="$MPG123_CFLAGS $(pkg-config --cflags libmpg123)"
+fi
+[ -z "$MPG123_LIBS" ] && MPG123_LIBS="-lmpg123"
+if cc_check mpg123.h "$MPG123_CFLAGS $MPG123_LIBS" "mpg123_init();" ; then
+    LDFLAGS="$MPG123_LIBS $LDFLAGS"
+    CFLAGS="$MPG123_CFLAGS $CFLAGS"
+else
+    die "Failed to locate mpg123"
+fi
+
+cc_check neaacdec.h "-lfaad" "NeAACDecOpen();" && LDFLAGS="-lfaad $LDFLAGS" || die "Failed to locate FAAD2"
+
+cat > conftest.h <<EOF
+#include <stdint.h>
+#include <a52dec/a52.h>
+EOF
+cc_check conftest.h "-la52" "a52_init(0);" && LDFLAGS="-la52 $LDFLAGS" || die "Failed to locate a52dec"
+
+rm -f conftest*
+
+if [ "$debug" = "yes" ] ; then
+    CFLAGS="-O0 -g3 $CFLAGS"
+else
+    CFLAGS="-O3 $CFLAGS"
+    define NDEBUG
+fi
+
+cat > config.mak <<EOF
+CC=$CC
+CFLAGS=$CFLAGS
+LD=$LD
+LDFLAGS=$LDFLAGS
+EOF
+
+echo "#define PIDVBIP_VERSION \"$(git describe --always --dirty)\"" >> config.h
+
+cat <<EOF
+Configuration:
+  avahi:            $avahi
+  libcec:           $libcec
+  debug enabled:    $debug
+  raspberrypi:      $raspberrypi
+EOF

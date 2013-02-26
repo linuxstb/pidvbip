@@ -20,6 +20,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 */
 
+#include "common.h"
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -32,8 +34,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include <sys/time.h>
 #include <linux/input.h>
 #include <interface/vmcs_host/vcgencmd.h>
+#include <bcm_host.h>
 
-#include "bcm_host.h"
 #include "vcodec_omx.h"
 #include "acodec_omx.h"
 #include "htsp.h"
@@ -493,7 +495,7 @@ int main(int argc, char* argv[])
 
     OERR(OMX_Init());
 
-#ifdef ENABLE_CEC
+#ifdef HAVE_LIBCEC
     cec_init(0);
 #endif
 
@@ -657,7 +659,7 @@ next_channel:
         }
       }
 
-#ifdef ENABLE_CEC
+#ifdef HAVE_LIBCEC
       if (c==-1) {
         c = cec_get_keypress();
       }

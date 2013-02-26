@@ -12,3 +12,7 @@ acodec_aac.o
 channels.o
 flvtoh264
 *~
+conftest*
+.depend
+config.h
+config.mak

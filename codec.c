@@ -1,4 +1,6 @@
 
+#include "common.h"
+
 #include <stdio.h>
 #include <pthread.h>
 #include "codec.h"

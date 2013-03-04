@@ -1,74 +1,55 @@
-CFLAGS+=-DSTANDALONE -D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS -DTARGET_POSIX -D_LINUX -fPIC -DPIC -D_REENTRANT -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -U_FORTIFY_SOURCE -Wall -g -DHAVE_LIBOPENMAX=2 -DOMX -DOMX_SKIP64BIT -ftree-vectorize -pipe -DUSE_EXTERNAL_OMX -DHAVE_LIBBCM_HOST -DUSE_EXTERNAL_LIBBCM_HOST -DUSE_VCHIQ_ARM -Wno-psabi -O2
+-include config.mak
 
-LIBS=-lGLESv2 -lEGL -lopenmaxil -lbcm_host -lvcos -lvchiq_arm -lpthread -lavahi-common -lavahi-client -lfreetype -lmpg123 -lfaad -la52 -Llibs/vgfont
+SRCS = acodec_omx.c avahi.c avl.c channels.c codec.c events.c htsp.c \
+       pidvbip.c omx_utils.c osd.c tiresias_pcfont.c vcodec_omx.c vo_pi.c
+BIN  = pidvbip
 
-# The following can be overridden with a command argument (e.g. with building in OpenELEC)
-LDFLAGS=-L/opt/vc/lib
-INCLUDES=-I/opt/vc/include/ -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/include/interface/vmcs_host/linux -I/usr/include/freetype2 -I/usr/include/arm-linux-gnueabi -I/usr/local/include
+DEPMM = -MM
+CONFIG := $(shell cat config.h)
+LIBVGFONT = libs/vgfont/libvgfont.a
 
-OBJS=vcodec_omx.o htsp.o vo_pi.o codec.o acodec_omx.o channels.o events.o avahi.o osd.o tiresias_pcfont.o avl.o omx_utils.o
-
-TARGETS=pidvbip flvtoh264
-
-ifndef NOCEC
-  CFLAGS += -DENABLE_CEC
-  LIBS += -lcec
-  OBJS += cec.o
+ifneq ($(findstring HAVE_LIBCEC 1, $(CONFIG)),)
+  SRCS += cec.c
 endif
 
+OBJS = $(SRCS:%.c=%.o)
+
 # disable asserts
-CFLAGS+=-DNDEBUG
+# CFLAGS+=-DNDEBUG
 
-all: $(TARGETS)
+default: $(BIN)
 
-flvtoh264: flvtoh264.c
-	$(CC) -o flvtoh264 flvtoh264.c
+all: default flvtoh264
 
-pidvbip: pidvbip.c libs/vgfont/libvgfont.a $(OBJS)
-	$(CC) $(INCLUDES) $(CFLAGS) $(LDFLAGS) -o pidvbip pidvbip.c $(OBJS) libs/vgfont/libvgfont.a $(LIBS)
+$(BIN): .depend $(LIBVGFONT) $(OBJS)
+	$(LD)$@ $(OBJS) $(LIBVGFONT) $(LDFLAGS)
 
-vo_pi.o: vo_pi.c vo_pi.h
-	$(CC) $(INCLUDES) $(CFLAGS) -c -o vo_pi.o vo_pi.c
+flvtoh264: .depend flvtoh264.o
+	$(LD)$@ flvtoh264.o $(LDFLAGS)
 
-omx_utils.o: omx_utils.c omx_utils.h
-	$(CC) $(INCLUDES) $(CFLAGS) -c -o omx_utils.o omx_utils.c
+$(OJBS): .depend
 
-htsp.o: htsp.c htsp.h
-	$(CC) $(INCLUDES) $(CFLAGS) -c -o htsp.o htsp.c
+.depend: config.mak
+	@$(RM) .depend
+	@$(foreach SRC, $(SRCS), $(CC) $(CFLAGS) $(SRC) $(DEPMM) 1>> .depend;)
 
-avahi.o: avahi.c avahi.h htsp.h
-	$(CC) $(INCLUDES) $(CFLAGS) -c -o avahi.o avahi.c
+config.mak:
+	./configure
 
-channels.o: channels.c channels.h
-	$(CC) $(INCLUDES) $(CFLAGS) -c -o channels.o channels.c
+depend: .depend
 
-events.o: events.c events.h
-	$(CC) $(INCLUDES) $(CFLAGS) -c -o events.o events.c
+ifneq ($(wildcard .depend),)
+include .depend
+endif
 
-codec.o: codec.c codec.h
-	$(CC) $(INCLUDES) $(CFLAGS) -c -o codec.o codec.c
-
-osd.o: osd.c osd.h tiresias_pcfont.h
-	$(CC) $(INCLUDES) $(CFLAGS) -c -o osd.o osd.c
-
-cec.o: cec.c cec.h
-	$(CC) $(INCLUDES) $(CFLAGS) -c -o cec.o cec.c
-
-avl.o: avl.c avl.h
-	$(CC) $(INCLUDES) $(CFLAGS) -c -o avl.o avl.c
-
-tiresias_pcfont.o: tiresias_pcfont.c tiresias_pcfont.h
-	$(CC) -c -o tiresias_pcfont.o tiresias_pcfont.c
-
-acodec_omx.o: acodec_omx.c acodec_omx.h codec.h
-	$(CC) $(INCLUDES) $(CFLAGS) -c -o acodec_omx.o acodec_omx.c
-
-vcodec_omx.o: vcodec_omx.c vcodec_omx.h codec.h omx_utils.h
-	$(CC) $(INCLUDES) $(CFLAGS) -c -o vcodec_omx.o vcodec_omx.c
-
-libs/vgfont/libvgfont.a:
-	make -C libs/vgfont/ INCLUDES='$(INCLUDES)'
+$(LIBVGFONT):
+	make -C libs/vgfont/ INCLUDES='$(CFLAGS)'
 
 clean:
-	rm -f $(TARGETS) $(OBJS)
+	@$(RM) $(BIN) $(OBJS) flvtoh264 flvtoh264.o .depend
 	make -C libs/vgfont clean
+
+distclean: clean
+	@$(RM) config.h config.mak
+
+.PHONY: all clean default depend distclean

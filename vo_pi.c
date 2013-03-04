@@ -1,3 +1,6 @@
+
+#include "common.h"
+
 #include <stdio.h>
 #include <assert.h>
 #include <bcm_host.h>

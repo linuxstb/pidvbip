@@ -40,7 +40,7 @@ from git with the following commands:
     sudo make install
 
 After installing the above libraries, you can build pidvbip by typing
-"make" in the source code directory.
+"./configure && make" in the source code directory.
 
 
 MPEG-2 decoding

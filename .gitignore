@@ -1,14 +1,14 @@
-mpeg2test
+# binaries
 pidvbip
-acodec_mpeg.o
-audioplay.o
-codec.o
-htsp.o
-vcodec_omx.o
-vcodec_mpeg2.o
-vo_pi.o
-*.m2v
-acodec_aac.o
-channels.o
 flvtoh264
+
+# generated files
+*.[oa]
+conftest*
+.depend
+config.h
+config.mak
+
+# misc
+*.m2v
 *~

@@ -145,8 +145,6 @@ static void* acodec_omx_thread(struct codec_init_args_t* args)
 
   free(args);
 
-  codec->first_packet = 1;
-
   /***** Initialise the A52 decoder *****/
   state = a52_init(0);
 
@@ -190,11 +188,21 @@ static void* acodec_omx_thread(struct codec_init_args_t* args)
   int done_init = 0;
 
 new_channel:
-  codec->first_packet = 1;
-
   while(1)
   {
 next_packet:
+    /* NOTE: This lock is only used by the video thread when setting
+       up or tearing down the pipeline, so we are not blocking normal
+       video playback 
+    */
+    //fprintf(stderr,"[acodec] - waiting for omx_active_mutex\n");
+    pthread_mutex_lock(&pipe->omx_active_mutex);
+    //fprintf(stderr,"[acodec] - got omx_active_mutex\n");
+    while (!pipe->omx_active) {
+      pthread_cond_wait(&pipe->omx_active_cv, &pipe->omx_active_mutex);
+      //fprintf(stderr,"[acodec] - omx_active=%d\n",pipe->omx_active);
+    }
+
     if (is_paused) {
       // Wait for resume message
       //fprintf(stderr,"acodec: Waiting for resume\n");
@@ -207,30 +215,19 @@ next_packet:
     if (current->msgtype == MSG_STOP) {
       DEBUGF("[acodec] Stopping\n");
       codec_queue_free_item(codec,current);
+      pthread_mutex_unlock(&pipe->omx_active_mutex);
       goto stop;
     } else if (current->msgtype == MSG_NEW_CHANNEL) {
-      DEBUGF("[acodec] New channel\n");
+      //fprintf(stderr,"[acodec] NEW_CHANNEL received, going to new_channel\n");
       codec_queue_free_item(codec,current);
+      pthread_mutex_unlock(&pipe->omx_active_mutex);
       goto new_channel;;
     } else if (current->msgtype == MSG_PAUSE) {
       //fprintf(stderr,"acodec: Paused\n");
       codec_queue_free_item(codec,current);
       is_paused = 1;
+      pthread_mutex_unlock(&pipe->omx_active_mutex);
       goto next_packet;
-    }
-
-    /* NOTE: This lock is only used by the video thread when setting
-       up or tearing down the pipeline, so we are not blocking normal
-       video playback 
-    */
-    pthread_mutex_lock(&pipe->omx_active_mutex);
-
-    while (!pipe->omx_active) {
-      pthread_cond_wait(&pipe->omx_active_cv, &pipe->omx_active_mutex);
-
-      /* If we have transitioned from non-active to active, then we have lost the lock, so get it back */
-      pthread_mutex_lock(&pipe->omx_active_mutex);
-
     }
 
     buf = get_next_buffer(&pipe->audio_render);
@@ -239,6 +236,8 @@ next_packet:
     buf->nFlags = 0;
     if(codec->first_packet)
     {
+      //usleep(1000000);
+      fprintf(stderr,"First audio packet\n");
       buf->nFlags |= OMX_BUFFERFLAG_STARTTIME;
       codec->first_packet = 0;
     }

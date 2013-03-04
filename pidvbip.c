@@ -234,6 +234,9 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
 
           codecs->acodec.acodectype = codecs->subscription.streams[codecs->subscription.audiostream].codec;
 
+          codec_new_channel(&codecs->vcodec);
+          codec_new_channel(&codecs->acodec);
+
           /* Resume sending packets to codecs */
           codecs->vcodec.is_running = 1;
           codecs->acodec.is_running = 1;
@@ -464,6 +467,8 @@ int main(int argc, char* argv[])
     htsp.ip = NULL;
 
     memset(&omxpipe,0,sizeof(omxpipe));
+    pthread_mutex_init(&omxpipe.omx_active_mutex, NULL);
+    pthread_cond_init(&omxpipe.omx_active_cv, NULL);
 
     if (argc == 1) {
       /* No arguments, try avahi discovery */
@@ -797,9 +802,6 @@ next_channel:
     }
 
 change_channel:
-    /* TODO: */
-    codec_new_channel(&codecs.vcodec);
-    codec_new_channel(&codecs.acodec);
     goto next_channel;
 
 done:

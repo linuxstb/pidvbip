@@ -36,12 +36,8 @@ static void* vcodec_omx_thread(struct codec_init_args_t* args)
    OMX_VIDEO_CODINGTYPE coding;
    int width, height;
    struct codec_queue_t* current = NULL;
-   unsigned char *data = NULL;
-   unsigned int data_len = 0;
-   int frames_sent = 0;
    int is_paused = 0;
-   int64_t prev_DTS = -1;
-   int err;
+   int64_t prev_DTS;
    OMX_BUFFERHEADERTYPE *buf;
 
    free(args);
@@ -56,6 +52,7 @@ next_channel:
    fprintf(stderr,"vcodec_omx_thread: next_channel\n");
    coding = OMX_VIDEO_CodingUnused;
    codec->first_packet = 1;
+   prev_DTS = -1;
 
    while (1)
    {
@@ -68,14 +65,20 @@ next_packet:
          pthread_mutex_unlock(&codec->queue_mutex);
          is_paused = 0;
        }
+       //fprintf(stderr,"[vcodec] getting next item\n");
        current = codec_queue_get_next_item(codec); 
+       //fprintf(stderr,"[vcodec] got next item\n");
 
        if (current->msgtype == MSG_NEW_CHANNEL) {
          codec_queue_free_item(codec,current);
          current = NULL;
          if (pipe->omx_active) {
+	   //fprintf(stderr,"[vcodec] NEW_CHANNEL received, restarting pipeline\n");
            goto stop;
 	 } else {
+	   //fprintf(stderr,"[vcodec] NEW_CHANNEL received, pipeline not active\n");
+           pthread_mutex_unlock(&pipe->omx_active_mutex);
+           //fprintf(stderr,"[vcodec] unlocked omx_active_mutex\n");
            goto next_channel;
          }
        } else if (current->msgtype == MSG_PAUSE) {
@@ -104,11 +107,14 @@ next_packet:
        width = codec->width;
        height = codec->height;
        fprintf(stderr,"Initialised video codec - %s width=%d, height=%d\n",((coding == OMX_VIDEO_CodingAVC) ? "H264" : "MPEG-2"), width, height);
+       codec->acodec->first_packet = 1;
 
        /* We are ready to go, allow the audio codec back in */
        pipe->omx_active = 1;
        pthread_cond_signal(&pipe->omx_active_cv);
+       //fprintf(stderr,"[vcodec] unlocking omx_active_mutex\n");
        pthread_mutex_unlock(&pipe->omx_active_mutex);
+       //fprintf(stderr,"[vcodec] unlocked omx_active_mutex\n");
      } else if ((coding != codec->vcodectype) || (width != codec->width) || (height != codec->height)) {
        fprintf(stderr,"Change of codec detected, restarting video codec\n");
        goto stop;
@@ -118,7 +124,7 @@ next_packet:
      unsigned char* p = current->data->packet;
      //fprintf(stderr,"Processing video packet - %d bytes\n",bytes_left);
      while (bytes_left > 0) {
-       fprintf(stderr,"OMX buffers: %02d/20 free, vcodec queue: %4d, acodec queue: %4d\r",omx_get_free_buffer_count(&pipe->video_decode),codec->queue_count, codec->acodec->queue_count);
+       fprintf(stderr,"OMX buffers: v: %02d/20 a: %02d/32 free, vcodec queue: %4d, acodec queue: %4d\r",omx_get_free_buffer_count(&pipe->video_decode),omx_get_free_buffer_count(&pipe->audio_render),codec->queue_count, codec->acodec->queue_count);
        buf = get_next_buffer(&pipe->video_decode);   /* This will block if there are no empty buffers */
 
        int to_copy = OMX_MIN(bytes_left,buf->nAllocLen);
@@ -133,6 +139,7 @@ next_packet:
        buf->nFlags = 0;
        if(codec->first_packet)
        {
+         fprintf(stderr,"First video packet\n");
          buf->nFlags |= OMX_BUFFERFLAG_STARTTIME;
          codec->first_packet = 0;
        }
@@ -194,115 +201,14 @@ next_packet:
 
 stop:
    /* We lock the mutex to stop the audio codec.  It is unlocked after the pipline is setup again */
+
+   //fprintf(stderr,"[vcodec] - waiting for omx_active_mutex\n");
    pthread_mutex_lock(&pipe->omx_active_mutex);
+   //fprintf(stderr,"[vcodec] - got omx_active_mutex, tearing down pipeline.\n");
 
-   /* Indicate end of video stream */
-   buf = get_next_buffer(&pipe->video_decode);
-
-   buf->nFilledLen = 0;
-   buf->nFlags = OMX_BUFFERFLAG_TIME_UNKNOWN | OMX_BUFFERFLAG_EOS;
-   
-   OERR(OMX_EmptyThisBuffer(pipe->video_decode.h, buf));
-
-   /* NOTE: Three events are sent after the previous command:
-
-      [EVENT] Got an event of type 4 on video_decode 0x426a10 (d1: 83, d2 1)
-      [EVENT] Got an event of type 4 on video_scheduler 0x430d10 (d1: b, d2 1)
-      [EVENT] Got an event of type 4 on video_render 0x430b30 (d1: 5a, d2 1)  5a = port (90) 1 = OMX_BUFFERFLAG_EOS
-   */
-
-   /* Wait for video_render to shutdown */
-   pthread_mutex_lock(&pipe->video_render.eos_mutex);
-   while (!pipe->video_render.eos)
-     pthread_cond_wait(&pipe->video_render.eos_cv,&pipe->video_render.eos_mutex);
-   pthread_mutex_unlock(&pipe->video_render.eos_mutex);
-
-   /* Flush all tunnels */
-   if (pipe->do_deinterlace) {
-     omx_flush_tunnel(&pipe->video_decode, 131, &pipe->image_fx, 190);
-     omx_flush_tunnel(&pipe->image_fx, 191, &pipe->video_scheduler, 10);
-   } else {
-     omx_flush_tunnel(&pipe->video_decode, 131, &pipe->video_scheduler, 10);
-   }
-   omx_flush_tunnel(&pipe->video_scheduler, 11, &pipe->video_render, 90);
-   omx_flush_tunnel(&pipe->clock, 80, &pipe->video_scheduler, 12);
-
-   /* Disable video_decode input port and buffers */
-   omx_send_command_and_wait0(&pipe->video_decode, OMX_CommandPortDisable, 130, NULL);
-   omx_free_buffers(&pipe->video_decode, 130);
-   omx_send_command_and_wait1(&pipe->video_decode, OMX_CommandPortDisable, 130, NULL);
-
-   /* Disable audio_render input port and buffers */
-   omx_send_command_and_wait0(&pipe->audio_render, OMX_CommandPortDisable, 100, NULL);
-   omx_free_buffers(&pipe->audio_render, 100);
-   omx_send_command_and_wait1(&pipe->audio_render, OMX_CommandPortDisable, 100, NULL);
-
-   omx_send_command_and_wait(&pipe->video_decode, OMX_CommandPortDisable, 131, NULL);
-
-   if (pipe->do_deinterlace) {
-     omx_send_command_and_wait(&pipe->image_fx, OMX_CommandPortDisable, 190, NULL);
-     omx_send_command_and_wait(&pipe->image_fx, OMX_CommandPortDisable, 191, NULL);
-   }
-
-   omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandPortDisable, 10, NULL);
-
-   omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandPortDisable, 11, NULL);
-   omx_send_command_and_wait(&pipe->video_render, OMX_CommandPortDisable, 90, NULL);
-
-   /* NOTE: The clock disable doesn't complete until after the video scheduler port is 
-      disabled (but it completes before the video scheduler port disabling completes). */
-   OERR(OMX_SendCommand(pipe->clock.h, OMX_CommandPortDisable, 80, NULL));
-   omx_send_command_and_wait(&pipe->audio_render, OMX_CommandPortDisable, 101, NULL);
-   OERR(OMX_SendCommand(pipe->clock.h, OMX_CommandPortDisable, 81, NULL));
-   omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandPortDisable, 12, NULL);
-
-   /* Teardown tunnels */
-   OERR(OMX_SetupTunnel(pipe->video_decode.h, 131, NULL, 0));
-   if (pipe->do_deinterlace) {
-     OERR(OMX_SetupTunnel(pipe->image_fx.h, 190, NULL, 0));
-     OERR(OMX_SetupTunnel(pipe->image_fx.h, 191, NULL, 0));
-   }
-   OERR(OMX_SetupTunnel(pipe->video_scheduler.h, 10, NULL, 0));
-
-   OERR(OMX_SetupTunnel(pipe->video_scheduler.h, 11, NULL, 0));
-   OERR(OMX_SetupTunnel(pipe->video_render.h, 90, NULL, 0));
-
-   OERR(OMX_SetupTunnel(pipe->clock.h, 81, NULL, 0));
-   OERR(OMX_SetupTunnel(pipe->video_scheduler.h, 12, NULL, 0));
-
-   OERR(OMX_SetupTunnel(pipe->clock.h, 80, NULL, 0));
-   OERR(OMX_SetupTunnel(pipe->audio_render.h, 101, NULL, 0));
-
-   /* Transition all components to Idle */
-   omx_send_command_and_wait(&pipe->video_decode, OMX_CommandStateSet, OMX_StateIdle, NULL);
-   omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandStateSet, OMX_StateIdle, NULL);
-   omx_send_command_and_wait(&pipe->video_render, OMX_CommandStateSet, OMX_StateIdle, NULL);
-   omx_send_command_and_wait(&pipe->audio_render, OMX_CommandStateSet, OMX_StateIdle, NULL);
-   omx_send_command_and_wait(&pipe->clock, OMX_CommandStateSet, OMX_StateIdle, NULL);
-   if (pipe->do_deinterlace) { omx_send_command_and_wait(&pipe->image_fx, OMX_CommandStateSet, OMX_StateIdle, NULL); }
-
-
-   /* Transition all components to Loaded */
-   omx_send_command_and_wait(&pipe->video_decode, OMX_CommandStateSet, OMX_StateLoaded, NULL);
-   omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandStateSet, OMX_StateLoaded, NULL);
-   omx_send_command_and_wait(&pipe->video_render, OMX_CommandStateSet, OMX_StateLoaded, NULL);
-   omx_send_command_and_wait(&pipe->audio_render, OMX_CommandStateSet, OMX_StateLoaded, NULL);
-   omx_send_command_and_wait(&pipe->clock, OMX_CommandStateSet, OMX_StateLoaded, NULL);
-   if (pipe->do_deinterlace) { omx_send_command_and_wait(&pipe->image_fx, OMX_CommandStateSet, OMX_StateLoaded, NULL); }
-
-
-   /* Finally free the component handles */
-   OERR(OMX_FreeHandle(pipe->video_decode.h));
-   OERR(OMX_FreeHandle(pipe->video_scheduler.h));
-   OERR(OMX_FreeHandle(pipe->video_render.h));
-   OERR(OMX_FreeHandle(pipe->audio_render.h));
-   OERR(OMX_FreeHandle(pipe->clock.h));
-   if (pipe->do_deinterlace) { OERR(OMX_FreeHandle(pipe->image_fx.h)); }
-
-   fprintf(stderr,"End of omx thread\n");
+   omx_teardown_pipeline(pipe);
+   //fprintf(stderr,"[vcodec] - End of omx thread, pipeline torn down.\n");
    pipe->omx_active = 0;
-   //pthread_mutex_unlock(&pipe->omx_active_mutex);
-   //fprintf(stderr,"[vcodec_omx] Unlocked mutex\n");
 
    goto next_channel;
 
@@ -313,9 +219,6 @@ void vcodec_omx_init(struct codec_t* codec, struct omx_pipeline_t* pipe)
 {
   codec->vcodectype = OMX_VIDEO_CodingUnused;
   codec_queue_init(codec);
-
-  pthread_mutex_init(&pipe->omx_active_mutex, NULL);
-  pthread_cond_init(&pipe->omx_active_cv, NULL);
 
   struct codec_init_args_t* args = malloc(sizeof(struct codec_init_args_t));
   args->codec = codec;

@@ -152,6 +152,12 @@ void process_message(char* method,struct htsp_message_t* msg,char* debugtext)
     /* Are we interested? */
   } else if (strcmp(method,"signalStatus")== 0) {
     /* Are we interested? */
+  } else if (strcmp(method,"timeshiftStatus")==0) {
+    /* TODO */
+  } else if (strcmp(method,"tagAdd")==0) {
+    /* TODO */
+  } else if (strcmp(method,"tagUpdate")==0) {
+    /* TODO */
   } else if (strcmp(method,"dvrEntryAdd")==0) {
     /* TODO */
   } else {

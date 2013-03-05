@@ -42,7 +42,7 @@ raspberrypi="yes"
 
 CC="${CC:-gcc}"
 CFLAGS="$CFLAGS -pipe -Wall -I."
-LD="${LD:-$CC -o }"
+LD="${LD:-$CC}"
 LDFLAGS="$LDFLAGS -lm"
 VC_SDK_PATH="${VC_SDK_PATH-/opt/vc}"
 

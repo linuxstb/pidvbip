@@ -22,10 +22,10 @@ default: $(BIN)
 all: default flvtoh264
 
 $(BIN): .depend $(LIBVGFONT) $(OBJS)
-	$(LD) $@ $(OBJS) $(LIBVGFONT) $(LDFLAGS)
+	$(CC) -o $@ $(OBJS) $(LIBVGFONT) $(LDFLAGS)
 
 flvtoh264: .depend flvtoh264.o
-	$(LD) $@ flvtoh264.o $(LDFLAGS)
+	$(CC) -o $@ flvtoh264.o $(LDFLAGS)
 
 $(OJBS): .depend
 

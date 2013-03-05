@@ -360,7 +360,7 @@ void osd_show_info(struct osd_t* osd, int channel_id)
   event_dump(event);
 
   snprintf(str,sizeof(str),"%03d - %s",channels_getlcn(channel_id),channels_getname(channel_id));
-  char* iso_text = malloc(strlen(event->title)+1);
+  char* iso_text = malloc(strlen(str)+1);
   utf8decode(str,iso_text);
 
   pthread_mutex_lock(&osd->osd_mutex);

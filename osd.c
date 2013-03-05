@@ -43,6 +43,58 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #define OSD_XMARGIN 32
 #define OSD_YMARGIN 18
 
+void utf8decode(char* str, char* r)
+{
+  int x,y,z,ud;
+  char* p = str;
+
+  while ((z = *p++)) {
+    if (z < 128) {
+      *r++ = z;
+    } else {
+      y=*p++;
+      if (y==0) { *r=0 ; return; } // ERROR
+      if (z < 224) {
+        ud=(z-192)*64 + (y-128);
+      } else {
+        x=*p++;
+        if (x==0) { *r=0 ; return; } // ERROR
+        ud=(z-224)*4096 + (y-128)*64 + (x-128);
+      }
+
+      if (ud < 256) {
+        *r++ = ud;
+      } else {
+        /* Transliterate some common characters */
+        switch (ud) {  
+          /* Add more mappings here if required  */
+          case 0x201c:                              // quotedblleft
+          case 0x201d: *r++ = '"';  break;          // quotedblright
+          case 0x2018:                              // quoteleft
+          case 0x2019: *r++ = '\''; break;          // quoteright
+          case 0x2013:                              // en dash
+          case 0x2014: *r++ = '-'; break;           // em dash
+          case 0x20ac: *r++ = 0xa4; break;          // euro
+          case 0x27a2:                              // square
+          case 0x25ca:                              // diamond
+          case 0xf076:
+          case 0xf0a7:
+          case 0xf0b7:
+          case 0x2022: *r++ = '\267'; break;        // bullet ("MIDDLE DOT" in iso-8859-1)
+          case 0x2026: fprintf(stdout,"..."); break;  // ellipsis
+
+          default:     //fprintf(stderr,"Unknown character %04x (UTF-8 is %02x %02x %02x)\n",ud,z,y,x);
+          *r++ = ' ';   
+           break;
+        }
+      }
+    }
+  }
+
+  *r++ = 0;
+  return;
+}
+
 int32_t render_paragraph(GRAPHICS_RESOURCE_HANDLE img, const char *text, const uint32_t text_size, const uint32_t x_offset, const uint32_t y_offset)
 {
    uint32_t text_length;
@@ -240,12 +292,17 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event)
 				     str, strlen(str), 40);
 
 
-  s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+350, 720,
-                                     width,
-                                     height,
-                                     GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
-                                     GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
-				     event->title, strlen(event->title), 40);
+  if (event->title) {
+    char* iso_text = malloc(strlen(event->title)+1);
+    utf8decode(event->title,iso_text);
+    s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+350, 720,
+                                       width,
+                                       height,
+                                       GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
+                                       GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
+                                       iso_text, strlen(iso_text), 40);
+    free(iso_text);
+  }
 
 
   snprintf(str,sizeof(str),"%dh %02dm",duration/3600,(duration%3600)/60);
@@ -256,8 +313,12 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event)
                                      GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
 				     str, strlen(str), 30);
 
-
-  render_paragraph(osd->img, event->description,30,OSD_XMARGIN+350,800);
+  if (event->description) {
+    char* iso_text = malloc(strlen(event->description)+1);
+    utf8decode(event->description,iso_text);
+    render_paragraph(osd->img,iso_text,30,OSD_XMARGIN+350,800);
+    free(iso_text);
+  }
 
   //fprintf(stderr,"Title:       %s\n",event->title);
   //fprintf(stderr,"Start:       %04d-%02d-%02d %02d:%02d:%02d\n",start_time.tm_year+1900,start_time.tm_mon+1,start_time.tm_mday,start_time.tm_hour,start_time.tm_min,start_time.tm_sec);
@@ -299,9 +360,11 @@ void osd_show_info(struct osd_t* osd, int channel_id)
   event_dump(event);
 
   snprintf(str,sizeof(str),"%03d - %s",channels_getlcn(channel_id),channels_getname(channel_id));
+  char* iso_text = malloc(strlen(event->title)+1);
+  utf8decode(str,iso_text);
 
   pthread_mutex_lock(&osd->osd_mutex);
-  osd_show_channelname(osd,str);
+  osd_show_channelname(osd,iso_text);
 
   osd_show_time(osd);
 
@@ -310,6 +373,7 @@ void osd_show_info(struct osd_t* osd, int channel_id)
   graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
   pthread_mutex_unlock(&osd->osd_mutex);
 
+  free(iso_text);
   event_free(event);
 }
 

@@ -38,7 +38,7 @@ EOF
 avahi="auto"
 libcec="auto"
 debug="no"
-raspberrypi="auto"
+raspberrypi="yes"
 
 CC="${CC:-gcc}"
 CFLAGS="$CFLAGS -pipe -Wall -I."
@@ -74,22 +74,25 @@ cc_check pthread.h -lpthread && LDFLAGS="$LDFLAGS -lpthread" || die "Failed to l
 if [ "$raspberrypi" = "auto" ] ; then
     raspberrypi="no"
     if grep BCM2708 /proc/cpuinfo 1>/dev/null ; then
-        PI_CFLAGS="$PI_CFLAGS -I$VC_SDK_PATH/include"
-        PI_CFLAGS="$PI_CFLAGS -I$VC_SDK_PATH/include/interface/vcos/pthreads"
-        PI_CFLAGS="$PI_CFLAGS -I$VC_SDK_PATH/include/interface/vmcs_host/linux"
-        PI_LIBS="-L${VC_SDK_PATH}/lib -lbcm_host -lvcos -lvchiq_arm"
-
-        cc_check "" "-mfloat-abi=hard -mfpu=vfp" && PI_CFLAGS="$PI_CFLAGS -mfloat-abi=hard -mfpu=vfp"
-
-        cc_check bcm_host.h "$PI_CFLAGS -DUSE_VCHIQ_ARM $PI_LIBS" "bcm_host_init();" || die "Failed to locate bcm_host"
-        cc_check interface/vcos/vcos.h "$PI_CFLAGS -DUSE_VCHIQ_ARM $PI_LIBS" "vcos_malloc_aligned(0,0,0);" || die "Failed to locate vcos"
-
         raspberrypi="yes"
-        define ARCH_RPI
-        define USE_VCHIQ_ARM
-        LDFLAGS="$PI_LIBS $LDFLAGS"
-        CFLAGS="$PI_CFLAGS $CFLAGS"
     fi
+fi
+
+if [ "$raspberrypi" = "yes" ] ; then
+    PI_CFLAGS="$PI_CFLAGS -I$VC_SDK_PATH/include"
+    PI_CFLAGS="$PI_CFLAGS -I$VC_SDK_PATH/include/interface/vcos/pthreads"
+    PI_CFLAGS="$PI_CFLAGS -I$VC_SDK_PATH/include/interface/vmcs_host/linux"
+    PI_LIBS="-L${VC_SDK_PATH}/lib -lbcm_host -lvcos -lvchiq_arm"
+
+    cc_check "" "-mfloat-abi=hard -mfpu=vfp" && PI_CFLAGS="$PI_CFLAGS -mfloat-abi=hard -mfpu=vfp"
+
+    cc_check bcm_host.h "$PI_CFLAGS -DUSE_VCHIQ_ARM $PI_LIBS" "bcm_host_init();" || die "Failed to locate bcm_host"
+    cc_check interface/vcos/vcos.h "$PI_CFLAGS -DUSE_VCHIQ_ARM $PI_LIBS" "vcos_malloc_aligned(0,0,0);" || die "Failed to locate vcos"
+
+    define ARCH_RPI
+    define USE_VCHIQ_ARM
+    LDFLAGS="$PI_LIBS $LDFLAGS"
+    CFLAGS="$PI_CFLAGS $CFLAGS"
 fi
 
 if pkg-config --exists freetype2 2>/dev/null ; then

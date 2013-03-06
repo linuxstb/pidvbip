@@ -629,6 +629,18 @@ void omx_teardown_pipeline(struct omx_pipeline_t* pipe)
    omx_flush_tunnel(&pipe->clock, 80, &pipe->video_scheduler, 12);
    fprintf(stderr,"[vcodec] omx_teardown pipeline 5\n");
 
+   /* Scheduler -> render tunnel */
+   omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandPortDisable, 11, NULL);
+   omx_send_command_and_wait(&pipe->video_render, OMX_CommandPortDisable, 90, NULL);
+
+   omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandPortDisable, 10, NULL);
+
+   if (pipe->do_deinterlace) {
+     omx_send_command_and_wait(&pipe->image_fx, OMX_CommandPortDisable, 190, NULL);
+     omx_send_command_and_wait(&pipe->image_fx, OMX_CommandPortDisable, 191, NULL);
+   }
+   fprintf(stderr,"[vcodec] omx_teardown pipeline 11\n");
+
    /* Disable video_decode input port and buffers */
    //dumpport(pipe->video_decode.h,130);
    omx_send_command_and_wait0(&pipe->video_decode, OMX_CommandPortDisable, 130, NULL);
@@ -639,25 +651,14 @@ void omx_teardown_pipeline(struct omx_pipeline_t* pipe)
    omx_send_command_and_wait1(&pipe->video_decode, OMX_CommandPortDisable, 130, NULL);
    fprintf(stderr,"[vcodec] omx_teardown pipeline 8\n");
 
+   omx_send_command_and_wait(&pipe->video_decode, OMX_CommandPortDisable, 131, NULL);
+   fprintf(stderr,"[vcodec] omx_teardown pipeline 10\n");
+
    /* Disable audio_render input port and buffers */
    omx_send_command_and_wait0(&pipe->audio_render, OMX_CommandPortDisable, 100, NULL);
    omx_free_buffers(&pipe->audio_render, 100);
    omx_send_command_and_wait1(&pipe->audio_render, OMX_CommandPortDisable, 100, NULL);
    fprintf(stderr,"[vcodec] omx_teardown pipeline 9\n");
-
-   omx_send_command_and_wait(&pipe->video_decode, OMX_CommandPortDisable, 131, NULL);
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 10\n");
-
-   if (pipe->do_deinterlace) {
-     omx_send_command_and_wait(&pipe->image_fx, OMX_CommandPortDisable, 190, NULL);
-     omx_send_command_and_wait(&pipe->image_fx, OMX_CommandPortDisable, 191, NULL);
-   }
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 11\n");
-
-   omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandPortDisable, 10, NULL);
-
-   omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandPortDisable, 11, NULL);
-   omx_send_command_and_wait(&pipe->video_render, OMX_CommandPortDisable, 90, NULL);
 
    /* NOTE: The clock disable doesn't complete until after the video scheduler port is 
       disabled (but it completes before the video scheduler port disabling completes). */

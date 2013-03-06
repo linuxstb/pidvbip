@@ -28,15 +28,18 @@ AUDIO-RELATED
 
 VIDEO-RELATED
 
+* One user has reported that his TV loses the HDMI connection with his
+  Pi and reconnects.  This happens after watching a channel for a few
+  minutes.
+
 * Fields are out of sync 50% of the time when outputting interlaced
   content in an interlaced video mode.  Fix is required in GPU
   firmware.  Workaround is to change channels and then come back to
   see if you're lucky.
 
-
 OSD-RELATED
 
-* Implement an "alert" sidget to display status messages from tvh -
+* Implement an "alert" widget to display status messages from tvh -
   use when pidvbip is initially syncing with tvh, and then when there
   are problems (e.g. "No input detected").
 

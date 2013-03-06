@@ -1,55 +1,79 @@
 Known bugs and unimplemented features
 
+PLAYBACK-RELATED
+
+* Channel changing often fails for the first change (but if the first
+  change works, it then works for future changes).
+
+* Implement timeshift support (initially pause/resume, then skipping,
+  then full seeking).
+
 AUDIO-RELATED
 
-* Remove duplicated audio code in MPEG and AAC codecs and improve PCM API (create ao_pi?)
+* AAC/HE-AAC - correctly initialise codecdata based on info from tvh
+  (stream info or a ADTS header) instead of assuming 48KHz Stereo.
 
-* AAC/HE-AAC - correctly initialise codecdata based on info from tvh (stream info or a ADTS header).  Also test format changes.
+* Implement E-AC3 codec (? Is ffmpeg the only open source E-AC3
+  codec?)
 
-* Implement E-AC3 codec (? Is ffmpeg the only open source E-AC3 codec?)
+* AC-3 decoder always downmixes to Stereo - can we output 5.1 over
+  HDMI?
 
-* AC-3 decoder always downmixes to Stereo - can we output 5.1 over HDMI?
+* Implement HW pass-through of AC-3 (and other codecs?) - detect HDMI
+  audio capabilities and send raw data when possible.
 
-* Implement HW pass-through of AC-3 (and other codecs?) - detect HDMI audio capabilities and send raw data when possible.
-
-* Deal with different channels/samplerate etc in MPEG audio codec (currently hard-coded for 48KHz Stereo)
+* Deal with different channels/samplerate etc in MPEG audio codec
+  (currently hard-coded for 48KHz Stereo)
 
 
 VIDEO-RELATED
 
-* Improve A/V sync for hardware decoded video - A/V sync currently works quite well, but needs to be done properly with OMX clocks.
+* Fields are out of sync 50% of the time when outputting interlaced
+  content in an interlaced video mode.  Fix is required in GPU
+  firmware.  Workaround is to change channels and then come back to
+  see if you're lucky.
 
-* Deal with software MPEG-2 stream not being decoded fast enough (queue will grow forever)
 
-* Implement double-buffering in software MPEG-2 codec to eliminate tearing
+OSD-RELATED
 
-* Clear the framebuffer/add a black background image so any framebuffer text isn't visible during channel changes or when displaying 4:3 video.
+* Implement an "alert" sidget to display status messages from tvh -
+  use when pidvbip is initially syncing with tvh, and then when there
+  are problems (e.g. "No input detected").
+
+* Implement an OSD API and build a UI.
+
+* Font rendering code doesn't fully support utf-8 (only iso-8859-1).
+
+* Need EPG grid view, plus ability to do "up/down/left/right" in info
+  screen to view info for different channels and different events.
 
 
 CORE FEATURES
 
-* Implement an OSD API and build a UI.
+* Implement a full config file (and parameter passing) to configure pidvbip.
 
 * Review channel change implementation - ensure things are being
   opened/closed appropriately and there are no memory leaks.  pidvbip
   freezes if you change channel too quickly in succession.
 
-* Properly deal with S64 integers in htsp.c (code currently sometimes assumes they are all 32-bit)
+* Properly deal with S64 integers in htsp.c (code currently sometimes
+  assumes they are all 32-bit)
 
 * Catch ^C and reset keyboard (and cleanly close down codecs)
 
-* Deal with network disconnections from tvheadend - test killing tvheadend, removing network cable etc...
+* Deal with network disconnections from tvheadend - test killing
+  tvheadend, removing network cable etc...
 
 * Implement subtitles
 
 * Deal with off-air channels.
 
 * Collect EPG data from server and maintain internal EPG database
+  (data is collected, but in a very naive format)
 
-* Support connecting to multiple servers, merging channel list.  Servers will be listed in priority order, and duplicate channels renumbered to a high range (e.g. 1000+)
+* Support connecting to multiple servers, merging channel list.
+  Servers will be listed in priority order, and duplicate channels
+  renumbered to a high range (e.g. 1000+)
 
-* Add LIRC input support
-
-* Integrate with OpenELEC
-
-* avahi discovery only returns the first discovered instance of tvheadend
+* avahi discovery only returns the first discovered instance of
+  tvheadend

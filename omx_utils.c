@@ -143,18 +143,6 @@ OMX_ERRORTYPE omx_send_command_and_wait(struct omx_component_t* component, OMX_C
 //
 //}
 
-static char* mapcomponent(struct omx_pipeline_t* pipe, OMX_HANDLETYPE component)
-{
-  if (component == pipe->video_decode.h) return "video_decode";
-  else if (component == pipe->video_scheduler.h) return "video_scheduler";
-  else if (component == pipe->video_render.h) return "video_render";
-  else if (component == pipe->audio_render.h) return "audio_render";
-  else if (component == pipe->clock.h) return "clock";
-  else if (component == pipe->image_fx.h) return "image_fx";
-
-  return "<unknown>";
-}
-
 /* The event handler is called from the OMX component thread */
 static OMX_ERRORTYPE omx_event_handler(OMX_IN OMX_HANDLETYPE hComponent,
                                        OMX_IN OMX_PTR pAppData,
@@ -169,7 +157,7 @@ static OMX_ERRORTYPE omx_event_handler(OMX_IN OMX_HANDLETYPE hComponent,
 
   switch (eEvent) {
     case OMX_EventError:
-      fprintf(stderr,"[EVENT] %s %p has errored: %x\n", mapcomponent(component->pipe, hComponent), hComponent, (unsigned int)nData1);
+      fprintf(stderr,"[EVENT] %s %p has errored: %x\n", component->name, hComponent, (unsigned int)nData1);
       exit(1);
 //fprintf(stderr,"[EVENT] Waiting for lock\n");
       pthread_mutex_lock(&component->cmd_queue_mutex);
@@ -183,7 +171,7 @@ static OMX_ERRORTYPE omx_event_handler(OMX_IN OMX_HANDLETYPE hComponent,
       break;
 
     case OMX_EventCmdComplete:
-      //fprintf(stderr,"[EVENT] %s %p has completed the last command (%x).\n", mapcomponent(pipe, hComponent), hComponent, nData1);
+      fprintf(stderr,"[EVENT] %s %p has completed the last command (%x).\n", component->name, hComponent, nData1);
 
 //fprintf(stderr,"[EVENT] Waiting for lock\n");
       pthread_mutex_lock(&component->cmd_queue_mutex);
@@ -198,12 +186,12 @@ static OMX_ERRORTYPE omx_event_handler(OMX_IN OMX_HANDLETYPE hComponent,
       break;
 
     case OMX_EventPortSettingsChanged: 
-      fprintf(stderr,"[EVENT] %s %p port %d settings changed.\n", mapcomponent(component->pipe, hComponent), hComponent, (unsigned int)nData1);
+      fprintf(stderr,"[EVENT] %s %p port %d settings changed.\n", component->name, hComponent, (unsigned int)nData1);
       component->port_settings_changed = 1;
       break;
 
   case OMX_EventBufferFlag:
-    //fprintf(stderr,"[EVENT] Got an EOS event on %s %p (port %d, d2 %x)\n", mapcomponent(pipe, hComponent), hComponent, (unsigned int)nData1, (unsigned int)nData2);
+    fprintf(stderr,"[EVENT] Got an EOS event on %s %p (port %d, d2 %x)\n", component->name, hComponent, (unsigned int)nData1, (unsigned int)nData2);
 
     if (nData2 == OMX_BUFFERFLAG_EOS) {
       pthread_mutex_lock(&component->eos_mutex);
@@ -216,7 +204,7 @@ static OMX_ERRORTYPE omx_event_handler(OMX_IN OMX_HANDLETYPE hComponent,
 
     default:
       fprintf(stderr,"[EVENT] Got an event of type %x on %s %p (d1: %x, d2 %x)\n", eEvent,
-       mapcomponent(component->pipe, hComponent), hComponent, (unsigned int)nData1, (unsigned int)nData2);
+       component->name, hComponent, (unsigned int)nData1, (unsigned int)nData2);
   }
         
   return OMX_ErrorNone;
@@ -458,6 +446,8 @@ OMX_ERRORTYPE omx_init_component(struct omx_pipeline_t* pipe, struct omx_compone
 
   component->pipe = pipe;
 
+  component->name = compname;
+
   /* Create OMX component */
   OERR(OMX_GetHandle(&component->h, compname, component, &component->callbacks));
 
@@ -614,13 +604,14 @@ void omx_teardown_pipeline(struct omx_pipeline_t* pipe)
 
    fprintf(stderr,"[vcodec] omx_teardown pipeline 1\n");
 
+#if 0
+   fprintf(stderr,"[vcodec] omx_teardown pipeline 2\n");
    /* Wait for video_render to shutdown */
    pthread_mutex_lock(&pipe->video_render.eos_mutex);
    while (!pipe->video_render.eos)
      pthread_cond_wait(&pipe->video_render.eos_cv,&pipe->video_render.eos_mutex);
    pthread_mutex_unlock(&pipe->video_render.eos_mutex);
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 2\n");
-
+#endif
    fprintf(stderr,"[vcodec] omx_teardown pipeline 2b\n");
    /* Flush entrance to pipeline */
    omx_send_command_and_wait(&pipe->video_decode,OMX_CommandFlush,130,NULL);

@@ -61,6 +61,7 @@ struct omx_component_t
   OMX_HANDLETYPE h;
   OMX_CALLBACKTYPE callbacks;
 
+  char* name;
   /* Variables for handling asynchronous commands */
   struct omx_cmd_t cmd;
   pthread_mutex_t cmd_queue_mutex;

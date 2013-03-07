@@ -264,6 +264,43 @@ static void osd_show_channelname(struct osd_t* osd, const char *text)
 
 }
 
+void osd_alert(struct osd_t* osd, char* text)
+{
+  uint32_t text_length;
+  int32_t s=0;
+  uint32_t width,height;
+  uint32_t y_offset;
+  uint32_t x_offset;
+  uint32_t text_size = 40;
+
+  pthread_mutex_lock(&osd->osd_mutex);
+
+  /* TODO: Only clear alert area */
+  graphics_resource_fill(osd->img, 0, 0, osd->display_width, osd->display_height, GRAPHICS_RGBA32(0,0,0,0));
+
+  if (text) {
+    fprintf(stderr,"[OSD ALERT]: %s\n",text);
+    text_length = strlen(text);
+    s = graphics_resource_text_dimensions_ext(osd->img, text, text_length, &width, &height, text_size);
+
+    x_offset = ((1920 - width) / 2);
+    y_offset = (1080 - height) / 2;
+
+    osd_draw_window(osd,x_offset,y_offset,width+100,height+50);
+
+    s = graphics_resource_render_text_ext(osd->img, x_offset+50, y_offset+25,
+                                          width,
+                                          height,
+                                          GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
+                                          GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
+                                          text, text_length, text_size);
+  }
+
+  graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
+
+  pthread_mutex_unlock(&osd->osd_mutex);
+}
+
 static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event)
 {
   char str[64];

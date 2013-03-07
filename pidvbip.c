@@ -525,6 +525,8 @@ int main(int argc, char* argv[])
 
     osd_init(&osd);
 
+    osd_alert(&osd, "Connecting to server...");
+
     htsp_init(&htsp);
 
     if ((res = htsp_connect(&htsp)) > 0) {
@@ -540,6 +542,7 @@ int main(int argc, char* argv[])
       fprintf(stderr,"Could not login to server\n");
       return 3;
     }
+    osd_alert(&osd, "Synchronising...");
     res = htsp_create_message(&msg,HMF_STR,"method","enableAsyncMetadata",HMF_S64,"epg",1,HMF_NULL);
     res = htsp_send_message(&htsp,&msg);
     htsp_destroy_message(&msg);
@@ -579,6 +582,8 @@ int main(int argc, char* argv[])
 
        htsp_destroy_message(&msg);
     }
+
+    osd_alert(&osd, NULL);
 
     fprintf(stderr,"Initial sync completed - read data for %d events\n",num_events);
 

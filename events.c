@@ -136,6 +136,8 @@ void process_event_message(char* method, struct htsp_message_t* msg)
   event->description = htsp_get_string(msg,"description");
   htsp_get_uint(msg,"serieslinkId",&event->serieslinkId);
   htsp_get_uint(msg,"episodeId",&event->episodeId);
+  htsp_get_uint(msg,"episodeNumber",&event->episodeNumber);
+  htsp_get_uint(msg,"seasonNumber",&event->seasonNumber);
   event->episodeUri = htsp_get_string(msg,"episodeUri");
   htsp_get_uint(msg,"nextEventId",&event->nextEventId);
 
@@ -235,6 +237,8 @@ void event_dump(struct event_t* event)
   fprintf(stderr,"Start:       %04d-%02d-%02d %02d:%02d:%02d\n",start_time.tm_year+1900,start_time.tm_mon+1,start_time.tm_mday,start_time.tm_hour,start_time.tm_min,start_time.tm_sec);
   fprintf(stderr,"Stop:        %04d-%02d-%02d %02d:%02d:%02d\n",stop_time.tm_year+1900,stop_time.tm_mon+1,stop_time.tm_mday,stop_time.tm_hour,stop_time.tm_min,stop_time.tm_sec);
   fprintf(stderr,"Duration:    %02d:%02d:%02d\n",duration/3600,(duration%3600)/60,duration % 60);
+  fprintf(stderr,"Season:      %d\n",event->seasonNumber);
+  fprintf(stderr,"Episode:     %d\n",event->episodeNumber);
   fprintf(stderr,"Description: %s\n",event->description);
   if (event->episodeUri) fprintf(stderr,"EpisodeUri:  %s\n",event->episodeUri);
 

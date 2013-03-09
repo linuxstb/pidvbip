@@ -350,6 +350,22 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event)
                                      GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
 				     str, strlen(str), 30);
 
+  if ((event->episodeNumber) || (event->seasonNumber)) {
+    if (!event->episodeNumber) {
+      snprintf(str,sizeof(str),"Season %d",event->seasonNumber);
+    } else if (!event->seasonNumber) {
+      snprintf(str,sizeof(str),"Episode %d",event->episodeNumber);
+    } else {
+      snprintf(str,sizeof(str),"Season 9%d, Episode 9%d",event->seasonNumber,event->episodeNumber);
+    }
+    s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 838,
+                                     width,
+                                     height,
+                                     GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
+                                     GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
+				     str, strlen(str), 30);
+  }
+
   if (event->description) {
     char* iso_text = malloc(strlen(event->description)+1);
     utf8decode(event->description,iso_text);

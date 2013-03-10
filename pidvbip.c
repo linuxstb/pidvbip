@@ -60,6 +60,13 @@ struct omx_pipeline_t omxpipe;
 /* TODO: Should this be global? */
 struct htsp_t htsp;
 
+static struct termios orig;
+
+void reset_stdin(void)
+{
+  tcsetattr(0, TCSANOW, &orig);
+}
+
 int mpeg2_codec_enabled(void)
 {
   char response[1024];
@@ -553,13 +560,14 @@ int main(int argc, char* argv[])
     channels_init();
     events_init();
 
-    struct termios new,orig;
+    struct termios new;
     tcgetattr(0, &orig);
     memcpy(&new, &orig, sizeof(struct termios));
     new.c_lflag &= ~(ICANON | ECHO);
     new.c_cc[VTIME] = 0;
     new.c_cc[VMIN] = 1;
     tcsetattr(0, TCSANOW, &new);
+    atexit(reset_stdin);
 
     int num_events = 0;
     int done = 0;
@@ -818,8 +826,6 @@ change_channel:
     goto next_channel;
 
 done:
-    tcsetattr(0, TCSANOW, &orig);
-
     OERR(OMX_Deinit());
     return 0;
 }

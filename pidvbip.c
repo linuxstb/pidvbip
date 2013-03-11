@@ -452,7 +452,22 @@ int get_input_key(int fd)
           case KEY_DOWN: return 'd';
           case KEY_LEFT: return 'l';
           case KEY_RIGHT: return 'r';
-    
+/* MCE remote defines */
+          case 513: return '1';
+          case 514: return '2';
+          case 515: return '3';
+          case 516: return '4';
+          case 517: return '5';
+          case 518: return '6';
+          case 519: return '7';
+          case 520: return '8';
+          case 521: return '9';
+          case 512: return '0';
+          case 119: return ' ';
+          case 207: return ' ';
+          case 402: return 'u';
+          case 403: return 'd';
+   
           default: break;
         }
       }

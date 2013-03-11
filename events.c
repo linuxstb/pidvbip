@@ -16,7 +16,7 @@
 static struct avl_tree events;
 static struct event_t* searched_event;
 #else
-#define MAX_EVENT_ID 3000000
+#define MAX_EVENT_ID 12000000
 static struct event_t* events[MAX_EVENT_ID+1];
 #endif
 
@@ -144,6 +144,7 @@ void process_event_message(char* method, struct htsp_message_t* msg)
   //htsp_dump_message(msg);
 
   if (do_insert) {
+    fprintf(stderr, "Loading event_ID: %d\n",eventId);
 #ifdef USE_AVL
     avl_insert(&events,(struct avl*)event);
 #else

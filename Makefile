@@ -14,8 +14,6 @@ endif
 
 OBJS = $(SRCS:%.c=%.o)
 
-# disable asserts
-# CFLAGS+=-DNDEBUG
 
 default: $(BIN)
 

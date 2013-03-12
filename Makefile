@@ -29,7 +29,7 @@ $(OJBS): .depend
 
 .depend: config.mak
 	@$(RM) .depend
-	@$(foreach SRC, $(SRCS), $(CC) $(CFLAGS) $(SRC) $(DEPMM) 1>> .depend;)
+	@$(foreach SRC, $(SRCS) flvtoh264.c, $(CC) $(CFLAGS) $(SRC) $(DEPMM) 1>> .depend;)
 
 config.mak:
 	./configure

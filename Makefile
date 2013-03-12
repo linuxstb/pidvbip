@@ -14,24 +14,22 @@ endif
 
 OBJS = $(SRCS:%.c=%.o)
 
-# disable asserts
-# CFLAGS+=-DNDEBUG
 
 default: $(BIN)
 
 all: default flvtoh264
 
 $(BIN): .depend $(LIBVGFONT) $(OBJS)
-	$(CC) -o $@ $(OBJS) $(LIBVGFONT) $(LDFLAGS)
+	$(LD)$@ $(OBJS) $(LIBVGFONT) $(LDFLAGS)
 
 flvtoh264: .depend flvtoh264.o
-	$(CC) -o $@ flvtoh264.o $(LDFLAGS)
+	$(LD)$@ flvtoh264.o $(LDFLAGS)
 
 $(OJBS): .depend
 
 .depend: config.mak
 	@$(RM) .depend
-	@$(foreach SRC, $(SRCS), $(CC) $(CFLAGS) $(SRC) $(DEPMM) 1>> .depend;)
+	@$(foreach SRC, $(SRCS) flvtoh264.c, $(CC) $(CFLAGS) $(SRC) $(DEPMM) 1>> .depend;)
 
 config.mak:
 	./configure

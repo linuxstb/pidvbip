@@ -27,9 +27,12 @@ usage() {
 Usage: $0 [options]
 
 Options:
+    --host=HOST                 build to run on HOST
+    --cross-prefix=PREFIX       prepend PREFIX to compilation tools
+    --vc-sdk-path=VC_SDK_PATH   path to VideoCore SDK [/opt/vc]
     --disable-libcec            disable libcec support
     --enable-debug              enable debugging symbols
-    --vc-sdk-path=VC_SDK_PATH   path to VideoCore SDK [/opt/vc]
+    --enable-raspberrypi        enable building for Raspberry Pi
 EOF
 
     exit 1
@@ -38,13 +41,12 @@ EOF
 avahi="auto"
 libcec="auto"
 debug="no"
-raspberrypi="yes"
+raspberrypi="auto"
 
-CC="${CC:-gcc}"
 CFLAGS="$CFLAGS -pipe -Wall -I."
-LD="${LD:-$CC}"
 LDFLAGS="$LDFLAGS -lm"
 VC_SDK_PATH="${VC_SDK_PATH-/opt/vc}"
+cross_prefix=""
 
 for opt do
     optarg="${opt#*=}"
@@ -61,11 +63,43 @@ for opt do
         --vc-sdk-path=*)
             VC_SDK_PATH="$optarg"
             ;;
+        --host=*)
+            host="$optarg"
+            ;;
+        --cross-prefix=*)
+            cross_prefix="$optarg"
+            ;;
+        --enable-raspberrypi)
+            raspberrypi="yes"
+            ;;
         *)
             echo "Unknown option: $opt"
             ;;
     esac
 done
+
+CC="${CC:-${cross_prefix}gcc}"
+LD="${LD:-$CC -o }"
+
+if [ -z "$host" ] ; then
+    host=$(${PWD}/config.guess)
+fi
+host=$(${PWD}/config.sub $host)
+
+# split $host
+host_cpu="${host%%-*}"
+host="${host#*-}"
+host_vendor="${host%%-*}"
+host_os="${host#*-}"
+
+case $host_cpu in
+    arm*)
+        ARCH="ARM"
+        ;;
+    i*86 | x86_64)
+        ARCH="X86"
+        ;;
+esac
 
 cc_check || die "No working compiler"
 
@@ -73,7 +107,7 @@ cc_check pthread.h -lpthread && LDFLAGS="$LDFLAGS -lpthread" || die "Failed to l
 
 if [ "$raspberrypi" = "auto" ] ; then
     raspberrypi="no"
-    if grep BCM2708 /proc/cpuinfo 1>/dev/null ; then
+    if [ "$ARCH" = "ARM" ] && grep -qe 'BCM2708' /proc/cpuinfo ; then
         raspberrypi="yes"
     fi
 fi
@@ -95,9 +129,20 @@ if [ "$raspberrypi" = "yes" ] ; then
     CFLAGS="$PI_CFLAGS $CFLAGS"
 fi
 
-if pkg-config --exists freetype2 2>/dev/null ; then
-    LDFLAGS="$(freetype-config --libs) $LDFLAGS"
-    CFLAGS="$(freetype-config --cflags) $CFLAGS"
+if ${cross_prefix}pkg-config --exists freetype2 2>/dev/null ; then
+    LDFLAGS="$(${cross_prefix}pkg-config --libs freetype2) $LDFLAGS"
+    CFLAGS="$(${cross_prefix}pkg-config --cflags freetype2) $CFLAGS"
+    if ! echo $LDFLAGS | grep -qe '\-lbz2' ; then
+        LDFLAGS="-lbz2 $LDFLAGS"
+    fi
+    if ! echo $LDFLAGS | grep -qe '\-lz' ; then
+        if ${cross_prefix}pkg-config --exists zlib ; then
+            LDFLAGS="$(${cross_prefix}pkg-config --libs zlib) $LDFLAGS"
+            CFLAGS="$(${cross_prefix}pkg-config --cflags zlib) $CFLAGS"
+        else
+            LDFLAGS="-lz $LDFLAGS"
+        fi
+    fi
 else
     die "Failed to locate FreeType"
 fi
@@ -113,9 +158,9 @@ fi
 
 if [ "$libcec" = "auto" ] ; then
     libcec="no"
-    if pkg-config --exists libcec &>/dev/null ; then
-        CEC_LIBS="$CEC_LIBS $(pkg-config --libs libcec)"
-        CEC_CFLAGS="$CEC_CFLAGS $(pkg-config --cflags libcec)"
+    if ${cross_prefix}pkg-config --exists libcec &>/dev/null ; then
+        CEC_LIBS="$CEC_LIBS $(${cross_prefix}pkg-config --libs libcec)"
+        CEC_CFLAGS="$CEC_CFLAGS $(${cross_prefix}pkg-config --cflags libcec)"
     fi
     [ -z "$CEC_LIBS" ] &&  CEC_LIBS="-lcec"
 
@@ -129,9 +174,9 @@ fi
 
 if [ "$avahi" = "auto" ] ; then
     avahi="no"
-    if pkg-config --exists avahi-client &>/dev/null ; then
-        AVAHI_LIBS="$AVAHI_LIBS $(pkg-config --libs avahi-client)"
-        AVAHI_CFLAGS="$AVAHI_CFLAGS $(pkg-config --cflags avahi-client)"
+    if ${cross_prefix}pkg-config --exists avahi-client &>/dev/null ; then
+        AVAHI_LIBS="$AVAHI_LIBS $(${cross_prefix}pkg-config --libs avahi-client)"
+        AVAHI_CFLAGS="$AVAHI_CFLAGS $(${cross_prefix}pkg-config --cflags avahi-client)"
     fi
     [ -z "$AVAHI_LIBS" ] && AVAHI_LIBS="-lavahi-client -lavahi-common"
 
@@ -145,9 +190,9 @@ if [ "$avahi" = "auto" ] ; then
     fi
 fi
 
-if pkg-config --exists libmpg123 &>/dev/null ; then
-    MPG123_LIBS="$MPG123_LIBS $(pkg-config --libs libmpg123)"
-    MPG123_CFLAGS="$MPG123_CFLAGS $(pkg-config --cflags libmpg123)"
+if ${cross_prefix}pkg-config --exists libmpg123 &>/dev/null ; then
+    MPG123_LIBS="$MPG123_LIBS $(${cross_prefix}pkg-config --libs libmpg123)"
+    MPG123_CFLAGS="$MPG123_CFLAGS $(${cross_prefix}pkg-config --cflags libmpg123)"
 fi
 [ -z "$MPG123_LIBS" ] && MPG123_LIBS="-lmpg123"
 if cc_check mpg123.h "$MPG123_CFLAGS $MPG123_LIBS" "mpg123_init();" ; then
@@ -185,8 +230,9 @@ echo "#define PIDVBIP_VERSION \"$(git describe --always --dirty)\"" >> config.h
 
 cat <<EOF
 Configuration:
+  architecture:     $ARCH
+  raspberrypi:      $raspberrypi
   avahi:            $avahi
   libcec:           $libcec
   debug enabled:    $debug
-  raspberrypi:      $raspberrypi
 EOF

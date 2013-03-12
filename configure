@@ -107,7 +107,7 @@ cc_check pthread.h -lpthread && LDFLAGS="$LDFLAGS -lpthread" || die "Failed to l
 
 if [ "$raspberrypi" = "auto" ] ; then
     raspberrypi="no"
-    if [ "$ARCH" = "ARM" ] && grep BCM2708 /proc/cpuinfo 1>/dev/null ; then
+    if [ "$ARCH" = "ARM" ] && grep -qe 'BCM2708' /proc/cpuinfo ; then
         raspberrypi="yes"
     fi
 fi

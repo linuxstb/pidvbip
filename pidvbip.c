@@ -47,6 +47,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "cec.h"
 #include "omx_utils.h"
 
+#define MAX_CONF_LEN 20
+
 struct codecs_t {
   struct codec_t vcodec;
   struct codec_t acodec; // Audio
@@ -61,6 +63,156 @@ struct omx_pipeline_t omxpipe;
 struct htsp_t htsp;
 
 static struct termios orig;
+
+struct configfile_parameters
+{
+  char tvh_serverip[MAX_CONF_LEN];
+  char tvh_serverport[MAX_CONF_LEN];
+  char tvh_username[MAX_CONF_LEN];
+  char tvh_password[MAX_CONF_LEN];
+  char key_0[MAX_CONF_LEN];
+  char key_1[MAX_CONF_LEN];
+  char key_2[MAX_CONF_LEN];
+  char key_3[MAX_CONF_LEN];
+  char key_4[MAX_CONF_LEN];
+  char key_5[MAX_CONF_LEN];
+  char key_6[MAX_CONF_LEN];
+  char key_7[MAX_CONF_LEN];
+  char key_8[MAX_CONF_LEN];
+  char key_9[MAX_CONF_LEN];
+  char key_h[MAX_CONF_LEN];
+  char key_i[MAX_CONF_LEN];
+  char key_q[MAX_CONF_LEN];
+  char key_n[MAX_CONF_LEN];
+  char key_p[MAX_CONF_LEN];
+  char key_u[MAX_CONF_LEN];
+  char key_d[MAX_CONF_LEN];
+  char key_l[MAX_CONF_LEN];
+  char key_r[MAX_CONF_LEN];
+  char key_space[MAX_CONF_LEN];
+  char key_c[MAX_CONF_LEN];
+
+};
+
+configfile_parameters;
+
+/* void init_parameters (struct configfile_parameters * parms)
+{
+  strncpy (parms->tvh_serverip, "", MAX_CONF_LEN);
+  strncpy (parms->tvh_serverport, "", MAX_CONF_LEN);
+  strncpy (parms->tvh_username, "", MAX_CONF_LEN);
+  strncpy (parms->tvh_password, "", MAX_CONF_LEN);
+} */
+
+char *
+trim (char * s)
+{
+  /* Initialize start, end pointers */
+  char *s1 = s, *s2 = &s[strlen (s) - 1];
+
+  /* Trim and delimit right side */
+  while ( (isspace (*s2)) && (s2 >= s1) )
+    s2--;
+  *(s2+1) = '\0';
+
+  /* Trim left side */
+  while ( (isspace (*s1)) && (s1 < s2) )
+    s1++;
+
+  /* Copy finished string */
+  strcpy (s, s1);
+  return s;
+}
+void
+parse_config (struct configfile_parameters * parms)
+{
+  char *s, buff[256];
+  FILE *fp = fopen ("pidvbip.conf", "r");
+  if (fp == NULL)
+  {
+    return;
+  }
+
+  /* Read next line */
+  while ((s = fgets (buff, sizeof buff, fp)) != NULL)
+  {
+    /* Skip blank lines and comments */
+    if (buff[0] == '\n' || buff[0] == '#')
+      continue;
+
+    /* Parse name/value pair from line */
+    char name[MAX_CONF_LEN], value[MAX_CONF_LEN];
+    s = strtok (buff, "=");
+    if (s==NULL)
+      continue;
+    else
+      strncpy (name, s, MAX_CONF_LEN);
+    s = strtok (NULL, "=");
+    if (s==NULL)
+      continue;
+    else
+      strncpy (value, s, MAX_CONF_LEN);
+    trim (value);
+
+    /* Copy into correct entry in parameters struct */
+    if (strcmp(name, "tvh_serverip")==0)
+      strncpy (parms->tvh_serverip, value, MAX_CONF_LEN);
+    else if (strcmp(name, "tvh_serverport")==0)
+      strncpy (parms->tvh_serverport, value, MAX_CONF_LEN);
+    else if (strcmp(name, "tvh_username")==0)
+      strncpy (parms->tvh_username, value, MAX_CONF_LEN);
+    else if (strcmp(name, "tvh_password")==0)
+      strncpy (parms->tvh_password, value, MAX_CONF_LEN);
+    else if (strcmp(name, "key0")==0)
+      strncpy (parms->key_0, value, MAX_CONF_LEN);
+    else if (strcmp(name, "key1")==0)
+      strncpy (parms->key_1, value, MAX_CONF_LEN);
+    else if (strcmp(name, "key2")==0)
+      strncpy (parms->key_2, value, MAX_CONF_LEN);
+    else if (strcmp(name, "key3")==0)
+      strncpy (parms->key_3, value, MAX_CONF_LEN);
+    else if (strcmp(name, "key4")==0)
+      strncpy (parms->key_4, value, MAX_CONF_LEN);
+    else if (strcmp(name, "key5")==0)
+      strncpy (parms->key_5, value, MAX_CONF_LEN);
+    else if (strcmp(name, "key6")==0)
+      strncpy (parms->key_6, value, MAX_CONF_LEN);
+    else if (strcmp(name, "key7")==0)
+      strncpy (parms->key_7, value, MAX_CONF_LEN);
+    else if (strcmp(name, "key8")==0)
+      strncpy (parms->key_8, value, MAX_CONF_LEN);
+    else if (strcmp(name, "key9")==0)
+      strncpy (parms->key_9, value, MAX_CONF_LEN);
+    else if (strcmp(name, "keyh")==0)
+      strncpy (parms->key_h, value, MAX_CONF_LEN);
+    else if (strcmp(name, "keyi")==0)
+      strncpy (parms->key_i, value, MAX_CONF_LEN);
+    else if (strcmp(name, "keyq")==0)
+      strncpy (parms->key_q, value, MAX_CONF_LEN);
+    else if (strcmp(name, "keyn")==0)
+      strncpy (parms->key_n, value, MAX_CONF_LEN);
+    else if (strcmp(name, "keyp")==0)
+      strncpy (parms->key_p, value, MAX_CONF_LEN);
+    else if (strcmp(name, "keyu")==0)
+      strncpy (parms->key_u, value, MAX_CONF_LEN);
+    else if (strcmp(name, "keyd")==0)
+      strncpy (parms->key_d, value, MAX_CONF_LEN);
+    else if (strcmp(name, "keyl")==0)
+      strncpy (parms->key_l, value, MAX_CONF_LEN);
+    else if (strcmp(name, "keyr")==0)
+      strncpy (parms->key_r, value, MAX_CONF_LEN);
+    else if (strcmp(name, "keyspace")==0)
+      strncpy (parms->key_space, value, MAX_CONF_LEN);
+    else if (strcmp(name, "keyc")==0)
+      strncpy (parms->key_c, value, MAX_CONF_LEN);
+    else
+      printf ("WARNING: %s/%s: Unknown name/value pair!\n",
+        name, value);
+  }
+
+  /* Close file */
+  fclose (fp);
+}
 
 void reset_stdin(void)
 {
@@ -452,6 +604,7 @@ int get_input_key(int fd)
           case KEY_DOWN: return 'd';
           case KEY_LEFT: return 'l';
           case KEY_RIGHT: return 'r';
+          /* Additional defines from config */
 /* MCE remote defines */
           case 513: return '1';
           case 514: return '2';
@@ -500,28 +653,48 @@ int main(int argc, char* argv[])
     pthread_mutex_init(&omxpipe.omx_active_mutex, NULL);
     pthread_cond_init(&omxpipe.omx_active_cv, NULL);
 
-    if (argc == 1) {
-      /* No arguments, try avahi discovery */
-      avahi_discover_tvh(&htsp);
+    // Read default config from /boot/config.txt first
+    if (read_config(NULL,&htsp.host,&htsp.port) < 0) {
+      fprintf(stderr,"ERROR: Could not read from config file\n");
+      fprintf(stderr,"Create config.txt in /boot/pidvbip.txt containing one line with the\n");
+      fprintf(stderr,"host and port of the server separated by a space.\n");
+      exit(1);
+    };
 
-      if (htsp.host == NULL) {
-        /* No avahi, try to read default config from /boot/config.txt */
-        if (read_config(NULL,&htsp.host,&htsp.port) < 0) {
-          fprintf(stderr,"ERROR: Could not read from config file\n");
-          fprintf(stderr,"Create config.txt in /boot/pidvbip.txt containing one line with the\n");
-          fprintf(stderr,"host and port of the server separated by a space.\n");
-          exit(1);
-        }
-      }
-//    } else if (argc==2) {
-//      /* One argument - config file */
-    } else if ((argc != 3) && (argc != 4)) {
+    // Read config values from pidvbip.conf
+    struct configfile_parameters parms;
+    fprintf(stderr,"Initializing parameters to default values\n");
+    /* init_parameters (&parms); */
+    fprintf(stderr,"Reading config file\n");
+    parse_config (&parms);
+    fprintf(stderr,"Final values:\n");
+    fprintf(stderr,"  ip: %s, port: %s, user: %s, pass: %s\n",
+    parms.tvh_serverip, parms.tvh_serverport, parms.tvh_username, parms.tvh_password);
+    htsp.host = parms.tvh_serverip;
+    htsp.port = atoi(parms.tvh_serverport);
+
+    // Still no value for htsp.host htsp.port so try avahi
+    if (htsp.host == NULL || htsp.port == NULL) {
+      avahi_discover_tvh(&htsp);
+    };
+
+    if (argc > 2) {
+      if ((argc != 3) && (argc != 4)) {
         usage();
         return 1;
-    } else {
+      } else {
         htsp.host = argv[1];
         htsp.port = atoi(argv[2]);
-    }
+      }
+    };
+
+    if (htsp.host == NULL || htsp.port == NULL) {
+      fprintf(stderr,"ERROR: Could not obtain host or port for TVHeadend\n");
+      fprintf(stderr,"       Please ensure config file or cmd-line params\n");
+      fprintf(stderr,"       are provided and try again\n");
+      usage();
+      exit(1);
+    };
 
     fprintf(stderr,"Using host \"%s:%d\"\n",htsp.host,htsp.port);
     bcm_host_init();

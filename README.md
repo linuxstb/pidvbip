@@ -84,6 +84,7 @@ Once running, the following keys are mapped to actions:
     'h' - toggle auto-switching to HD versions of programmes from an SD channel
     ' ' - pause/resume playback
     'c' - display list of channels and current events to the console
+    'o' - To unsubscribe from current channel and go idle
 
 pidvbip currently supports hardware decoding of H264 and MPEG-2 video
 streams, and software decoding of MPEG, AAC and A/52 (AC-3) audio

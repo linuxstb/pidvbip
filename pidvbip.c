@@ -604,6 +604,7 @@ int get_input_key(int fd)
           case KEY_DOWN: return 'd';
           case KEY_LEFT: return 'l';
           case KEY_RIGHT: return 'r';
+          case KEY_O: return 'o';
           /* Additional defines from config */
 /* MCE remote defines */
           case 513: return '1';
@@ -975,6 +976,18 @@ next_channel:
           case 'r':
             do_pause(&codecs,1);
             htsp_send_skip(&htsp,30);     // +30 seconds
+            break;
+
+          case 'o':
+            // Stop streaming channel and go idle
+	    osd_alert(&osd, "Stopping current subscription");
+	    htsp_lock(&htsp);
+	    if (htsp.subscriptionId > 0) {
+	      res = htsp_create_message(&msg,HMF_STR,"method","unsubscribe",HMF_S64,"subscriptionId",htsp.subscriptionId,HMF_NULL);
+	      res = htsp_send_message(&htsp,&msg);
+	      htsp_destroy_message(&msg);
+	    }
+	    htsp_unlock(&htsp);
             break;
 
             break;

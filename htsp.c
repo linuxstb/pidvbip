@@ -31,6 +31,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <openssl/sha.h>
+#include <string.h>
 
 #include "htsp.h"
 #include "debug.h"
@@ -50,6 +51,114 @@ void htsp_unlock(struct htsp_t* htsp)
 {
   pthread_mutex_unlock(&htsp->htsp_mutex);
 }
+
+typedef struct HTSSHA1 {
+    uint64_t count;
+    uint8_t buffer[64];
+    uint32_t state[5];
+} HTSSHA1;
+
+const int hts_sha1_size = sizeof(HTSSHA1);
+
+void hts_sha1_init(HTSSHA1* ctx){
+    ctx->state[0] = 0x67452301;
+    ctx->state[1] = 0xEFCDAB89;
+    ctx->state[2] = 0x98BADCFE;
+    ctx->state[3] = 0x10325476;
+    ctx->state[4] = 0xC3D2E1F0;
+    ctx->count    = 0;
+}
+
+#define rol(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
+
+/* (R0+R1), R2, R3, R4 are the different operations used in SHA1 */
+#define blk0(i) (block[i] = ((const uint32_t*)buffer)[i])
+#define blk(i) (block[i] = rol(block[i-3]^block[i-8]^block[i-14]^block[i-16],1))
+
+#define R0(v,w,x,y,z,i) z+=((w&(x^y))^y)    +blk0(i)+0x5A827999+rol(v,5);w=rol(w,30);
+#define R1(v,w,x,y,z,i) z+=((w&(x^y))^y)    +blk (i)+0x5A827999+rol(v,5);w=rol(w,30);
+#define R2(v,w,x,y,z,i) z+=( w^x     ^y)    +blk (i)+0x6ED9EBA1+rol(v,5);w=rol(w,30);
+#define R3(v,w,x,y,z,i) z+=(((w|x)&y)|(w&x))+blk (i)+0x8F1BBCDC+rol(v,5);w=rol(w,30);
+#define R4(v,w,x,y,z,i) z+=( w^x     ^y)    +blk (i)+0xCA62C1D6+rol(v,5);w=rol(w,30);
+
+/* Hash a single 512-bit block. This is the core of the algorithm. */
+
+static void transform(uint32_t state[5], const uint8_t buffer[64]){
+    uint32_t block[80];
+    unsigned int i, a, b, c, d, e;
+
+    a = state[0];
+    b = state[1];
+    c = state[2];
+    d = state[3];
+    e = state[4];
+for(i=0; i<80; i++){
+        int t;
+        if(i<16) t= ((uint32_t*)buffer)[i];
+        else     t= rol(block[i-3]^block[i-8]^block[i-14]^block[i-16],1);
+        block[i]= t;
+        t+= e+rol(a,5);
+        if(i<40){
+            if(i<20)    t+= ((b&(c^d))^d)    +0x5A827999;
+            else        t+= ( b^c     ^d)    +0x6ED9EBA1;
+        }else{
+            if(i<60)    t+= (((b|c)&d)|(b&c))+0x8F1BBCDC;
+            else        t+= ( b^c     ^d)    +0xCA62C1D6;
+        }
+        e= d;
+        d= c;
+        c= rol(b,30);
+        b= a;
+        a= t;
+    }
+    state[0] += a;
+    state[1] += b;
+    state[2] += c;
+    state[3] += d;
+    state[4] += e;
+}
+
+
+void hts_sha1_update(HTSSHA1* ctx, const uint8_t* data, unsigned int len){
+    unsigned int i, j;
+
+    j = ctx->count & 63;
+    ctx->count += len;
+//#if CONFIG_SMALL
+    for( i = 0; i < len; i++ ){
+        ctx->buffer[ j++ ] = data[i];
+        if( 64 == j ){
+            transform(ctx->state, ctx->buffer);
+            j = 0;
+        }
+    }
+//#else
+//    if ((j + len) > 63) {
+//        memcpy(&ctx->buffer[j], data, (i = 64-j));
+//        transform(ctx->state, ctx->buffer);
+//        for ( ; i + 63 < len; i += 64) {
+//            transform(ctx->state, &data[i]);
+//        }
+//        j=0;
+//    }
+//    else i = 0;
+//    memcpy(&ctx->buffer[j], &data[i], len - i);
+//#endif
+}
+
+void hts_sha1_final(HTSSHA1* ctx, uint8_t digest[20]){
+    int i;
+    uint64_t finalcount= ctx->count<<3;
+
+    hts_sha1_update(ctx, (const uint8_t*)"\200", 1);
+    while ((ctx->count & 63) != 56) {
+        hts_sha1_update(ctx, (const uint8_t*)"", 1);
+    }
+    hts_sha1_update(ctx, (uint8_t *)&finalcount, 8); /* Should cause a transform() */
+    for(i=0; i<5; i++)
+        ((uint32_t*)digest)[i]= ctx->state[i];
+}
+
 
 static int create_tcp_socket()
 {
@@ -394,8 +503,10 @@ int htsp_login(struct htsp_t* htsp, char* tvh_user, char* tvh_pass)
 {
   struct htsp_message_t msg;
   int res;
-  SHA_CTX shactx;
+  struct HTSSHA1* shactx = (struct HTSSHA1*) malloc(hts_sha1_size);
   uint8_t d[20];
+  unsigned char* chall;
+  int chall_len = 0;
 
   htsp_create_message(&msg,HMF_STR,"method","hello",
                            HMF_STR,"clientname","pidvbip",
@@ -415,22 +526,41 @@ int htsp_login(struct htsp_t* htsp, char* tvh_user, char* tvh_pass)
   res = htsp_recv_message(htsp,&msg,0);
 
   if (res > 0) {
-    fprintf(stderr,"Error receiving login response\n");
+    fprintf(stderr,"Error receiving hello response\n");
     return 1;
   } else {
-    fprintf(stderr,"Received htsp: %s\n",res);
+    htsp_get_string(&msg, "method");
+    htsp_get_bin(&msg, "challenge", &chall, &chall_len);
+    fprintf(stderr,"Received htsp: %d\n",res);
+
   }
 
   htsp_destroy_message(&msg);
 
   // Now authenticate
   fprintf(stderr,"Authenticating with user: %s pass: %s\n",tvh_user,tvh_pass);
-  SHA1_Init(&shactx);
-  SHA1_Update(&shactx, (const uint8_t *)tvh_pass,
-                strlen(tvh_pass));
-  SHA1_Update(&shactx, challenge, 32);
-  SHA1_Final(d, &shactx);
-  fprintf(stderr,"sha: %s",d);
+  hts_sha1_init(shactx);
+  hts_sha1_update(shactx, (const uint8_t *) tvh_pass, strlen(tvh_pass));
+  hts_sha1_update(shactx, (const uint8_t *) chall, chall_len);
+  hts_sha1_final(shactx, d);
+  htsp_create_message(&msg,HMF_STR,"method","authenticate",
+                           HMF_STR,"username",tvh_user,
+                           HMF_BIN,"digest",20,d,
+                           HMF_NULL);
+  fprintf(stderr,"Sending auth digest\n");
+  if ((res = htsp_send_message(htsp,&msg)) > 0) {
+    fprintf(stderr,"Could not send message (authenticate)\n");
+    return 1;
+  };
+  htsp_destroy_message(&msg);
+  res = htsp_recv_message(htsp,&msg,0);
+  if (res > 0) {
+    fprintf(stderr,"Error receiving login response\n");
+    return 1;
+  } else {
+    fprintf(stderr,"Received htsp (login): %d\n",res);
+  };
+  htsp_destroy_message(&msg);
 
   return 0;
 }

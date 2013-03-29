@@ -144,7 +144,6 @@ void process_event_message(char* method, struct htsp_message_t* msg)
   //htsp_dump_message(msg);
 
   if (do_insert) {
-    fprintf(stderr, "Loading event_ID: %d\n",eventId);
 #ifdef USE_AVL
     avl_insert(&events,(struct avl*)event);
 #else

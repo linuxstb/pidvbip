@@ -619,8 +619,11 @@ int get_input_key(int fd)
           case 512: return '0';
           case 119: return ' ';
           case 207: return ' ';
-          case 402: return 'u';
-          case 403: return 'd';
+          case 402: return 'n';
+          case 403: return 'p';
+          case 358: return 'i';
+          case 128: return 'o';
+          case 142: return 'q';
    
           default: break;
         }
@@ -732,13 +735,13 @@ int main(int argc, char* argv[])
 
     if (argc==4) { channel = atoi(argv[3]); }
 
-    res = htsp_login(&htsp);
+    res = htsp_login(&htsp, parms.tvh_username, parms.tvh_password);
 
     if (res > 0) {
       fprintf(stderr,"Could not login to server\n");
       return 3;
     }
-    osd_alert(&osd, "Synchronising...");
+    osd_alert(&osd, "Loading channels...");
     res = htsp_create_message(&msg,HMF_STR,"method","enableAsyncMetadata",HMF_S64,"epg",1,HMF_NULL);
     res = htsp_send_message(&htsp,&msg);
     htsp_destroy_message(&msg);

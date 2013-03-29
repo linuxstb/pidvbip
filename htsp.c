@@ -30,6 +30,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include <sys/select.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <openssl/sha.h>
 
 #include "htsp.h"
 #include "debug.h"
@@ -389,10 +390,12 @@ int htsp_recv_message(struct htsp_t* htsp, struct htsp_message_t* msg, int timeo
   return 0;
 }
 
-int htsp_login(struct htsp_t* htsp)
+int htsp_login(struct htsp_t* htsp, char* tvh_user, char* tvh_pass)
 {
   struct htsp_message_t msg;
   int res;
+  SHA_CTX shactx;
+  uint8_t d[20];
 
   htsp_create_message(&msg,HMF_STR,"method","hello",
                            HMF_STR,"clientname","pidvbip",
@@ -414,9 +417,20 @@ int htsp_login(struct htsp_t* htsp)
   if (res > 0) {
     fprintf(stderr,"Error receiving login response\n");
     return 1;
+  } else {
+    fprintf(stderr,"Received htsp: %s\n",res);
   }
 
   htsp_destroy_message(&msg);
+
+  // Now authenticate
+  fprintf(stderr,"Authenticating with user: %s pass: %s\n",tvh_user,tvh_pass);
+  SHA1_Init(&shactx);
+  SHA1_Update(&shactx, (const uint8_t *)tvh_pass,
+                strlen(tvh_pass));
+  SHA1_Update(&shactx, challenge, 32);
+  SHA1_Final(d, &shactx);
+  fprintf(stderr,"sha: %s",d);
 
   return 0;
 }

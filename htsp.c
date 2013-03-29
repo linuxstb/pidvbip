@@ -506,7 +506,7 @@ int htsp_login(struct htsp_t* htsp, char* tvh_user, char* tvh_pass)
   struct HTSSHA1* shactx = (struct HTSSHA1*) malloc(hts_sha1_size);
   uint8_t d[20];
   unsigned char* chall;
-  int chall_len = 0;
+  int chall_len = 0,res_access = 0;
 
   htsp_create_message(&msg,HMF_STR,"method","hello",
                            HMF_STR,"clientname","pidvbip",
@@ -558,7 +558,12 @@ int htsp_login(struct htsp_t* htsp, char* tvh_user, char* tvh_pass)
     fprintf(stderr,"Error receiving login response\n");
     return 1;
   } else {
-    fprintf(stderr,"Received htsp (login): %d\n",res);
+    htsp_get_int(&msg, "noaccess",&res_access);
+    fprintf(stderr,"Received htsp (login): %d - noaccess %d\n",res,res_access);
+    if (res_access == 1) {
+      fprintf(stderr,"Login FAILURE - No access with username and password\n");
+      return 1;
+    };
   };
   htsp_destroy_message(&msg);
 

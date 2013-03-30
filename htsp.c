@@ -30,11 +30,18 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include <sys/select.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <openssl/sha.h>
 #include <string.h>
 
+#include "sha1.h"
 #include "htsp.h"
 #include "debug.h"
+
+typedef struct HTSSHA1 {
+    uint64_t count;
+    uint8_t buffer[64];
+    uint32_t state[5];
+} HTSSHA1;
+
 
 void htsp_init(struct htsp_t* htsp)
 {
@@ -51,98 +58,6 @@ void htsp_unlock(struct htsp_t* htsp)
 {
   pthread_mutex_unlock(&htsp->htsp_mutex);
 }
-
-typedef struct HTSSHA1 {
-    uint64_t count;
-    uint8_t buffer[64];
-    uint32_t state[5];
-} HTSSHA1;
-
-const int hts_sha1_size = sizeof(HTSSHA1);
-
-void hts_sha1_init(HTSSHA1* ctx){
-    ctx->state[0] = 0x67452301;
-    ctx->state[1] = 0xEFCDAB89;
-    ctx->state[2] = 0x98BADCFE;
-    ctx->state[3] = 0x10325476;
-    ctx->state[4] = 0xC3D2E1F0;
-    ctx->count    = 0;
-}
-
-#define rol(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
-
-/* (R0+R1), R2, R3, R4 are the different operations used in SHA1 */
-#define blk0(i) (block[i] = ((const uint32_t*)buffer)[i])
-#define blk(i) (block[i] = rol(block[i-3]^block[i-8]^block[i-14]^block[i-16],1))
-
-#define R0(v,w,x,y,z,i) z+=((w&(x^y))^y)    +blk0(i)+0x5A827999+rol(v,5);w=rol(w,30);
-#define R1(v,w,x,y,z,i) z+=((w&(x^y))^y)    +blk (i)+0x5A827999+rol(v,5);w=rol(w,30);
-#define R2(v,w,x,y,z,i) z+=( w^x     ^y)    +blk (i)+0x6ED9EBA1+rol(v,5);w=rol(w,30);
-#define R3(v,w,x,y,z,i) z+=(((w|x)&y)|(w&x))+blk (i)+0x8F1BBCDC+rol(v,5);w=rol(w,30);
-#define R4(v,w,x,y,z,i) z+=( w^x     ^y)    +blk (i)+0xCA62C1D6+rol(v,5);w=rol(w,30);
-
-/* Hash a single 512-bit block. This is the core of the algorithm. */
-
-static void transform(uint32_t state[5], const uint8_t buffer[64]){
-    uint32_t block[80];
-    unsigned int i, a, b, c, d, e;
-
-    a = state[0];
-    b = state[1];
-    c = state[2];
-    d = state[3];
-    e = state[4];
-    for(i=0; i<15; i+=5){
-        R0(a,b,c,d,e,0+i); R0(e,a,b,c,d,1+i); R0(d,e,a,b,c,2+i); R0(c,d,e,a,b,3+i); R0(b,c,d,e,a,4+i);
-    }
-    R0(a,b,c,d,e,15); R1(e,a,b,c,d,16); R1(d,e,a,b,c,17); R1(c,d,e,a,b,18); R1(b,c,d,e,a,19);
-    for(i=20; i<40; i+=5){
-        R2(a,b,c,d,e,0+i); R2(e,a,b,c,d,1+i); R2(d,e,a,b,c,2+i); R2(c,d,e,a,b,3+i); R2(b,c,d,e,a,4+i);
-    }
-    for(; i<60; i+=5){
-        R3(a,b,c,d,e,0+i); R3(e,a,b,c,d,1+i); R3(d,e,a,b,c,2+i); R3(c,d,e,a,b,3+i); R3(b,c,d,e,a,4+i);
-    }
-    for(; i<80; i+=5){
-        R4(a,b,c,d,e,0+i); R4(e,a,b,c,d,1+i); R4(d,e,a,b,c,2+i); R4(c,d,e,a,b,3+i); R4(b,c,d,e,a,4+i);
-    }
-    state[0] += a;
-    state[1] += b;
-    state[2] += c;
-    state[3] += d;
-    state[4] += e;
-}
-
-
-void hts_sha1_update(HTSSHA1* ctx, const uint8_t* data, unsigned int len){
-    unsigned int i, j;
-
-    j = ctx->count & 63;
-    ctx->count += len;
-    if ((j + len) > 63) {
-        memcpy(&ctx->buffer[j], data, (i = 64-j));
-        transform(ctx->state, ctx->buffer);
-        for ( ; i + 63 < len; i += 64) {
-            transform(ctx->state, &data[i]);
-        }
-        j=0;
-    }
-    else i = 0;
-    memcpy(&ctx->buffer[j], &data[i], len - i);
-}
-
-void hts_sha1_final(HTSSHA1* ctx, uint8_t digest[20]){
-    int i;
-    uint64_t finalcount= ctx->count<<3;
-
-    hts_sha1_update(ctx, (const uint8_t*)"\200", 1);
-    while ((ctx->count & 63) != 56) {
-        hts_sha1_update(ctx, (const uint8_t*)"", 1);
-    }
-    hts_sha1_update(ctx, (uint8_t *)&finalcount, 8); /* Should cause a transform() */
-    for(i=0; i<5; i++)
-        ((uint32_t*)digest)[i]= ctx->state[i];
-}
-
 
 static int create_tcp_socket()
 {
@@ -487,7 +402,7 @@ int htsp_login(struct htsp_t* htsp, char* tvh_user, char* tvh_pass)
 {
   struct htsp_message_t msg;
   int res;
-  struct HTSSHA1* shactx = (struct HTSSHA1*) malloc(hts_sha1_size);
+  HTSSHA1 *shactx = (HTSSHA1*)malloc(hts_sha1_size);
   uint8_t d[20];
   unsigned char* chall;
   int chall_len = 0,res_access = 0;
@@ -523,8 +438,8 @@ int htsp_login(struct htsp_t* htsp, char* tvh_user, char* tvh_pass)
   // Now authenticate
   fprintf(stderr,"Authenticating with user: %s pass: %s\n",tvh_user,tvh_pass);
   hts_sha1_init(shactx);
-  hts_sha1_update(shactx, (const uint8_t *) tvh_pass, strlen(tvh_pass));
-  hts_sha1_update(shactx, (const uint8_t *) chall, chall_len);
+  hts_sha1_update(shactx, (const uint8_t *)tvh_pass, strlen(tvh_pass));
+  hts_sha1_update(shactx, (const uint8_t *)chall, chall_len);
   hts_sha1_final(shactx, d);
   htsp_create_message(&msg,HMF_STR,"method","authenticate",
                            HMF_STR,"username",tvh_user,

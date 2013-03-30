@@ -38,6 +38,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 #include "vcodec_omx.h"
 #include "acodec_omx.h"
+#include "sha1.h"
 #include "htsp.h"
 #include "channels.h"
 #include "events.h"

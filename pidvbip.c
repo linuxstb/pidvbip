@@ -71,6 +71,7 @@ struct configfile_parameters
   char tvh_serverport[MAX_CONF_LEN];
   char tvh_username[MAX_CONF_LEN];
   char tvh_password[MAX_CONF_LEN];
+  char initial_channel[MAX_CONF_LEN];
   char key_0[MAX_CONF_LEN];
   char key_1[MAX_CONF_LEN];
   char key_2[MAX_CONF_LEN];
@@ -164,6 +165,8 @@ parse_config (struct configfile_parameters * parms)
       strncpy (parms->tvh_username, value, MAX_CONF_LEN);
     else if (strcmp(name, "tvh_password")==0)
       strncpy (parms->tvh_password, value, MAX_CONF_LEN);
+    else if (strcmp(name, "initial_channel")==0)
+      strncpy (parms->initial_channel, value, MAX_CONF_LEN);
     else if (strcmp(name, "key0")==0)
       strncpy (parms->key_0, value, MAX_CONF_LEN);
     else if (strcmp(name, "key1")==0)
@@ -735,6 +738,8 @@ int main(int argc, char* argv[])
     }
 
     if (argc==4) { channel = atoi(argv[3]); }
+    if (parms.initial_channel)
+        channel = atoi(parms.initial_channel);
 
     res = htsp_login(&htsp, parms.tvh_username, parms.tvh_password);
 
@@ -800,6 +805,7 @@ int main(int argc, char* argv[])
     user_channel_id = channels_getid(channel);
     if (user_channel_id < 0)
       user_channel_id = channels_getfirst();
+      fprintf(stderr,"Channel %d\n",user_channel_id);
 
     actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
 

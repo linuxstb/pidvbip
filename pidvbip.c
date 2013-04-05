@@ -48,8 +48,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "cec.h"
 #include "omx_utils.h"
 
-#define MAX_CONF_LEN 20
-
 struct codecs_t {
   struct codec_t vcodec;
   struct codec_t acodec; // Audio
@@ -64,159 +62,6 @@ struct omx_pipeline_t omxpipe;
 struct htsp_t htsp;
 
 static struct termios orig;
-
-struct configfile_parameters
-{
-  char tvh_serverip[MAX_CONF_LEN];
-  char tvh_serverport[MAX_CONF_LEN];
-  char tvh_username[MAX_CONF_LEN];
-  char tvh_password[MAX_CONF_LEN];
-  char initial_channel[MAX_CONF_LEN];
-  char key_0[MAX_CONF_LEN];
-  char key_1[MAX_CONF_LEN];
-  char key_2[MAX_CONF_LEN];
-  char key_3[MAX_CONF_LEN];
-  char key_4[MAX_CONF_LEN];
-  char key_5[MAX_CONF_LEN];
-  char key_6[MAX_CONF_LEN];
-  char key_7[MAX_CONF_LEN];
-  char key_8[MAX_CONF_LEN];
-  char key_9[MAX_CONF_LEN];
-  char key_h[MAX_CONF_LEN];
-  char key_i[MAX_CONF_LEN];
-  char key_q[MAX_CONF_LEN];
-  char key_n[MAX_CONF_LEN];
-  char key_p[MAX_CONF_LEN];
-  char key_u[MAX_CONF_LEN];
-  char key_d[MAX_CONF_LEN];
-  char key_l[MAX_CONF_LEN];
-  char key_r[MAX_CONF_LEN];
-  char key_space[MAX_CONF_LEN];
-  char key_c[MAX_CONF_LEN];
-
-};
-
-configfile_parameters;
-
-/* void init_parameters (struct configfile_parameters * parms)
-{
-  strncpy (parms->tvh_serverip, "", MAX_CONF_LEN);
-  strncpy (parms->tvh_serverport, "", MAX_CONF_LEN);
-  strncpy (parms->tvh_username, "", MAX_CONF_LEN);
-  strncpy (parms->tvh_password, "", MAX_CONF_LEN);
-} */
-
-char *
-trim (char * s)
-{
-  /* Initialize start, end pointers */
-  char *s1 = s, *s2 = &s[strlen (s) - 1];
-
-  /* Trim and delimit right side */
-  while ( (isspace (*s2)) && (s2 >= s1) )
-    s2--;
-  *(s2+1) = '\0';
-
-  /* Trim left side */
-  while ( (isspace (*s1)) && (s1 < s2) )
-    s1++;
-
-  /* Copy finished string */
-  strcpy (s, s1);
-  return s;
-}
-void
-parse_config (struct configfile_parameters * parms)
-{
-  char *s, buff[256];
-  FILE *fp = fopen ("pidvbip.conf", "r");
-  if (fp == NULL)
-  {
-    return;
-  }
-
-  /* Read next line */
-  while ((s = fgets (buff, sizeof buff, fp)) != NULL)
-  {
-    /* Skip blank lines and comments */
-    if (buff[0] == '\n' || buff[0] == '#')
-      continue;
-
-    /* Parse name/value pair from line */
-    char name[MAX_CONF_LEN], value[MAX_CONF_LEN];
-    s = strtok (buff, "=");
-    if (s==NULL)
-      continue;
-    else
-      strncpy (name, s, MAX_CONF_LEN);
-    s = strtok (NULL, "=");
-    if (s==NULL)
-      continue;
-    else
-      strncpy (value, s, MAX_CONF_LEN);
-    trim (value);
-
-    /* Copy into correct entry in parameters struct */
-    if (strcmp(name, "tvh_serverip")==0)
-      strncpy (parms->tvh_serverip, value, MAX_CONF_LEN);
-    else if (strcmp(name, "tvh_serverport")==0)
-      strncpy (parms->tvh_serverport, value, MAX_CONF_LEN);
-    else if (strcmp(name, "tvh_username")==0)
-      strncpy (parms->tvh_username, value, MAX_CONF_LEN);
-    else if (strcmp(name, "tvh_password")==0)
-      strncpy (parms->tvh_password, value, MAX_CONF_LEN);
-    else if (strcmp(name, "initial_channel")==0)
-      strncpy (parms->initial_channel, value, MAX_CONF_LEN);
-    else if (strcmp(name, "key0")==0)
-      strncpy (parms->key_0, value, MAX_CONF_LEN);
-    else if (strcmp(name, "key1")==0)
-      strncpy (parms->key_1, value, MAX_CONF_LEN);
-    else if (strcmp(name, "key2")==0)
-      strncpy (parms->key_2, value, MAX_CONF_LEN);
-    else if (strcmp(name, "key3")==0)
-      strncpy (parms->key_3, value, MAX_CONF_LEN);
-    else if (strcmp(name, "key4")==0)
-      strncpy (parms->key_4, value, MAX_CONF_LEN);
-    else if (strcmp(name, "key5")==0)
-      strncpy (parms->key_5, value, MAX_CONF_LEN);
-    else if (strcmp(name, "key6")==0)
-      strncpy (parms->key_6, value, MAX_CONF_LEN);
-    else if (strcmp(name, "key7")==0)
-      strncpy (parms->key_7, value, MAX_CONF_LEN);
-    else if (strcmp(name, "key8")==0)
-      strncpy (parms->key_8, value, MAX_CONF_LEN);
-    else if (strcmp(name, "key9")==0)
-      strncpy (parms->key_9, value, MAX_CONF_LEN);
-    else if (strcmp(name, "keyh")==0)
-      strncpy (parms->key_h, value, MAX_CONF_LEN);
-    else if (strcmp(name, "keyi")==0)
-      strncpy (parms->key_i, value, MAX_CONF_LEN);
-    else if (strcmp(name, "keyq")==0)
-      strncpy (parms->key_q, value, MAX_CONF_LEN);
-    else if (strcmp(name, "keyn")==0)
-      strncpy (parms->key_n, value, MAX_CONF_LEN);
-    else if (strcmp(name, "keyp")==0)
-      strncpy (parms->key_p, value, MAX_CONF_LEN);
-    else if (strcmp(name, "keyu")==0)
-      strncpy (parms->key_u, value, MAX_CONF_LEN);
-    else if (strcmp(name, "keyd")==0)
-      strncpy (parms->key_d, value, MAX_CONF_LEN);
-    else if (strcmp(name, "keyl")==0)
-      strncpy (parms->key_l, value, MAX_CONF_LEN);
-    else if (strcmp(name, "keyr")==0)
-      strncpy (parms->key_r, value, MAX_CONF_LEN);
-    else if (strcmp(name, "keyspace")==0)
-      strncpy (parms->key_space, value, MAX_CONF_LEN);
-    else if (strcmp(name, "keyc")==0)
-      strncpy (parms->key_c, value, MAX_CONF_LEN);
-    else
-      printf ("WARNING: %s/%s: Unknown name/value pair!\n",
-        name, value);
-  }
-
-  /* Close file */
-  fclose (fp);
-}
 
 void reset_stdin(void)
 {
@@ -587,47 +432,66 @@ int get_input_key(int fd)
       if ((ev[i].value == KEY_PRESS) || (ev[i].value == KEY_KEEPING_PRESSED)) {
         fprintf(stderr,"input code %d\n",ev[1].code);
         switch(ev[1].code) {
-          case KEY_0: return '0';
-          case KEY_1: return '1';
-          case KEY_2: return '2';
-          case KEY_3: return '3';
-          case KEY_4: return '4';
-          case KEY_5: return '5';
-          case KEY_6: return '6';
-          case KEY_7: return '7';
-          case KEY_8: return '8';
-          case KEY_9: return '9';
-          case KEY_H: return 'h';
-          case KEY_I: return 'i';
-          case KEY_Q: return 'q';
-          case KEY_N: return 'n';
-          case KEY_P: return 'p';
-          case KEY_PAGEUP: return 'n';
-          case KEY_PAGEDOWN: return 'p';
-          case KEY_UP: return 'u';
-          case KEY_DOWN: return 'd';
-          case KEY_LEFT: return 'l';
-          case KEY_RIGHT: return 'r';
-          case KEY_O: return 'o';
-          /* Additional defines from config */
-/* MCE remote defines */
-          case 513: return '1';
-          case 514: return '2';
-          case 515: return '3';
-          case 516: return '4';
-          case 517: return '5';
-          case 518: return '6';
-          case 519: return '7';
-          case 520: return '8';
-          case 521: return '9';
-          case 512: return '0';
-          case 119: return ' ';
-          case 207: return ' ';
-          case 402: return 'n';
-          case 403: return 'p';
-          case 358: return 'i';
-          case 128: return 'o';
-          case 142: return 'q';
+          case KEY_0:
+          case 512:
+            return '0';
+          case KEY_1:
+          case 513:
+            return '1';
+          case KEY_2:
+          case 514:
+            return '2';
+          case KEY_3:
+          case 515:
+            return '3';
+          case KEY_4:
+          case 516:
+            return '4';
+          case KEY_5:
+          case 517:
+            return '5';
+          case KEY_6:
+          case 518:
+            return '6';
+          case KEY_7:
+          case 519:
+            return '7';
+          case KEY_8:
+          case 520:
+            return '8';
+          case KEY_9:
+          case 521:
+            return '9';
+          case KEY_H:
+            return 'h';
+          case KEY_I:
+          case 358:
+            return 'i';
+          case KEY_Q:
+          case 142:
+            return 'q';
+          case KEY_N:
+          case KEY_PAGEUP:
+          case 402:
+            return 'n';
+          case KEY_P:
+          case KEY_PAGEDOWN:
+          case 403:
+            return 'p';
+          case KEY_UP:
+            return 'u';
+          case KEY_DOWN:
+            return 'd';
+          case KEY_LEFT:
+            return 'l';
+          case KEY_RIGHT:
+            return 'r';
+          case KEY_O:
+          case 128:
+            return 'o';
+          case 119:
+          case 207:
+            return ' ';
    
           default: break;
         }
@@ -653,6 +517,7 @@ int main(int argc, char* argv[])
     int inputfd;
     char inputname[256] = "Unknown";
     char *inputdevice = "/dev/input/event0";
+    int curr_streaming = 1;
 
     htsp.host = NULL;
     htsp.ip = NULL;
@@ -677,9 +542,9 @@ int main(int argc, char* argv[])
     parse_config (&parms);
     fprintf(stderr,"Final values:\n");
     fprintf(stderr,"  ip: %s, port: %s, user: %s, pass: %s\n",
-    parms.tvh_serverip, parms.tvh_serverport, parms.tvh_username, parms.tvh_password);
-    htsp.host = parms.tvh_serverip;
-    htsp.port = atoi(parms.tvh_serverport);
+    parms.host, parms.port, parms.username, parms.password);
+    htsp.host = parms.host;
+    htsp.port = atoi(parms.port);
 
     // Still no value for htsp.host htsp.port so try avahi
     if (htsp.host == NULL || htsp.port == NULL) {
@@ -737,11 +602,7 @@ int main(int argc, char* argv[])
         return 2;
     }
 
-    if (argc==4) { channel = atoi(argv[3]); }
-    if (parms.initial_channel)
-        channel = atoi(parms.initial_channel);
-
-    res = htsp_login(&htsp, parms.tvh_username, parms.tvh_password);
+    res = htsp_login(&htsp, parms.username, parms.password);
 
     if (res > 0) {
       fprintf(stderr,"Could not login to server\n");
@@ -797,6 +658,20 @@ int main(int argc, char* argv[])
       fprintf(stderr,"No channels available, exiting.\n");
       exit(1);
     }
+
+    /* Initial channel choice */
+    if (argc==4) { channel = atoi(argv[3]); }
+    if (parms.initial_channel)
+        channel = atoi(parms.initial_channel);
+    user_channel_id = channels_getid(channel);
+    if (user_channel_id < 0)
+      fprintf(stderr," Channels_getfirst\n");
+      user_channel_id = channels_getfirst();
+      fprintf(stderr,"Channel %d\n",user_channel_id);
+
+    fprintf(stderr,"Startup streaming %s\n", parms.startup_streaming);
+    if(parms.startup_streaming == 1)
+      actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
 
     /* We have finished the initial connection and sync, now start the
        receiving thread */
@@ -989,14 +864,22 @@ next_channel:
             break;
 
           case 'o':
-            // Stop streaming channel and go idle
-	    osd_alert(&osd, "Stopping current subscription");
-	    htsp_lock(&htsp);
-	    if (htsp.subscriptionId > 0) {
-	      res = htsp_create_message(&msg,HMF_STR,"method","unsubscribe",HMF_S64,"subscriptionId",htsp.subscriptionId,HMF_NULL);
-	      res = htsp_send_message(&htsp,&msg);
-	      htsp_destroy_message(&msg);
-	    }
+            // Toggle stop/start streaming channel
+            if (curr_streaming == 1) {
+              htsp_lock(&htsp);
+	      if (htsp.subscriptionId > 0) {
+                osd_alert(&osd, "Stopping current subscription");
+	        res = htsp_create_message(&msg,HMF_STR,"method","unsubscribe",HMF_S64,"subscriptionId",htsp.subscriptionId,HMF_NULL);
+	        res = htsp_send_message(&htsp,&msg);
+	        htsp_destroy_message(&msg);
+              };
+              curr_streaming = 0;
+	    } else {
+              osd_alert(&osd, "Restarting subscription");
+              curr_streaming = 1;
+              actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
+              goto change_channel;
+            };
 	    htsp_unlock(&htsp);
             break;
 

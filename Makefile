@@ -1,7 +1,7 @@
 -include config.mak
 
 SRCS = sha1.c acodec_omx.c avahi.c avl.c channels.c codec.c events.c htsp.c \
-       pidvbip.c omx_utils.c osd.c tiresias_pcfont.c vcodec_omx.c vo_pi.c
+       config.c pidvbip.c omx_utils.c osd.c tiresias_pcfont.c vcodec_omx.c vo_pi.c
 BIN  = pidvbip
 
 DEPMM = -MM

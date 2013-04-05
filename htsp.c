@@ -445,7 +445,6 @@ int htsp_login(struct htsp_t* htsp, char* tvh_user, char* tvh_pass)
                            HMF_STR,"username",tvh_user,
                            HMF_BIN,"digest",20,d,
                            HMF_NULL);
-  fprintf(stderr,"Sending auth digest (%d)\n",d);
   if ((res = htsp_send_message(htsp,&msg)) > 0) {
     fprintf(stderr,"Could not send message (authenticate)\n");
     return 1;

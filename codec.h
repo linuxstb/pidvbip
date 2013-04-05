@@ -6,6 +6,7 @@
 
 #include "vo_pi.h"
 #include "omx_utils.h"
+#include "htsp.h"
 
 struct codec_init_args_t
 {
@@ -57,6 +58,14 @@ struct codec_t
   int height;
   OMX_AUDIO_CODINGTYPE acodectype;
   int first_packet;
+};
+
+struct codecs_t {
+  struct codec_t vcodec;
+  struct codec_t acodec; // Audio
+  struct codec_t scodec; // Subtitles
+  struct htsp_subscription_t subscription;  // Details of the currently tuned channel
+  int is_paused;
 };
 
 void codec_queue_init(struct codec_t* codec);

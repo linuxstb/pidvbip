@@ -661,29 +661,22 @@ int main(int argc, char* argv[])
     }
 
     /* Initial channel choice */
-    if (argc==4) { channel = atoi(argv[3]); }
-    if (parms.initial_channel)
-        channel = atoi(parms.initial_channel);
-    user_channel_id = channels_getid(channel);
-    if (user_channel_id < 0)
-      fprintf(stderr," Channels_getfirst\n");
-      user_channel_id = channels_getfirst();
-      fprintf(stderr,"Channel %d\n",user_channel_id);
-
     fprintf(stderr,"Startup streaming %s\n", parms.startup_streaming);
-    if(parms.startup_streaming == 1)
+    if(parms.startup_streaming == 1) {
+      if (argc==4) { channel = atoi(argv[3]); }
+      if (parms.initial_channel)
+          channel = atoi(parms.initial_channel);
+      user_channel_id = channels_getid(channel);
+      if (user_channel_id < 0)
+        fprintf(stderr," Channels_getfirst\n");
+        user_channel_id = channels_getfirst();
+        fprintf(stderr,"Channel %d\n",user_channel_id);
       actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
+    };
 
     /* We have finished the initial connection and sync, now start the
        receiving thread */
     pthread_create(&htspthread,NULL,(void * (*)(void *))htsp_receiver_thread,(void*)&codecs);
-
-    user_channel_id = channels_getid(channel);
-    if (user_channel_id < 0)
-      user_channel_id = channels_getfirst();
-      fprintf(stderr,"Channel %d\n",user_channel_id);
-
-    actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
 
     memset(&codecs.vcodec,0,sizeof(codecs.vcodec));
     memset(&codecs.acodec,0,sizeof(codecs.acodec));

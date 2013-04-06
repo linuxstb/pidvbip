@@ -146,7 +146,7 @@ int avplay(struct codecs_t* codecs, const char* url)
     fprintf(stderr,"Unsupported video codec\n");
     exit(1);
   }
-  if ((codecs->vcodec.acodectype = map_acodec(fmt_ctx->streams[audio_stream_idx]->codec->codec_id)) == -1) {
+  if ((codecs->acodec.acodectype = map_acodec(fmt_ctx->streams[audio_stream_idx]->codec->codec_id)) == -1) {
     fprintf(stderr,"Unsupported audio codec\n");
     exit(1);
   }

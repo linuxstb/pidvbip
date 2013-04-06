@@ -36,6 +36,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include <interface/vmcs_host/vcgencmd.h>
 #include <bcm_host.h>
 
+#include "configfile.h"
 #include "vcodec_omx.h"
 #include "acodec_omx.h"
 #include "sha1.h"

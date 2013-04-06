@@ -25,7 +25,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include <stdio.h>
 #include <string.h>
 
-#include <config.h>
+#include <configfile.h>
 
 char *
 trim (char * s)

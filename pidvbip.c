@@ -662,15 +662,17 @@ int main(int argc, char* argv[])
 
     /* Initial channel choice */
     fprintf(stderr,"Startup streaming %s\n", parms.startup_streaming);
-    if(parms.startup_streaming == 1) {
+    if(atoi(parms.startup_streaming) == 1) {
       if (argc==4) { channel = atoi(argv[3]); }
       if (parms.initial_channel)
           channel = atoi(parms.initial_channel);
+
       user_channel_id = channels_getid(channel);
-      if (user_channel_id < 0)
+      if (user_channel_id < 0) {
         fprintf(stderr," Channels_getfirst\n");
         user_channel_id = channels_getfirst();
-        fprintf(stderr,"Channel %d\n",user_channel_id);
+      };
+      fprintf(stderr,"Channel %d\n",user_channel_id);
       actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
     };
 

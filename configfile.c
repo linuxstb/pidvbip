@@ -42,8 +42,7 @@ trim (char * s)
   while ( (isspace (*s1)) && (s1 < s2) )
     s1++;
 
-  /* Copy finished string */
-  /* strcpy (s, s1);*/
+  /* Memmove (safer) finished string */
   memmove (s, s1, strlen(s1) + 1);
   return s;
 };
@@ -53,10 +52,15 @@ parse_config (struct configfile_parameters * parms)
 {
   char *s, buff[256];
   FILE *fp = fopen ("pidvbip.conf", "r");
-  if (fp == NULL)
-  {
-    return;
-  }
+  if (fp == NULL) {
+    FILE *fp = fopen ("/flash/pidvbip.conf", "r");
+    if (fp == NULL) {
+      FILE *fp = fopen ("$HOME/.pidvbip", "r");
+      if (fp == NULL) {
+        return;
+      };
+    };
+  };
 
   /* Read next line */
   while ((s = fgets (buff, sizeof buff, fp)) != NULL)

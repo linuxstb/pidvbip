@@ -520,14 +520,6 @@ int main(int argc, char* argv[])
     pthread_mutex_init(&omxpipe.omx_active_mutex, NULL);
     pthread_cond_init(&omxpipe.omx_active_cv, NULL);
 
-    // Read default config from /boot/config.txt first
-    if (read_config(NULL,&htsp.host,&htsp.port) < 0) {
-      fprintf(stderr,"ERROR: Could not read from config file\n");
-      fprintf(stderr,"Create config.txt in /boot/pidvbip.txt containing one line with the\n");
-      fprintf(stderr,"host and port of the server separated by a space.\n");
-      exit(1);
-    };
-
     // Read config values from pidvbip.conf
     struct configfile_parameters parms;
     fprintf(stderr,"Initializing parameters to default values\n");
@@ -536,7 +528,7 @@ int main(int argc, char* argv[])
     parse_config (&parms);
     fprintf(stderr,"Final values:\n");
     fprintf(stderr,"  ip: %s, port: %s, user: %s, pass: %s\n",
-    parms.host, parms.port, parms.username, parms.password);
+       parms.host, parms.port, parms.username, parms.password);
     htsp.host = parms.host;
     htsp.port = atoi(parms.port);
 
@@ -545,24 +537,23 @@ int main(int argc, char* argv[])
       avahi_discover_tvh(&htsp);
     };
 
-      if (htsp.host == NULL) {
+    if (htsp.host == NULL) {
         /* No avahi, try to read default config from /boot/config.txt */
         if (read_config(NULL,&htsp.host,&htsp.port) < 0) {
           fprintf(stderr,"ERROR: Could not read from config file\n");
           fprintf(stderr,"Create config.txt in /boot/pidvbip.txt containing one line with the\n");
           fprintf(stderr,"host and port of the server separated by a space.\n");
           exit(1);
-        }
-      }
-//    } else if (argc==2) {
+        };
+    } else if (argc > 2) {
 //      /* One argument - config file */
-    } else if ((argc != 3) && (argc != 4) && (argc != 5)) {
+      if ((argc != 3) && (argc != 4) && (argc != 5)) {
         usage();
         return 1;
       } else {
         htsp.host = argv[1];
         htsp.port = atoi(argv[2]);
-      }
+      };
     };
 
     if (htsp.host == NULL || htsp.port == NULL) {

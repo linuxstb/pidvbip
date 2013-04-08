@@ -28,6 +28,7 @@ Usage: $0 [options]
 
 Options:
     --disable-libcec            disable libcec support
+    --disable-libavformat       disable libavformat support
     --enable-debug              enable debugging symbols
     --vc-sdk-path=VC_SDK_PATH   path to VideoCore SDK [/opt/vc]
 EOF
@@ -37,6 +38,7 @@ EOF
 
 avahi="auto"
 libcec="auto"
+libavformat="auto"
 debug="no"
 raspberrypi="yes"
 
@@ -57,6 +59,9 @@ for opt do
             ;;
         --disable-libcec)
             libcec="no"
+            ;;
+        --disable-libavformat)
+            libavformat="no"
             ;;
         --vc-sdk-path=*)
             VC_SDK_PATH="$optarg"
@@ -127,6 +132,21 @@ if [ "$libcec" = "auto" ] ; then
     fi
 fi
 
+if [ "$libavformat" = "auto" ] ; then
+    libavformat="no"
+    if pkg-config --exists libavformat &>/dev/null ; then
+        AVFORMAT_LIBS="$AVFORMAT_LIBS $(pkg-config --libs libavformat)"
+        AVFORMAT_CFLAGS="$AVFORMAT_CFLAGS $(pkg-config --cflags libavformat)"
+    fi
+    [ -z "$AVFORMAT_LIBS" ] &&  AVFORMAT_LIBS="-lavformat"
+
+    # TODO: Check libavformat actually works
+    libavformat="yes"
+    LDFLAGS="$AVFORMAT_LIBS $LDFLAGS"
+    CFLAGS="$AVFORMAT_CFLAGS $CFLAGS"
+    define HAVE_LIBAVFORMAT
+fi
+
 if [ "$avahi" = "auto" ] ; then
     avahi="no"
     if pkg-config --exists avahi-client &>/dev/null ; then
@@ -187,6 +207,7 @@ cat <<EOF
 Configuration:
   avahi:            $avahi
   libcec:           $libcec
+  libavformat:      $libavformat
   debug enabled:    $debug
   raspberrypi:      $raspberrypi
 EOF

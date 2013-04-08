@@ -47,15 +47,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "osd.h"
 #include "avahi.h"
 #include "cec.h"
+#include "avplay.h"
 #include "omx_utils.h"
-
-struct codecs_t {
-  struct codec_t vcodec;
-  struct codec_t acodec; // Audio
-  struct codec_t scodec; // Subtitles
-  struct htsp_subscription_t subscription;  // Details of the currently tuned channel
-  int is_paused;
-};
 
 struct omx_pipeline_t omxpipe;
 
@@ -552,8 +545,18 @@ int main(int argc, char* argv[])
       avahi_discover_tvh(&htsp);
     };
 
-    if (argc > 2) {
-      if ((argc != 3) && (argc != 4)) {
+      if (htsp.host == NULL) {
+        /* No avahi, try to read default config from /boot/config.txt */
+        if (read_config(NULL,&htsp.host,&htsp.port) < 0) {
+          fprintf(stderr,"ERROR: Could not read from config file\n");
+          fprintf(stderr,"Create config.txt in /boot/pidvbip.txt containing one line with the\n");
+          fprintf(stderr,"host and port of the server separated by a space.\n");
+          exit(1);
+        }
+      }
+//    } else if (argc==2) {
+//      /* One argument - config file */
+    } else if ((argc != 3) && (argc != 4) && (argc != 5)) {
         usage();
         return 1;
       } else {
@@ -688,6 +691,10 @@ int main(int argc, char* argv[])
     codecs.vcodec.acodec = &codecs.acodec;
     vcodec_omx_init(&codecs.vcodec, &omxpipe);
     acodec_omx_init(&codecs.acodec, &omxpipe);
+
+#ifdef HAVE_LIBAVFORMAT
+    //avplay(&codecs, argv[4]);
+#endif
 
 next_channel:
     osd_blank_video(&osd,0); /* Don't blank the screen for now - leave the transition visbible for debugging */

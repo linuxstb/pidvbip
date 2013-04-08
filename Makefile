@@ -12,6 +12,10 @@ ifneq ($(findstring HAVE_LIBCEC 1, $(CONFIG)),)
   SRCS += cec.c
 endif
 
+ifneq ($(findstring HAVE_LIBAVFORMAT 1, $(CONFIG)),)
+  SRCS += avplay.c
+endif
+
 OBJS = $(SRCS:%.c=%.o)
 
 # disable asserts

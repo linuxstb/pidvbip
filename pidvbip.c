@@ -36,8 +36,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include <interface/vmcs_host/vcgencmd.h>
 #include <bcm_host.h>
 
+#include "configfile.h"
 #include "vcodec_omx.h"
 #include "acodec_omx.h"
+#include "sha1.h"
 #include "htsp.h"
 #include "channels.h"
 #include "events.h"
@@ -424,28 +426,67 @@ int get_input_key(int fd)
       if ((ev[i].value == KEY_PRESS) || (ev[i].value == KEY_KEEPING_PRESSED)) {
         fprintf(stderr,"input code %d\n",ev[1].code);
         switch(ev[1].code) {
-          case KEY_0: return '0';
-          case KEY_1: return '1';
-          case KEY_2: return '2';
-          case KEY_3: return '3';
-          case KEY_4: return '4';
-          case KEY_5: return '5';
-          case KEY_6: return '6';
-          case KEY_7: return '7';
-          case KEY_8: return '8';
-          case KEY_9: return '9';
-          case KEY_H: return 'h';
-          case KEY_I: return 'i';
-          case KEY_Q: return 'q';
-          case KEY_N: return 'n';
-          case KEY_P: return 'p';
-          case KEY_PAGEUP: return 'n';
-          case KEY_PAGEDOWN: return 'p';
-          case KEY_UP: return 'u';
-          case KEY_DOWN: return 'd';
-          case KEY_LEFT: return 'l';
-          case KEY_RIGHT: return 'r';
-    
+          case KEY_0:
+          case 512:
+            return '0';
+          case KEY_1:
+          case 513:
+            return '1';
+          case KEY_2:
+          case 514:
+            return '2';
+          case KEY_3:
+          case 515:
+            return '3';
+          case KEY_4:
+          case 516:
+            return '4';
+          case KEY_5:
+          case 517:
+            return '5';
+          case KEY_6:
+          case 518:
+            return '6';
+          case KEY_7:
+          case 519:
+            return '7';
+          case KEY_8:
+          case 520:
+            return '8';
+          case KEY_9:
+          case 521:
+            return '9';
+          case KEY_H:
+            return 'h';
+          case KEY_I:
+          case 358:
+            return 'i';
+          case KEY_Q:
+          case 142:
+            return 'q';
+          case KEY_N:
+          case KEY_PAGEUP:
+          case 402:
+            return 'n';
+          case KEY_P:
+          case KEY_PAGEDOWN:
+          case 403:
+            return 'p';
+          case KEY_UP:
+            return 'u';
+          case KEY_DOWN:
+            return 'd';
+          case KEY_LEFT:
+            return 'l';
+          case KEY_RIGHT:
+            return 'r';
+          case KEY_O:
+          case 128:
+            return 'o';
+          case 119:
+          case 207:
+            return ' ';
+   
           default: break;
         }
       }
@@ -470,6 +511,7 @@ int main(int argc, char* argv[])
     int inputfd;
     char inputname[256] = "Unknown";
     char *inputdevice = "/dev/input/event0";
+    int curr_streaming = 1;
 
     htsp.host = NULL;
     htsp.ip = NULL;
@@ -478,28 +520,49 @@ int main(int argc, char* argv[])
     pthread_mutex_init(&omxpipe.omx_active_mutex, NULL);
     pthread_cond_init(&omxpipe.omx_active_cv, NULL);
 
-    if (argc == 1) {
-      /* No arguments, try avahi discovery */
-      avahi_discover_tvh(&htsp);
+    // Read config values from pidvbip.conf
+    struct configfile_parameters parms;
+    fprintf(stderr,"Initializing parameters to default values\n");
+    /* init_parameters (&parms); */
+    fprintf(stderr,"Reading config file\n");
+    parse_config (&parms);
+    fprintf(stderr,"Final values:\n");
+    fprintf(stderr,"  ip: %s, port: %s, user: %s, pass: %s\n",
+       parms.host, parms.port, parms.username, parms.password);
+    htsp.host = parms.host;
+    htsp.port = atoi(parms.port);
 
-      if (htsp.host == NULL) {
+    // Still no value for htsp.host htsp.port so try avahi
+    if (htsp.host == NULL || htsp.port == NULL) {
+      avahi_discover_tvh(&htsp);
+    };
+
+    if (htsp.host == NULL) {
         /* No avahi, try to read default config from /boot/config.txt */
         if (read_config(NULL,&htsp.host,&htsp.port) < 0) {
           fprintf(stderr,"ERROR: Could not read from config file\n");
           fprintf(stderr,"Create config.txt in /boot/pidvbip.txt containing one line with the\n");
           fprintf(stderr,"host and port of the server separated by a space.\n");
           exit(1);
-        }
-      }
-//    } else if (argc==2) {
+        };
+    } else if (argc > 2) {
 //      /* One argument - config file */
-    } else if ((argc != 3) && (argc != 4) && (argc != 5)) {
+      if ((argc != 3) && (argc != 4) && (argc != 5)) {
         usage();
         return 1;
-    } else {
+      } else {
         htsp.host = argv[1];
         htsp.port = atoi(argv[2]);
-    }
+      };
+    };
+
+    if (htsp.host == NULL || htsp.port == NULL) {
+      fprintf(stderr,"ERROR: Could not obtain host or port for TVHeadend\n");
+      fprintf(stderr,"       Please ensure config file or cmd-line params\n");
+      fprintf(stderr,"       are provided and try again\n");
+      usage();
+      exit(1);
+    };
 
     fprintf(stderr,"Using host \"%s:%d\"\n",htsp.host,htsp.port);
     bcm_host_init();
@@ -534,15 +597,13 @@ int main(int argc, char* argv[])
         return 2;
     }
 
-    if (argc==4) { channel = atoi(argv[3]); }
-
-    res = htsp_login(&htsp);
+    res = htsp_login(&htsp, parms.username, parms.password);
 
     if (res > 0) {
       fprintf(stderr,"Could not login to server\n");
       return 3;
     }
-    osd_alert(&osd, "Synchronising...");
+    osd_alert(&osd, "Loading channels...");
     res = htsp_create_message(&msg,HMF_STR,"method","enableAsyncMetadata",HMF_S64,"epg",1,HMF_NULL);
     res = htsp_send_message(&htsp,&msg);
     htsp_destroy_message(&msg);
@@ -593,15 +654,25 @@ int main(int argc, char* argv[])
       exit(1);
     }
 
+    /* Initial channel choice */
+    fprintf(stderr,"Startup streaming %s\n", parms.startup_streaming);
+    if(atoi(parms.startup_streaming) == 1) {
+      if (argc==4) { channel = atoi(argv[3]); }
+      if (parms.initial_channel)
+          channel = atoi(parms.initial_channel);
+
+      user_channel_id = channels_getid(channel);
+      if (user_channel_id < 0) {
+        fprintf(stderr," Channels_getfirst\n");
+        user_channel_id = channels_getfirst();
+      };
+      fprintf(stderr,"Channel %d\n",user_channel_id);
+      actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
+    };
+
     /* We have finished the initial connection and sync, now start the
        receiving thread */
     pthread_create(&htspthread,NULL,(void * (*)(void *))htsp_receiver_thread,(void*)&codecs);
-
-    user_channel_id = channels_getid(channel);
-    if (user_channel_id < 0)
-      user_channel_id = channels_getfirst();
-
-    actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
 
     memset(&codecs.vcodec,0,sizeof(codecs.vcodec));
     memset(&codecs.acodec,0,sizeof(codecs.acodec));
@@ -784,6 +855,26 @@ next_channel:
           case 'r':
             do_pause(&codecs,1);
             htsp_send_skip(&htsp,30);     // +30 seconds
+            break;
+
+          case 'o':
+            // Toggle stop/start streaming channel
+            if (curr_streaming == 1) {
+              htsp_lock(&htsp);
+	      if (htsp.subscriptionId > 0) {
+                osd_alert(&osd, "Stopping current subscription");
+	        res = htsp_create_message(&msg,HMF_STR,"method","unsubscribe",HMF_S64,"subscriptionId",htsp.subscriptionId,HMF_NULL);
+	        res = htsp_send_message(&htsp,&msg);
+	        htsp_destroy_message(&msg);
+              };
+              curr_streaming = 0;
+	    } else {
+              osd_alert(&osd, "Restarting subscription");
+              curr_streaming = 1;
+              actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
+              goto change_channel;
+            };
+	    htsp_unlock(&htsp);
             break;
 
             break;

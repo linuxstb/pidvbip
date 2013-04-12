@@ -684,7 +684,10 @@ int main(int argc, char* argv[])
     acodec_omx_init(&codecs.acodec, &omxpipe);
 
 #ifdef HAVE_LIBAVFORMAT
-    //avplay(&codecs, argv[4]);
+    if (argc == 5) {
+      /* Temporary hack to test avplay() */
+      avplay(&codecs, argv[4]);
+    }
 #endif
 
 next_channel:

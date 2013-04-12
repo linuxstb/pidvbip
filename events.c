@@ -16,7 +16,7 @@
 static struct avl_tree events;
 static struct event_t* searched_event;
 #else
-#define MAX_EVENT_ID 3000000
+#define MAX_EVENT_ID 12000000
 static struct event_t* events[MAX_EVENT_ID+1];
 #endif
 

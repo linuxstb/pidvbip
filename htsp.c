@@ -30,9 +30,18 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include <sys/select.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <string.h>
 
+#include "sha1.h"
 #include "htsp.h"
 #include "debug.h"
+
+typedef struct HTSSHA1 {
+    uint64_t count;
+    uint8_t buffer[64];
+    uint32_t state[5];
+} HTSSHA1;
+
 
 void htsp_init(struct htsp_t* htsp)
 {
@@ -389,10 +398,14 @@ int htsp_recv_message(struct htsp_t* htsp, struct htsp_message_t* msg, int timeo
   return 0;
 }
 
-int htsp_login(struct htsp_t* htsp)
+int htsp_login(struct htsp_t* htsp, char* tvh_user, char* tvh_pass)
 {
   struct htsp_message_t msg;
   int res;
+  HTSSHA1 *shactx = (HTSSHA1*)malloc(hts_sha1_size);
+  uint8_t d[20];
+  unsigned char* chall;
+  int chall_len = 0,res_access = 0;
 
   htsp_create_message(&msg,HMF_STR,"method","hello",
                            HMF_STR,"clientname","pidvbip",
@@ -412,10 +425,42 @@ int htsp_login(struct htsp_t* htsp)
   res = htsp_recv_message(htsp,&msg,0);
 
   if (res > 0) {
-    fprintf(stderr,"Error receiving login response\n");
+    fprintf(stderr,"Error receiving hello response\n");
     return 1;
+  } else {
+    htsp_get_string(&msg, "method");
+    htsp_get_bin(&msg, "challenge", &chall, &chall_len);
   }
 
+  htsp_destroy_message(&msg);
+
+  // Now authenticate
+  fprintf(stderr,"Authenticating with user: %s pass: %s\n",tvh_user,tvh_pass);
+  hts_sha1_init(shactx);
+  hts_sha1_update(shactx, (const uint8_t *)tvh_pass, strlen(tvh_pass));
+  hts_sha1_update(shactx, (const uint8_t *)chall, chall_len);
+  hts_sha1_final(shactx, d);
+  htsp_create_message(&msg,HMF_STR,"method","authenticate",
+                           HMF_STR,"username",tvh_user,
+                           HMF_BIN,"digest",20,d,
+                           HMF_NULL);
+  if ((res = htsp_send_message(htsp,&msg)) > 0) {
+    fprintf(stderr,"Could not send message (authenticate)\n");
+    return 1;
+  };
+  htsp_destroy_message(&msg);
+  res = htsp_recv_message(htsp,&msg,0);
+  if (res > 0) {
+    fprintf(stderr,"Error receiving login response\n");
+    return 1;
+  } else {
+    htsp_get_int(&msg, "noaccess",&res_access);
+    fprintf(stderr,"Received htsp (login): %d - noaccess %d\n",res,res_access);
+    if (res_access == 1) {
+      fprintf(stderr,"Login FAILURE - No access with username and password\n");
+      return 1;
+    };
+  };
   htsp_destroy_message(&msg);
 
   return 0;

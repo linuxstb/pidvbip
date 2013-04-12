@@ -72,15 +72,14 @@ static int create_tcp_socket()
 static char *get_ip(char *host)
 {
   struct hostent *hent;
-  int iplen = 15; //XXX.XXX.XXX.XXX
-  char *ip = (char *)malloc(iplen+1);
-  memset(ip, 0, iplen+1);
+  char *ip = calloc(INET_ADDRSTRLEN,1);
+
   if((hent = gethostbyname(host)) == NULL)
   {
     herror("Can't get IP");
     exit(1);
   }
-  if(inet_ntop(AF_INET, (void *)hent->h_addr_list[0], ip, iplen) == NULL)
+  if(inet_ntop(AF_INET, (void *)hent->h_addr_list[0], ip, INET_ADDRSTRLEN) == NULL)
   {
     perror("Can't resolve host");
     exit(1);

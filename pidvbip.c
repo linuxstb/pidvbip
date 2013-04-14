@@ -330,46 +330,6 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
   return 0;
 }
 
-int read_config(char* configfile,char** host, int* port)
-{
-  int fd = -1;
-  int res;
-  char buf[1024];
-
-  if (configfile)
-    fd = open(configfile,O_RDONLY);
-
-  if (fd < 0)
-    fd = open("/boot/pidvbip.txt",O_RDONLY);  /* FAT partition in Raspbian */
-
-  if (fd < 0)
-    fd = open("/flash/pidvbip.txt",O_RDONLY); /* FAT partition in OpenELEC */
-
-  if (fd < 0) {
-    fprintf(stderr,"Could not open config file\n");
-    return -1;
-  }
-
-  res = read(fd, buf, sizeof(buf)-1);
-  buf[1023] = 0;
-  close(fd);
-
-  if (res < 0) {
-    fprintf(stderr,"Error reading from config file\n");
-    return -1;
-  }
-
-  *host = malloc(1024);
-  res = sscanf(buf,"%s %d",*host,port);
-
-  if (res != 2) {
-    fprintf(stderr,"Error parsing config file\n");
-    return -1;
-  }
-
-  return 0;
-}
-
 void usage(void)
 {
   fprintf(stderr,"pidvbip - tvheadend client for the Raspberry Pi\n");
@@ -523,6 +483,7 @@ int main(int argc, char* argv[])
     // Read config values from pidvbip.conf
     struct configfile_parameters parms;
     memset(&parms, 0, sizeof(parms));
+    parms.startup_streaming = 1;  /* Default to on */
 
     fprintf(stderr,"Initializing parameters to default values\n");
     /* init_parameters (&parms); */
@@ -531,8 +492,6 @@ int main(int argc, char* argv[])
     fprintf(stderr,"Final values:\n");
     fprintf(stderr,"  ip: %s, port: %d, user: %s, pass: %s\n",
        parms.host, parms.port, parms.username, parms.password);
-    htsp.host = parms.host;
-    htsp.port = parms.port;
 
     fprintf(stderr,"audio_dest=%s\n",parms.audio_dest);
     if ((strcmp(parms.audio_dest,"hdmi")) && (strcmp(parms.audio_dest,"local"))) {
@@ -540,31 +499,26 @@ int main(int argc, char* argv[])
       strcpy(parms.audio_dest,"hdmi");
     }
 
+    /* Parse command-line arguments, these override anything in the config file */
+    if (argc > 2) {
+      strncpy(parms.host, argv[1], sizeof(parms.host));
+      parms.host[sizeof(parms.host)-1] = 0;
+      parms.port = atoi(argv[2]);
+      if (argc > 3) {
+        parms.initial_channel = atoi(argv[3]);
+	fprintf(stderr,"Initial_channel = %d\n",parms.initial_channel);
+      }
+    };
+
     // Still no value for htsp.host htsp.port so try avahi
-    if (htsp.host == NULL || htsp.port == NULL) {
+    if (parms.host[0] == 0 || parms.port == 0) {
       avahi_discover_tvh(&htsp);
+    } else {
+      htsp.host = parms.host;
+      htsp.port = parms.port;
     };
 
-    if (htsp.host == NULL) {
-        /* No avahi, try to read default config from /boot/config.txt */
-        if (read_config(NULL,&htsp.host,&htsp.port) < 0) {
-          fprintf(stderr,"ERROR: Could not read from config file\n");
-          fprintf(stderr,"Create config.txt in /boot/pidvbip.txt containing one line with the\n");
-          fprintf(stderr,"host and port of the server separated by a space.\n");
-          exit(1);
-        };
-    } else if (argc > 2) {
-//      /* One argument - config file */
-      if ((argc != 3) && (argc != 4) && (argc != 5)) {
-        usage();
-        return 1;
-      } else {
-        htsp.host = argv[1];
-        htsp.port = atoi(argv[2]);
-      };
-    };
-
-    if (htsp.host == NULL || htsp.port == NULL) {
+    if ((htsp.host == NULL) || (htsp.host[0] == 0 || htsp.port == 0)) {
       fprintf(stderr,"ERROR: Could not obtain host or port for TVHeadend\n");
       fprintf(stderr,"       Please ensure config file or cmd-line params\n");
       fprintf(stderr,"       are provided and try again\n");
@@ -665,10 +619,8 @@ int main(int argc, char* argv[])
     /* Initial channel choice */
     fprintf(stderr,"Startup streaming %d\n", parms.startup_streaming);
     if(parms.startup_streaming == 1) {
-      if (argc==4) { channel = atoi(argv[3]); }
       if (parms.initial_channel)
           channel = parms.initial_channel;
-
       user_channel_id = channels_getid(channel);
       if (user_channel_id < 0) {
         fprintf(stderr," Channels_getfirst\n");

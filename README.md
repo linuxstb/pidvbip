@@ -56,15 +56,17 @@ Usage
 
 There are three ways for pidvbip to locate the tvheadend server:
 
-1) Using avahi.  To do this you need to ensure that tvheadend is
-   compiled with avahi support and avahi-daemon is running on both the
-   machine running tvheadend and the Pi running pidvbip.
+1) Via the command line - e.g. ./pidvbip mypc 9982
 
-2) Via the config file /boot/pidvbip.txt If avahi fails to locate a
-   server, pidvbip will look in this file.  The first line of this
-   file must contain the hostname and port, separated by a space.
+2) Via the config file pidvbip.conf.  See pidvbip.conf.example for 
+   the list of possibe configuration values.
 
-3) Via the command line - e.g. ./pidvbip mypc 9982
+3) If no host and port are configured via the command-line or the
+   config file, pidvbip will use avahi.  To do this you need to ensure
+   that tvheadend is compiled with avahi support and avahi-daemon is
+   running on both the machine running tvheadend and the Pi running
+   pidvbip.
+
 
 As soon as pidvbip starts it will connect to tvheadend, download the
 channel list and all EPG data, and then tune to the first channel in

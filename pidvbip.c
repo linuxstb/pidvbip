@@ -522,6 +522,8 @@ int main(int argc, char* argv[])
 
     // Read config values from pidvbip.conf
     struct configfile_parameters parms;
+    memset(&parms, 0, sizeof(parms));
+
     fprintf(stderr,"Initializing parameters to default values\n");
     /* init_parameters (&parms); */
     fprintf(stderr,"Reading config file\n");
@@ -531,6 +533,12 @@ int main(int argc, char* argv[])
        parms.host, parms.port, parms.username, parms.password);
     htsp.host = parms.host;
     htsp.port = parms.port;
+
+    fprintf(stderr,"audio_dest=%s\n",parms.audio_dest);
+    if ((strcmp(parms.audio_dest,"hdmi")) && (strcmp(parms.audio_dest,"local"))) {
+      fprintf(stderr,"Defaulting audio_dest to hdmi\n");
+      strcpy(parms.audio_dest,"hdmi");
+    }
 
     // Still no value for htsp.host htsp.port so try avahi
     if (htsp.host == NULL || htsp.port == NULL) {
@@ -680,7 +688,7 @@ int main(int argc, char* argv[])
     codecs.is_paused = 0;
 
     codecs.vcodec.acodec = &codecs.acodec;
-    vcodec_omx_init(&codecs.vcodec, &omxpipe);
+    vcodec_omx_init(&codecs.vcodec, &omxpipe, parms.audio_dest);
     acodec_omx_init(&codecs.acodec, &omxpipe);
 
 #ifdef HAVE_LIBAVFORMAT

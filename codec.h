@@ -12,6 +12,7 @@ struct codec_init_args_t
 {
   struct codec_t* codec;
   struct omx_pipeline_t* pipe;
+  char* audio_dest;
 };
 
 struct packet_t

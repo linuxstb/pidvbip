@@ -97,6 +97,8 @@ parse_config (struct configfile_parameters * parms)
       parms->initial_channel = atoi(value);
     else if (strcmp(name, "startup_streaming")==0)
       parms->startup_streaming = atoi(value);
+    else if (strcmp(name, "audio_dest")==0)
+      strncpy (parms->audio_dest, value, MAX_CONF_LEN);
 /* TODO future add keycode mappings */
     else if (strcmp(name, "key0")==0)
       strncpy (parms->key_0, value, MAX_CONF_LEN);

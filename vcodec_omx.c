@@ -35,6 +35,7 @@ static void* vcodec_omx_thread(struct codec_init_args_t* args)
 {
    struct codec_t* codec = args->codec;
    struct omx_pipeline_t* pipe = args->pipe;
+   char* audio_dest = args->audio_dest;
    OMX_VIDEO_CODINGTYPE coding;
    int width, height;
    struct codec_queue_t* current = NULL;
@@ -102,7 +103,7 @@ next_packet:
 
      if (coding == OMX_VIDEO_CodingUnused) {
        fprintf(stderr,"Setting up OMX pipeline... - vcodectype=%d\n",codec->vcodectype);
-       omx_setup_pipeline(pipe, codec->vcodectype);
+       omx_setup_pipeline(pipe, codec->vcodectype, audio_dest);
  
        fprintf(stderr,"Done setting up OMX pipeline.\n");
        coding = codec->vcodectype;
@@ -218,7 +219,7 @@ stop:
    return 0;
 }
 
-void vcodec_omx_init(struct codec_t* codec, struct omx_pipeline_t* pipe)
+void vcodec_omx_init(struct codec_t* codec, struct omx_pipeline_t* pipe, char* audio_dest)
 {
   codec->vcodectype = OMX_VIDEO_CodingUnused;
   codec_queue_init(codec);
@@ -226,6 +227,7 @@ void vcodec_omx_init(struct codec_t* codec, struct omx_pipeline_t* pipe)
   struct codec_init_args_t* args = malloc(sizeof(struct codec_init_args_t));
   args->codec = codec;
   args->pipe = pipe;
+  args->audio_dest = audio_dest;
 
   pthread_create(&codec->thread,NULL,(void * (*)(void *))vcodec_omx_thread,(void*)args);
 }

@@ -98,7 +98,7 @@ struct omx_pipeline_t
 };
 
 OMX_ERRORTYPE omx_init_component(struct omx_pipeline_t* pipe, struct omx_component_t* component, char* compname);
-OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTYPE video_codec);
+OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTYPE video_codec, char* audio_dest);
 void omx_teardown_pipeline(struct omx_pipeline_t* pipe);
 OMX_BUFFERHEADERTYPE *get_next_buffer(struct omx_component_t* component);
 OMX_ERRORTYPE omx_flush_tunnel(struct omx_component_t* source, int source_port, struct omx_component_t* sink, int sink_port);
@@ -109,7 +109,6 @@ OMX_ERRORTYPE omx_send_command_and_wait1(struct omx_component_t* component, OMX_
 void summarise_buffers(OMX_BUFFERHEADERTYPE *buffers);
 int omx_get_free_buffer_count(struct omx_component_t* component);
 void omx_alloc_buffers(struct omx_component_t *component, int port);
-void omx_config_pcm(struct omx_component_t* audio_render, int samplerate, int channels, int bitdepth);
 OMX_TICKS pts_to_omx(uint64_t pts);
 
 #endif

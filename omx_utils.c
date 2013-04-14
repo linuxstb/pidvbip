@@ -382,7 +382,7 @@ OMX_ERRORTYPE omx_flush_tunnel(struct omx_component_t* source, int source_port, 
   omx_send_command_and_wait(sink,OMX_CommandFlush,sink_port,NULL);
 }
 
-void omx_config_pcm(struct omx_component_t* audio_render, int samplerate, int channels, int bitdepth)
+static void omx_config_pcm(struct omx_component_t* audio_render, int samplerate, int channels, int bitdepth, char* dest)
 {
   OMX_AUDIO_PARAM_PCMMODETYPE pcm;
   int32_t s;
@@ -427,7 +427,7 @@ void omx_config_pcm(struct omx_component_t* audio_render, int samplerate, int ch
 
   OMX_CONFIG_BRCMAUDIODESTINATIONTYPE ar_dest;
   OMX_INIT_STRUCTURE(ar_dest);
-  strcpy((char *)ar_dest.sName, "hdmi");
+  strcpy((char *)ar_dest.sName, dest);
   OERR(OMX_SetConfig(audio_render->h, OMX_IndexConfigBrcmAudioDestination, &ar_dest));
 }
 
@@ -457,7 +457,7 @@ OMX_ERRORTYPE omx_init_component(struct omx_pipeline_t* pipe, struct omx_compone
 }
 
 
-OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTYPE video_codec)
+OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTYPE video_codec, char* audio_dest)
 {
   OMX_VIDEO_PARAM_PORTFORMATTYPE format;
   OMX_TIME_CONFIG_CLOCKSTATETYPE cstate;
@@ -516,7 +516,7 @@ OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTY
   param.nBufferCountActual = 32; /* Arbitrary */
   OERR(OMX_SetParameter(pipe->audio_render.h, OMX_IndexParamPortDefinition, &param));
 
-  omx_config_pcm(&pipe->audio_render, 48000, 2, 16);
+  omx_config_pcm(&pipe->audio_render, 48000, 2, 16, audio_dest);
 
   OMX_CONFIG_BOOLEANTYPE configBool;
   OMX_INIT_STRUCTURE(configBool);

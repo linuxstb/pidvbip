@@ -8,6 +8,7 @@ struct configfile_parameters
   char password[MAX_CONF_LEN];
   int initial_channel;
   int startup_streaming;
+  char audio_dest[MAX_CONF_LEN];
   char key_0[MAX_CONF_LEN];
   char key_1[MAX_CONF_LEN];
   char key_2[MAX_CONF_LEN];

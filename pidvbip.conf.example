@@ -1,8 +1,21 @@
 [general]
+
+# IP address or hostname of tvheadend server
 host=192.168.55.3
+
+# HTSP port of tvheadend server
 port=9982
+
+# Username and password if authentication is required
 username=pi
 password=pi
+
+# The first channel to be displayed
 initial_channel=605
+
+# Set to 0 to start pidvbip without starting to view a channel, 1 to
+# start streaming immediately
 startup_streaming=1
+
+# HDMI audio output = "hdmi", analogue audio output = "local"
 audio_dest=hdmi

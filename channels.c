@@ -4,22 +4,6 @@
 #include "channels.h"
 #include "events.h"
 
-struct channel_t
-{
-  int id;
-  uint32_t eventId;
-  uint32_t nextEventId;
-  int lcn;
-  int type;
-  char* name;
-  struct channel_t* next;
-  struct channel_t* prev;
-};
-
-static struct channel_t* channels;
-static struct channel_t* channels_cache;
-static int num_channels;
-
 void channels_init(void)
 {
   channels = NULL;
@@ -103,6 +87,11 @@ void channels_update(int lcn, int id, char* name, int type, uint32_t eventId, ui
     if (nextEventId) p->nextEventId = nextEventId;
   }
 }
+
+struct channel_t* channels_return_struct(void)
+{
+return channels;
+};
 
 void channels_dump(void)
 {

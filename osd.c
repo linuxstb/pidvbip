@@ -185,7 +185,7 @@ void osd_init(struct osd_t* osd)
    osd->display_height = display_height;
 
    assert(s == 0);
-   //fprintf(stderr,"Display width=%d, height=%d\n",display_width,display_height);
+   fprintf(stderr,"Display width=%d, height=%d\n",display_width,display_height);
 
    /* The main OSD image */
    s = gx_create_window(SCREEN, display_width, display_height, GRAPHICS_RESOURCE_RGBA32, &osd->img);
@@ -237,6 +237,57 @@ static void osd_draw_window(struct osd_t* osd, int x, int y, int width, int heig
    graphics_resource_fill(osd->img, x, y+height-2, width, 2, GRAPHICS_RGBA32(0xff,0xff,0xff,0xa0));
    graphics_resource_fill(osd->img, x, y, 2, height, GRAPHICS_RGBA32(0xff,0xff,0xff,0xa0));
    graphics_resource_fill(osd->img, x+width-2, y, 2, height, GRAPHICS_RGBA32(0xff,0xff,0xff,0xa0));
+}
+
+void osd_show_channellist(struct osd_t* osd, int offset, struct channel_t* p)
+{
+   int32_t s=0;
+   uint32_t width,height;
+   uint32_t y_offset = OSD_YMARGIN;
+   uint32_t x_offset = OSD_XMARGIN;
+   uint32_t curr_offset = y_offset+80;
+   uint32_t text_size = 40;
+   const char *text = "Channel Listing";
+   char ch_text[100];
+   uint32_t text_length = strlen(text);
+
+   height = osd->display_height;
+   width = osd->display_width / 3;
+
+   graphics_resource_fill(osd->img, x_offset, y_offset, width, height, GRAPHICS_RGBA32(0x173,0x216,0x230,0x80));
+   graphics_resource_fill(osd->img, x_offset, y_offset, width, 2, GRAPHICS_RGBA32(0xff,0xff,0xff,0xa0));
+   graphics_resource_fill(osd->img, x_offset, y_offset+height-2, width, 2, GRAPHICS_RGBA32(0xff,0xff,0xff,0xa0));
+   graphics_resource_fill(osd->img, x_offset, y_offset, 2, height, GRAPHICS_RGBA32(0xff,0xff,0xff,0xa0));
+   graphics_resource_fill(osd->img, x_offset+width-2, y_offset, 2, height, GRAPHICS_RGBA32(0xff,0xff,0xff,0xa0));
+
+   s = graphics_resource_render_text_ext(osd->img, x_offset+50, y_offset+25,
+                                     width,
+                                     50,
+                                     GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
+                                     GRAPHICS_RGBA32(0x173,0x216,0x230,0x80), /* bg */
+                                     text, text_length, text_size);
+
+  while (p) {
+    fprintf(stderr,"chan: %5d  %5d - %s\n",p->id,p->lcn,p->name);
+    snprintf(ch_text,sizeof(ch_text),"%5d - %s",p->lcn,p->name);
+    fprintf(stderr,"Now rendering '%s' at offset %d\n",ch_text,curr_offset);
+       s = graphics_resource_render_text_ext(osd->img, x_offset+50, curr_offset,
+                                     width,
+                                     50,
+                                     GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
+                                     GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
+                                     ch_text, strlen(ch_text), text_size);
+    p = p->next;
+    curr_offset += 65;
+    if (curr_offset > 978) {
+      fprintf(stderr,"Next page needed at offset %d\n",curr_offset);
+      break;
+    };
+  }
+
+  pthread_mutex_lock(&osd->osd_mutex);
+  graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
+  pthread_mutex_unlock(&osd->osd_mutex);
 }
 
 static void osd_show_channelname(struct osd_t* osd, const char *text)

@@ -443,6 +443,8 @@ int get_input_key(int fd)
           case KEY_O:
           case KEY_TAPE:
             return 'o';
+          case KEY_C:
+            return 'c';
           case KEY_SCREEN:
           case BTN_TRIGGER_HAPPY16:
             return ' ';
@@ -768,6 +770,8 @@ next_channel:
 
           case 'c':
             channels_dump();
+              osd_show_channellist(&osd, 0, channels_return_struct());
+              osd_cleartime = get_time() + 40000; /* 40 second timeout */
             break;
 
           case 'h':

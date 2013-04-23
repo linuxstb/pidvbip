@@ -1,6 +1,6 @@
 -include config.mak
 
-SRCS = sha1.c acodec_omx.c avahi.c avl.c channels.c codec.c events.c htsp.c \
+SRCS = sha1.c acodec_omx.c avl.c channels.c codec.c events.c htsp.c \
        configfile.c pidvbip.c omx_utils.c osd.c tiresias_pcfont.c vcodec_omx.c vo_pi.c
 BIN  = pidvbip
 
@@ -14,6 +14,10 @@ endif
 
 ifneq ($(findstring HAVE_LIBAVFORMAT 1, $(CONFIG)),)
   SRCS += avplay.c
+endif
+
+ifneq ($(findstring HAVE_AVAHI 1, $(CONFIG)),)
+  SRCS += avahi.c
 endif
 
 OBJS = $(SRCS:%.c=%.o)

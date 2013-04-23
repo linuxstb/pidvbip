@@ -511,9 +511,12 @@ int main(int argc, char* argv[])
     };
 
     // Still no value for htsp.host htsp.port so try avahi
+#ifdef HAVE_AVAHI
     if (parms.host[0] == 0 || parms.port == 0) {
       avahi_discover_tvh(&htsp);
-    } else {
+    } else 
+#endif
+    {
       htsp.host = parms.host;
       htsp.port = parms.port;
     };

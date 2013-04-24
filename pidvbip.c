@@ -511,7 +511,7 @@ int main(int argc, char* argv[])
     };
 
     // Still no value for htsp.host htsp.port so try avahi
-#ifdef ENABLE_AVAHI
+#if ENABLE_AVAHI
     if (parms.host[0] == 0 || parms.port == 0) {
       avahi_discover_tvh(&htsp);
     } else 

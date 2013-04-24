@@ -511,7 +511,7 @@ int main(int argc, char* argv[])
     };
 
     // Still no value for htsp.host htsp.port so try avahi
-#ifdef HAVE_AVAHI
+#if ENABLE_AVAHI
     if (parms.host[0] == 0 || parms.port == 0) {
       avahi_discover_tvh(&htsp);
     } else 
@@ -534,7 +534,7 @@ int main(int argc, char* argv[])
 
     OERR(OMX_Init());
 
-#ifdef HAVE_LIBCEC
+#if ENABLE_LIBCEC
     cec_init(0);
 #endif
 
@@ -646,7 +646,7 @@ int main(int argc, char* argv[])
     vcodec_omx_init(&codecs.vcodec, &omxpipe, parms.audio_dest);
     acodec_omx_init(&codecs.acodec, &omxpipe);
 
-#ifdef HAVE_LIBAVFORMAT
+#if ENABLE_LIBAVFORMAT
     if (argc == 5) {
       /* Temporary hack to test avplay() */
       avplay(&codecs, argv[4]);
@@ -717,7 +717,7 @@ next_channel:
         }
       }
 
-#ifdef HAVE_LIBCEC
+#if ENABLE_LIBCEC
       if (c==-1) {
         c = cec_get_keypress();
       }

@@ -1,217 +1,188 @@
-#!/bin/sh
+#!/bin/bash
+#
+# pidvbip configure script
+#
+# Copyright (c) 2013 Adam Sutton <dev@adamsutton.me.uk>
+#
 
-rm -f config.h config.mak conftest*
+# ###########################################################################
+# Setup
+# ###########################################################################
 
-cc_check() {
-    rm -f conftest.c
-    [ -n "$1" ] && echo "#include <$1>" > conftest.c
-    echo "int main() { $3 return 0; }" >> conftest.c
-    cc_cmd="$CC conftest.c $CFLAGS $2 $LDFLAGS -o conftest"
-    $cc_cmd 2>/dev/null
+#
+# Defaults
+#
 
-    return $?
-}
-
-define() {
-    echo "#define $1 1" >> config.h
-}
-
-die() {
-    msg="Error: $1"
-    echo "$msg"
-    exit 1
-}
-
-usage() {
-    cat <<EOF
-Usage: $0 [options]
-
-Options:
-    --disable-libcec            disable libcec support
-    --disable-libavformat       disable libavformat support
-    --disable-avahi             disable avahi support
-    --enable-debug              enable debugging symbols
-    --vc-sdk-path=VC_SDK_PATH   path to VideoCore SDK [/opt/vc]
-EOF
-
-    exit 1
-}
-
-avahi="auto"
-libcec="auto"
-libavformat="auto"
-debug="no"
-raspberrypi="yes"
-
-CC="${CC:-gcc}"
+ROOTDIR=$(cd "$(dirname "$0")"; pwd)
+CC=${CC:-gcc}
 CFLAGS="$CFLAGS -pipe -Wall -I."
-LD="${LD:-$CC}"
-LDFLAGS="$LDFLAGS -lm"
+LDFLAGS="-lm -lpthread"
 VC_SDK_PATH="${VC_SDK_PATH-/opt/vc}"
 
-for opt do
-    optarg="${opt#*=}"
-    case "$opt" in
-        -h | --help)
-            usage
-            ;;
-        --enable-debug)
-            debug="yes"
-            ;;
-        --disable-libcec)
-            libcec="no"
-            ;;
-        --disable-libavformat)
-            libavformat="no"
-            ;;
-        --disable-avahi)
-            avahi="no"
-            ;;
-        --vc-sdk-path=*)
-            VC_SDK_PATH="$optarg"
-            ;;
-        *)
-            echo "Unknown option: $opt"
-            ;;
-    esac
-done
+#
+# Options
+#
 
-cc_check || die "No working compiler"
+OPTIONS=(
+  "libcec:auto"
+  "libavformat:auto"
+  "avahi:auto"
+  "debug:no"
+)
 
-cc_check pthread.h -lpthread && LDFLAGS="$LDFLAGS -lpthread" || die "Failed to locate pthreads"
+#
+# Begin
+#
 
-if [ "$raspberrypi" = "auto" ] ; then
-    raspberrypi="no"
-    if grep BCM2708 /proc/cpuinfo 1>/dev/null ; then
-        raspberrypi="yes"
-    fi
+. "$ROOTDIR/support/configure.inc"
+parse_args $*
+# TODO: add --vc-sdk-path into command line flags
+
+# ###########################################################################
+# Checks
+# ###########################################################################
+
+echo "Checking support/features"
+
+#
+# Compiler
+#
+check_cc\
+  || die 'Failed to locate C compiler'
+check_cc_header pthread\
+  || die 'Failed to locate pthreads'
+
+#
+# Raspberry PI checks
+#
+CFLAGS="$CFLAGS -I$VC_SDK_PATH/include"
+CFLAGS="$CFLAGS -I$VC_SDK_PATH/include/interface/vcos/pthreads"
+CFLAGS="$CFLAGS -I$VC_SDK_PATH/include/interface/vmcs_host/linux"
+LDFLAGS="$LDFLAGS -L$VC_SDK_PATH/lib -lbcm_host -lvcos -lvchiq_arm"
+
+check_cc_snippet "fpu" "" "-mfloat-abi=hard -mfpu=vfp" && \
+  CFLAGS="$CFLAGS -mfloat-abi=hard -mfpu=vfp"
+
+CFLAGS="$CFLAGS -DUSE_VCHIQ_ARM"
+check_cc_snippet "bcm_host" '#include <bcm_host.h>;
+void t(){bcm_host_init();}' ||\
+  die "Failed to locate bcm_host"
+
+check_cc_snippet "vcos" '#include <interface/vcos/vcos.h>; 
+void t(){vcos_malloc_aligned(0,0,0);}' ||\
+  die "Failed to locate vcos"
+
+LDFLAGS="$LDFLAGS -lEGL -lGLESv2"
+check_cc_snippet "gles" '#include <EGL/egl.h>;
+void t(){eglCreateContext(0,0,0,0);}' ||\
+  die "Failed to locate GLES"
+
+CFLAGS="$CFLAGS -DOMX_SKIP64BIT"
+LDFLAGS="$LDFLAGS -lopenmaxil"
+check_cc_snippet "openmax" 'void t(){OMX_Init();}' ||\
+  die "Failed to locate OpenMAX"
+
+#
+# FreeType
+#
+
+if ! check_pkg freetype2; then
+  die "Failed to locate FreeType"
 fi
 
-if [ "$raspberrypi" = "yes" ] ; then
-    PI_CFLAGS="$PI_CFLAGS -I$VC_SDK_PATH/include"
-    PI_CFLAGS="$PI_CFLAGS -I$VC_SDK_PATH/include/interface/vcos/pthreads"
-    PI_CFLAGS="$PI_CFLAGS -I$VC_SDK_PATH/include/interface/vmcs_host/linux"
-    PI_LIBS="-L${VC_SDK_PATH}/lib -lbcm_host -lvcos -lvchiq_arm"
+#
+# LibCEC
+#
 
-    cc_check "" "-mfloat-abi=hard -mfpu=vfp" && PI_CFLAGS="$PI_CFLAGS -mfloat-abi=hard -mfpu=vfp"
-
-    cc_check bcm_host.h "$PI_CFLAGS -DUSE_VCHIQ_ARM $PI_LIBS" "bcm_host_init();" || die "Failed to locate bcm_host"
-    cc_check interface/vcos/vcos.h "$PI_CFLAGS -DUSE_VCHIQ_ARM $PI_LIBS" "vcos_malloc_aligned(0,0,0);" || die "Failed to locate vcos"
-
-    define ARCH_RPI
-    define USE_VCHIQ_ARM
-    LDFLAGS="$PI_LIBS $LDFLAGS"
-    CFLAGS="$PI_CFLAGS $CFLAGS"
+if enabled_or_auto libcec; then
+  if check_pkg libcec; then
+    enable libcec
+  elif check_cc_snippet "libcec" '#include <libcec/cec.h>
+void t(){cec_initialise(0);}' "-lcec"; then
+    LDFLAGS="$LDFLAGS -lcec"
+    enable libcec
+  elif enabled libcec; then
+    die "Failed to locate libcec"
+  fi
 fi
 
-if pkg-config --exists freetype2 2>/dev/null ; then
-    LDFLAGS="$(freetype-config --libs) $LDFLAGS"
-    CFLAGS="$(freetype-config --cflags) $CFLAGS"
+#
+# LibavFormat
+#
+
+if enabled_or_auto libavformat; then
+  if check_pkg libavformat; then
+    enable libavformat
+  elif enabled libavformat; then
+    die "Failed to locate libavformat"
+  fi
+fi
+
+#
+# Avahi
+#
+if enabled_or_auto avahi; then
+  if check_pkg avahi-client; then
+    enable avahi
+  elif check_cc_snippet "avahi" '#include <avahi-client/client.h>
+void t(){avahi_client_new(0,0,0,0,0);' "-lavahi-client -lavahi-common"; then
+    LDFLAGS="$LDFLAGS -lavahi-client -lavahi-common"
+    enable avahi
+  elif enabled avahi; then
+    die "Failed to locate avahi"
+  fi
+fi
+
+#
+# Libmpg123
+#
+
+if check_pkg libmpg123; then
+  enable libmpg123
+elif check_cc_snippet "libmpg123" '#include <mpg123.h>
+void t(){mpg123_init();}' "-lmpg123"; then
+  LDFLAGS="$LDFLAGS -lmpg123"
+  enable libmpg123
 else
-    die "Failed to locate FreeType"
+  die "Failed to locate libmpg123"
 fi
 
-cc_check EGL/egl.h "-lEGL -lGLESv2" "eglCreateContext(0,0,0,0);" && LDFLAGS="-lEGL -lGLESv2 $LDFLAGS" || die "Failed to locate GLES"
+#
+# NeAAC
+#
 
-if cc_check IL/OMX_Core.h "-DOMX_SKIP64BIT -lopenmaxil" "OMX_Init();" ; then
-    LDFLAGS="-lopenmaxil $LDFLAGS"
-    define OMX_SKIP64BIT
-else
-    die "Failed to locate OpenMAX"
-fi
+LDFLAGS="$LDFLAGS -lfaad"
+check_cc_snippet "faad" '#include <neaacdec.h>
+void t(){NeAACDecOpen();}' ||\
+  die "Failed to locate faad"
 
-if [ "$libcec" = "auto" ] ; then
-    libcec="no"
-    if pkg-config --exists libcec &>/dev/null ; then
-        CEC_LIBS="$CEC_LIBS $(pkg-config --libs libcec)"
-        CEC_CFLAGS="$CEC_CFLAGS $(pkg-config --cflags libcec)"
-    fi
-    [ -z "$CEC_LIBS" ] &&  CEC_LIBS="-lcec"
-
-    if cc_check libcec/cecc.h "$CEC_CFLAGS $CEC_LIBS" "cec_initialise(0);" ; then
-        libcec="yes"
-        LDFLAGS="$CEC_LIBS $LDFLAGS"
-        CFLAGS="$CEC_CFLAGS $CFLAGS"
-        define HAVE_LIBCEC
-    fi
-fi
-
-if [ "$libavformat" = "auto" ] ; then
-    libavformat="no"
-    if pkg-config --exists libavformat &>/dev/null ; then
-        AVFORMAT_LIBS="$AVFORMAT_LIBS $(pkg-config --libs libavformat)"
-        AVFORMAT_CFLAGS="$AVFORMAT_CFLAGS $(pkg-config --cflags libavformat)"
-    fi
-    [ -z "$AVFORMAT_LIBS" ] &&  AVFORMAT_LIBS="-lavformat"
-
-    # TODO: Check libavformat actually works
-    libavformat="yes"
-    LDFLAGS="$AVFORMAT_LIBS $LDFLAGS"
-    CFLAGS="$AVFORMAT_CFLAGS $CFLAGS"
-    define HAVE_LIBAVFORMAT
-fi
-
-if [ "$avahi" = "auto" ] ; then
-    avahi="no"
-    if pkg-config --exists avahi-client &>/dev/null ; then
-        AVAHI_LIBS="$AVAHI_LIBS $(pkg-config --libs avahi-client)"
-        AVAHI_CFLAGS="$AVAHI_CFLAGS $(pkg-config --cflags avahi-client)"
-    fi
-    [ -z "$AVAHI_LIBS" ] && AVAHI_LIBS="-lavahi-client -lavahi-common"
-
-    if cc_check avahi-client/client.h "$AVAHI_CFLAGS $AVAHI_LIBS" "avahi_client_new(0,0,0,0,0);" ; then
-        avahi="yes"
-        LDFLAGS="$AVAHI_LIBS $LDFLAGS"
-        CFLAGS="$AVAHI_CFLAGS $CFLAGS"
-        define HAVE_AVAHI
-    else
-        die "Failed to locate Avahi"
-    fi
-fi
-
-if pkg-config --exists libmpg123 &>/dev/null ; then
-    MPG123_LIBS="$MPG123_LIBS $(pkg-config --libs libmpg123)"
-    MPG123_CFLAGS="$MPG123_CFLAGS $(pkg-config --cflags libmpg123)"
-fi
-[ -z "$MPG123_LIBS" ] && MPG123_LIBS="-lmpg123"
-if cc_check mpg123.h "$MPG123_CFLAGS $MPG123_LIBS" "mpg123_init();" ; then
-    LDFLAGS="$MPG123_LIBS $LDFLAGS"
-    CFLAGS="$MPG123_CFLAGS $CFLAGS"
-else
-    die "Failed to locate mpg123"
-fi
-
-cc_check neaacdec.h "-lfaad" "NeAACDecOpen();" && LDFLAGS="-lfaad $LDFLAGS" || die "Failed to locate FAAD2"
-
-cat > conftest.h <<EOF
-#include <stdint.h>
+#
+# A52
+#
+LDFLAGS="$LDFLAGS -la52"
+check_cc_snippet "a52" '#include <stdint.h>
 #include <a52dec/a52.h>
-EOF
-cc_check conftest.h "-la52" "a52_init(0);" && LDFLAGS="-la52 $LDFLAGS" || die "Failed to locate a52dec"
+void t(){a52_init(0);}' ||\
+  die "Failed to locate a52dec"
 
-rm -f conftest*
-
-if [ "$debug" = "yes" ] ; then
-    CFLAGS="-O0 -g3 $CFLAGS"
+#
+# Debug
+#
+if enabled debug; then
+  CFLAGS="$CFLAGS -O0 -g3"
 else
-    CFLAGS="-O3 $CFLAGS"
-    define NDEBUG
+  CFLAGS="$CFLAGS -O3 -DNDEBUG"
 fi
 
-cat > config.mak <<EOF
-CC=$CC
-CFLAGS=$CFLAGS
-LD=$LD
-LDFLAGS=$LDFLAGS
-EOF
+# ###########################################################################
+# Write config
+# ###########################################################################
 
-echo "#define PIDVBIP_VERSION \"$(git describe --always --dirty)\"" >> config.h
+# Write config
+write_config
 
-cat <<EOF
-Configuration:
-  avahi:            $avahi
-  libcec:           $libcec
-  libavformat:      $libavformat
-  debug enabled:    $debug
-  raspberrypi:      $raspberrypi
-EOF
+# Output config
+print_config
+echo "Final Binary:"
+echo "  $BUILDDIR/pidvbip"
+echo ""

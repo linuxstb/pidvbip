@@ -3,11 +3,12 @@ pidvbip
 flvtoh264
 
 # generated files
+build.*
 *.[oa]
 conftest*
 .depend
 config.h
-config.mak
+.config.mk
 
 # misc
 *.m2v

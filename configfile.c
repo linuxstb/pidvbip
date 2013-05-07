@@ -29,7 +29,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include <stdarg.h>
 #include <string.h>
 
-#include <configfile.h>
+#include "common.h"
+#include "configfile.h"
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
@@ -66,7 +67,9 @@ cmdline_opt_t cmdline_opts[] = {
   { 'c', "config",            "Alternate config file location",          OPT_STR,  &global_settings.configfile, 0, NULL  },
 
   {   0, NULL,                "Server options",                          OPT_NULL, NULL, 0, NULL         },
+#if ENABLE_AVAHI
   { 'a', "enable-avahi",      "Use AVAHI to search for tvh servers",     OPT_BOOL, &global_settings.avahi, 0, NULL },
+#endif
   { 'h', "host",              "Hostname or IP address",                  OPT_STR,  &global_settings.host, 0, NULL },
   { 'p', "port",              "Port",                                    OPT_INT,  &global_settings.port, 9982, NULL },
   { 'U', "username",          "HTSP username",                           OPT_STR,  &global_settings.username, 0, NULL },
@@ -78,6 +81,11 @@ cmdline_opt_t cmdline_opts[] = {
 
   {   0, NULL,                "Playback options",                        OPT_NULL, NULL, 0, NULL         },
   {  'o', "audio-output",     "Audio output destination: hdmi,local",    OPT_STR,  &global_settings.audio_dest, -1, "hdmi" },
+
+#if ENABLE_LIBAVFORMAT
+  {   0, NULL,                "Experimental features",                   OPT_NULL, NULL, 0, NULL         },
+  {   0, "avplay",            "Filename of video file to play",          OPT_STR,  &global_settings.avplay, -1, NULL },
+#endif
 
 };
 

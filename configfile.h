@@ -7,11 +7,16 @@ struct configfile_parameters
   int  port;
   char *username;
   char *password;
-  int  avahi;
   int  initial_channel;
   int  startup_stopped;
   char *audio_dest;
   char *configfile;
+#if ENABLE_AVAHI
+  int  avahi;
+#endif
+#if ENABLE_LIBAVFORMAT
+  char* avplay;
+#endif
 #if 0
   /* Not yet implemented */
   char key_0[MAX_CONF_LEN];

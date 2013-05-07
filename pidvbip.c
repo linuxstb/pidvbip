@@ -482,24 +482,8 @@ int main(int argc, char* argv[])
     pthread_mutex_init(&omxpipe.omx_active_mutex, NULL);
     pthread_cond_init(&omxpipe.omx_active_cv, NULL);
 
-    // Read config values from pidvbip.conf
-    //    struct configfile_parameters parms;
-    //    memset(&parms, 0, sizeof(parms));
-    //    parms.startup_streaming = 1;  /* Default to on */
-
     parse_args(argc,argv);
-
     dump_settings();
-
-#if 0
-    fprintf(stderr,"Initializing parameters to default values\n");
-    /* init_parameters (&parms); */
-    fprintf(stderr,"Reading config file\n");
-    parse_config (&parms);
-    fprintf(stderr,"Final values:\n");
-    fprintf(stderr,"  ip: %s, port: %d, user: %s, pass: %s\n",
-       parms.host, parms.port, parms.username, parms.password);
-#endif
 
     if ((strcmp(global_settings.audio_dest,"hdmi")) && (strcmp(global_settings.audio_dest,"local"))) {
       fprintf(stderr,"Defaulting audio_dest to hdmi\n");
@@ -508,7 +492,7 @@ int main(int argc, char* argv[])
 
     // Still no value for htsp.host htsp.port so try avahi
 #if ENABLE_AVAHI
-    if (parms.host[0] == 0 || parms.port == 0) {
+    if (global_settings.avahi && (global_settings.host[0] == 0 || global_settings.port == 0)) {
       avahi_discover_tvh(&htsp);
     } else 
 #endif
@@ -643,9 +627,9 @@ int main(int argc, char* argv[])
     acodec_omx_init(&codecs.acodec, &omxpipe);
 
 #if ENABLE_LIBAVFORMAT
-    if (argc == 5) {
+    if (global_settings.avplay) {
       /* Temporary hack to test avplay() */
-      avplay(&codecs, argv[4]);
+      avplay(&codecs, global_settings.avplay);
     }
 #endif
 

@@ -184,5 +184,5 @@ write_config
 # Output config
 print_config
 echo "Final Binary:"
-echo "  $BUILDDIR/pidvbip"
+echo "  $ROOTDIR/pidvbip"
 echo ""

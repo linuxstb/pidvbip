@@ -456,6 +456,8 @@ int get_input_key(int fd)
   return -1;
 }
 
+extern struct configfile_parameters global_settings;
+
 int main(int argc, char* argv[])
 {
     int res;
@@ -481,10 +483,15 @@ int main(int argc, char* argv[])
     pthread_cond_init(&omxpipe.omx_active_cv, NULL);
 
     // Read config values from pidvbip.conf
-    struct configfile_parameters parms;
-    memset(&parms, 0, sizeof(parms));
-    parms.startup_streaming = 1;  /* Default to on */
+    //    struct configfile_parameters parms;
+    //    memset(&parms, 0, sizeof(parms));
+    //    parms.startup_streaming = 1;  /* Default to on */
 
+    parse_args(argc,argv);
+
+    dump_settings();
+
+#if 0
     fprintf(stderr,"Initializing parameters to default values\n");
     /* init_parameters (&parms); */
     fprintf(stderr,"Reading config file\n");
@@ -492,23 +499,12 @@ int main(int argc, char* argv[])
     fprintf(stderr,"Final values:\n");
     fprintf(stderr,"  ip: %s, port: %d, user: %s, pass: %s\n",
        parms.host, parms.port, parms.username, parms.password);
+#endif
 
-    fprintf(stderr,"audio_dest=%s\n",parms.audio_dest);
-    if ((strcmp(parms.audio_dest,"hdmi")) && (strcmp(parms.audio_dest,"local"))) {
+    if ((strcmp(global_settings.audio_dest,"hdmi")) && (strcmp(global_settings.audio_dest,"local"))) {
       fprintf(stderr,"Defaulting audio_dest to hdmi\n");
-      strcpy(parms.audio_dest,"hdmi");
+      global_settings.audio_dest = "hdmi";
     }
-
-    /* Parse command-line arguments, these override anything in the config file */
-    if (argc > 2) {
-      strncpy(parms.host, argv[1], sizeof(parms.host));
-      parms.host[sizeof(parms.host)-1] = 0;
-      parms.port = atoi(argv[2]);
-      if (argc > 3) {
-        parms.initial_channel = atoi(argv[3]);
-	fprintf(stderr,"Initial_channel = %d\n",parms.initial_channel);
-      }
-    };
 
     // Still no value for htsp.host htsp.port so try avahi
 #if ENABLE_AVAHI
@@ -517,8 +513,8 @@ int main(int argc, char* argv[])
     } else 
 #endif
     {
-      htsp.host = parms.host;
-      htsp.port = parms.port;
+      htsp.host = global_settings.host;
+      htsp.port = global_settings.port;
     };
 
     if ((htsp.host == NULL) || (htsp.host[0] == 0 || htsp.port == 0)) {
@@ -562,7 +558,7 @@ int main(int argc, char* argv[])
         return 2;
     }
 
-    res = htsp_login(&htsp, parms.username, parms.password);
+    res = htsp_login(&htsp, global_settings.username, global_settings.password);
 
     if (res > 0) {
       fprintf(stderr,"Could not login to server\n");
@@ -620,10 +616,10 @@ int main(int argc, char* argv[])
     }
 
     /* Initial channel choice */
-    fprintf(stderr,"Startup streaming %d\n", parms.startup_streaming);
-    if(parms.startup_streaming == 1) {
-      if (parms.initial_channel)
-          channel = parms.initial_channel;
+    fprintf(stderr,"Startup stopped %d\n", global_settings.startup_stopped);
+    if(!global_settings.startup_stopped) {
+      if (global_settings.initial_channel)
+          channel = global_settings.initial_channel;
       user_channel_id = channels_getid(channel);
       if (user_channel_id < 0) {
         fprintf(stderr," Channels_getfirst\n");
@@ -643,7 +639,7 @@ int main(int argc, char* argv[])
     codecs.is_paused = 0;
 
     codecs.vcodec.acodec = &codecs.acodec;
-    vcodec_omx_init(&codecs.vcodec, &omxpipe, parms.audio_dest);
+    vcodec_omx_init(&codecs.vcodec, &omxpipe, global_settings.audio_dest);
     acodec_omx_init(&codecs.acodec, &omxpipe);
 
 #if ENABLE_LIBAVFORMAT

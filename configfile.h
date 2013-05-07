@@ -1,14 +1,19 @@
-#define MAX_CONF_LEN 20
+#ifndef _CONFIGFILE_H
+#define _CONFIGFILE_H
 
 struct configfile_parameters
 {
-  char host[MAX_CONF_LEN];
-  int port;
-  char username[MAX_CONF_LEN];
-  char password[MAX_CONF_LEN];
-  int initial_channel;
-  int startup_streaming;
-  char audio_dest[MAX_CONF_LEN];
+  char *host;
+  int  port;
+  char *username;
+  char *password;
+  int  avahi;
+  int  initial_channel;
+  int  startup_stopped;
+  char *audio_dest;
+  char *configfile;
+#if 0
+  /* Not yet implemented */
   char key_0[MAX_CONF_LEN];
   char key_1[MAX_CONF_LEN];
   char key_2[MAX_CONF_LEN];
@@ -30,9 +35,11 @@ struct configfile_parameters
   char key_r[MAX_CONF_LEN];
   char key_space[MAX_CONF_LEN];
   char key_c[MAX_CONF_LEN];
+#endif
 };
 
-int configfile_parameters;
 
-void parse_config (struct configfile_parameters * parms);
-char * trim (char * s);
+void parse_args(int argc, char* argv[]);
+void dump_settings(void);
+
+#endif

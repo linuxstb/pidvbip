@@ -14,6 +14,9 @@ struct configfile_parameters
 #if ENABLE_AVAHI
   int  avahi;
 #endif
+#if ENABLE_LIBCEC
+  int  nocec;
+#endif
 #if ENABLE_LIBAVFORMAT
   char* avplay;
 #endif

@@ -515,7 +515,9 @@ int main(int argc, char* argv[])
     OERR(OMX_Init());
 
 #if ENABLE_LIBCEC
-    cec_init(0);
+    if (!global_settings.nocec) {
+      cec_init(0);
+    }
 #endif
 
     if (! mpeg2_codec_enabled()) {
@@ -698,7 +700,7 @@ next_channel:
       }
 
 #if ENABLE_LIBCEC
-      if (c==-1) {
+      if ((!global_settings.nocec) && (c==-1)) {
         c = cec_get_keypress();
       }
 #endif

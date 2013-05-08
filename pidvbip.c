@@ -492,7 +492,7 @@ int main(int argc, char* argv[])
 
     // Still no value for htsp.host htsp.port so try avahi
 #if ENABLE_AVAHI
-    if (global_settings.avahi && (global_settings.host[0] == 0 || global_settings.port == 0)) {
+    if (global_settings.avahi && ((!global_settings.host || global_settings.host[0] == 0 || global_settings.port == 0))) {
       avahi_discover_tvh(&htsp);
     } else 
 #endif

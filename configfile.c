@@ -77,7 +77,7 @@ cmdline_opt_t cmdline_opts[] = {
 
   {   0, NULL,                "Startup options",                         OPT_NULL, NULL, 0, NULL         },
   {  'i', "channel",          "Number of initial channel to tune to",    OPT_INT,  &global_settings.initial_channel, -1, NULL },
-  {   0, "startup-stopped",   "Immediately stream a channel on startup", OPT_BOOL, &global_settings.startup_stopped, 0, NULL },
+  {   0, "startup-stopped",   "Do not stream a channel on startup",      OPT_BOOL, &global_settings.startup_stopped, 0, NULL },
 
   {   0, NULL,                "Hardware configuration",                  OPT_NULL, NULL, 0, NULL         },
   {  'o', "audio-output",     "Audio output destination: hdmi,local",    OPT_STR,  &global_settings.audio_dest, -1, "hdmi" },

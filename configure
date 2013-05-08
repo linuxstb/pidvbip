@@ -26,6 +26,8 @@ VC_SDK_PATH="${VC_SDK_PATH-/opt/vc}"
 OPTIONS=(
   "libcec:auto"
   "libavformat:auto"
+  "libavcodec:auto"
+  "libavutil:auto"
   "avahi:auto"
   "debug:no"
 )
@@ -115,6 +117,30 @@ if enabled_or_auto libavformat; then
     enable libavformat
   elif enabled libavformat; then
     die "Failed to locate libavformat"
+  fi
+fi
+
+#
+# LibavCodec
+#
+
+if enabled_or_auto libavcodec; then
+  if check_pkg libavcodec; then
+    enable libavcodec
+  elif enabled libavcodec; then
+    die "Failed to locate libavcodec"
+  fi
+fi
+
+#
+# LibavUtil
+#
+
+if enabled_or_auto libavutil; then
+  if check_pkg libavutil; then
+    enable libavutil
+  elif enabled libavutil; then
+    die "Failed to locate libavutil"
   fi
 fi
 

@@ -80,7 +80,7 @@ default: $(BIN)
 all: default $(FLVTOH264)
 
 clean:
-	@$(RM) $(BIN) $(BUILDDIR)/*.{o,d,c} $(FLVTOH264)
+	@$(RM) $(BIN) $(BUILDDIR)/*.[odc] $(FLVTOH264)
 	make -C $(ROOTDIR)/libs/vgfont clean
 
 distclean: clean

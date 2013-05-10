@@ -32,7 +32,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include <termios.h>
 #include <ctype.h>
 #include <sys/time.h>
-#include <linux/input.h>
 #include <interface/vmcs_host/vcgencmd.h>
 #include <bcm_host.h>
 
@@ -47,8 +46,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "osd.h"
 #include "avahi.h"
 #include "cec.h"
+#include "msgqueue.h"
 #include "avplay.h"
 #include "omx_utils.h"
+#include "input.h"
 
 struct omx_pipeline_t omxpipe;
 
@@ -365,97 +366,6 @@ double get_time(void)
   return x;
 }
 
-#define KEY_RELEASE 0
-#define KEY_PRESS 1
-#define KEY_KEEPING_PRESSED 2
-
-int get_input_key(int fd)
-{
-  struct input_event ev[64];
-  int i;
-
-  size_t rb = read(fd, ev, sizeof(ev));
-
-  if (rb < (int) sizeof(struct input_event)) {
-    fprintf(stderr,"Short read\n");
-    return -1;
-  }
-
-  for (i = 0; i < (int)(rb / sizeof(struct input_event));i++) {
-    if (ev[i].type == EV_KEY) {
-      if ((ev[i].value == KEY_PRESS) || (ev[i].value == KEY_KEEPING_PRESSED)) {
-        fprintf(stderr,"input code %d\n",ev[1].code);
-        switch(ev[1].code) {
-          case KEY_0:
-          case KEY_NUMERIC_0:
-            return '0';
-          case KEY_1:
-          case KEY_NUMERIC_1:
-            return '1';
-          case KEY_2:
-          case KEY_NUMERIC_2:
-            return '2';
-          case KEY_3:
-          case KEY_NUMERIC_3:
-            return '3';
-          case KEY_4:
-          case KEY_NUMERIC_4:
-            return '4';
-          case KEY_5:
-          case KEY_NUMERIC_5:
-            return '5';
-          case KEY_6:
-          case KEY_NUMERIC_6:
-            return '6';
-          case KEY_7:
-          case KEY_NUMERIC_7:
-            return '7';
-          case KEY_8:
-          case KEY_NUMERIC_8:
-            return '8';
-          case KEY_9:
-          case KEY_NUMERIC_9:
-            return '9';
-          case KEY_H:
-            return 'h';
-          case KEY_I:
-          case KEY_INFO:
-            return 'i';
-          case KEY_Q:
-          case KEY_RED:
-            return 'q';
-          case KEY_N:
-          case KEY_PAGEUP:
-          case KEY_CHANNELUP:
-            return 'n';
-          case KEY_P:
-          case KEY_PAGEDOWN:
-          case KEY_CHANNELDOWN:
-            return 'p';
-          case KEY_UP:
-            return 'u';
-          case KEY_DOWN:
-            return 'd';
-          case KEY_LEFT:
-            return 'l';
-          case KEY_RIGHT:
-            return 'r';
-          case KEY_O:
-          case KEY_TAPE:
-            return 'o';
-          case KEY_SCREEN:
-          case BTN_TRIGGER_HAPPY16:
-            return ' ';
-   
-          default: break;
-        }
-      }
-    }
-  }
-
-  return -1;
-}
-
 extern struct configfile_parameters global_settings;
 
 int main(int argc, char* argv[])
@@ -470,13 +380,13 @@ int main(int argc, char* argv[])
     struct osd_t osd;
     pthread_t htspthread = 0;
     double osd_cleartime = 0;
-    int inputfd;
-    char inputname[256] = "Unknown";
-    char *inputdevice = "/dev/input/event0";
     int curr_streaming = 1;
+    struct msgqueue_t msgqueue;
 
     htsp.host = NULL;
     htsp.ip = NULL;
+
+    msgqueue_init(&msgqueue);
 
     memset(&omxpipe,0,sizeof(omxpipe));
     pthread_mutex_init(&omxpipe.omx_active_mutex, NULL);
@@ -516,7 +426,7 @@ int main(int argc, char* argv[])
 
 #if ENABLE_LIBCEC
     if (!global_settings.nocec) {
-      cec_init(0);
+      cec_init(0,&msgqueue);
     }
 #endif
 
@@ -524,14 +434,7 @@ int main(int argc, char* argv[])
       fprintf(stderr,"WARNING: No hardware MPEG-2 license detected - MPEG-2 video will not work\n");
     }
 
-    if ((inputfd = open(inputdevice, O_RDONLY)) >= 0) {
-      ioctl (inputfd, EVIOCGNAME (sizeof (inputname)), inputname);
-      fprintf(stderr,"Using %s - %s\n", inputdevice, inputname);
-
-      /* Disable auto-repeat (for now...) */
-      int ioctl_params[2] = { 0, 0 };
-      ioctl(inputfd,EVIOCSREP,ioctl_params);
-    }
+    input_init(&msgqueue);
 
     osd_init(&osd);
 
@@ -678,32 +581,8 @@ next_channel:
     new_channel_timeout = 0;
     while (1) {
       int c;
-      struct timeval tv = { 0L, 100000L };  /* 100ms */
-      fd_set fds;
-      int maxfd = 0;
-      FD_ZERO(&fds);
-      FD_SET(0, &fds);
-      if (inputfd >= 0) {
-        FD_SET(inputfd,&fds);
-        maxfd = inputfd;
-      }
-      c = -1;
-      if (select(maxfd+1, &fds, NULL, NULL, &tv)==0) {
-        c = -1;
-      } else {
-        if (FD_ISSET(0,&fds)) {
-          c = getchar();
-        }
-        if ((inputfd >= 0) && (FD_ISSET(inputfd,&fds))) {
-          c = get_input_key(inputfd);
-        }
-      }
 
-#if ENABLE_LIBCEC
-      if ((!global_settings.nocec) && (c==-1)) {
-        c = cec_get_keypress();
-      }
-#endif
+      c = msgqueue_get(&msgqueue, 100);
 
       if (c != -1) {
         DEBUGF("char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));

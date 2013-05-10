@@ -1,59 +1,121 @@
--include config.mak
+#
+# Makefile for pidvbip
+#
 
-SRCS = sha1.c acodec_omx.c avahi.c avl.c channels.c codec.c events.c htsp.c \
-       configfile.c pidvbip.c omx_utils.c osd.c tiresias_pcfont.c vcodec_omx.c vo_pi.c
-BIN  = pidvbip
+DIR 		:= $(dir $(lastword $(MAKEFILE_LIST)))
+-include $(DIR)/.config.mk
+ROOTDIR 	?= $(DIR)
+BUILDDIR	?= $(ROOTDIR)/build.linux
 
-DEPMM = -MM
-CONFIG := $(shell cat config.h)
-LIBVGFONT = libs/vgfont/libvgfont.a
+#
+# Compiler
+#
 
-ifneq ($(findstring HAVE_LIBCEC 1, $(CONFIG)),)
-  SRCS += cec.c
+CFLAGS += -I$(BUILDDIR)
+
+vpath %.c $(ROOTDIR)
+vpath %.h $(ROOTDIR)
+
+#
+# Debug/Output
+#
+
+ifdef P
+ECHO   = printf "%-16s%s\n" $(1) $(2)
+BRIEF  = CC MKBUNDLE CXX
+MSG    = $(subst $(BUILDDIR)/,,$@)
+$(foreach VAR,$(BRIEF), \
+    $(eval $(VAR) = @$$(call ECHO,$(VAR),$$(MSG)); $($(VAR))))
 endif
 
-ifneq ($(findstring HAVE_LIBAVFORMAT 1, $(CONFIG)),)
-  SRCS += avplay.c
-endif
+#
+# Core
+#
 
-OBJS = $(SRCS:%.c=%.o)
+SRCS = \
+	sha1.c \
+	acodec_omx.c \
+	avl.c \
+	channels.c \
+	codec.c \
+	events.c \
+	htsp.c \
+	configfile.c \
+	pidvbip.c \
+	omx_utils.c \
+	osd.c \
+	tiresias_pcfont.c \
+	vcodec_omx.c \
+	vo_pi.c
 
-# disable asserts
-# CFLAGS+=-DNDEBUG
+BIN 		= $(ROOTDIR)/pidvbip
+FLVTOH264	= $(ROOTDIR)/flvtoh264
+LIBVGFONT 	= $(ROOTDIR)/libs/vgfont/libvgfont.a
+
+#
+# Optional
+#
+
+SRCS-$(CONFIG_LIBCEC) 		+= cec.c
+
+SRCS-$(CONFIG_AVAHI)  		+= avahi.c
+
+SRCS-$(CONFIG_LIBAVFORMAT) 	+= avplay.c
+
+#
+# Build variables
+#
+
+SRCS      += $(SRCS-yes)
+OBJS       = $(SRCS:%.c=$(BUILDDIR)/%.o)
+DEPS       = ${OBJS:%.o=%.d}
+
+#
+# Phony Targets
+
+.PHONY: default all clean distclean check_config reconfigure
 
 default: $(BIN)
 
-all: default flvtoh264
+all: default $(FLVTOH264)
 
-$(BIN): .depend $(LIBVGFONT) $(OBJS)
+clean:
+	@$(RM) $(BIN) $(BUILDDIR)/*.[odc] $(FLVTOH264)
+	make -C $(ROOTDIR)/libs/vgfont clean
+
+distclean: clean
+	@$(RM) -r $(BUILDDIR) .config.mk
+
+check_config:
+	@test $(ROOTDIR)/.config.mk -nt $(ROOTDIR)/configure \
+		|| echo "./configure output is old, please re-run"
+	@test $(ROOTDIR)/.config.mk -nt $(ROOTDIR)/configure
+
+reconfigure:
+	$(ROOTDIR)/configure $(CONFIGURE_ARGS)
+
+#
+# Build Targets
+#
+
+$(BIN): check_config $(LIBVGFONT) $(OBJS)
 	$(CC) -o $@ $(OBJS) $(LIBVGFONT) $(LDFLAGS)
 
-flvtoh264: .depend flvtoh264.o
+$(FLVTOH264): check_config flvtoh264.o
 	$(CC) -o $@ flvtoh264.o $(LDFLAGS)
 
-$(OJBS): .depend
-
-.depend: config.mak
-	@$(RM) .depend
-	@$(foreach SRC, $(SRCS), $(CC) $(CFLAGS) $(SRC) $(DEPMM) 1>> .depend;)
-
-config.mak:
-	./configure
-
-depend: .depend
-
-ifneq ($(wildcard .depend),)
-include .depend
-endif
+#
+# Build Intermediates
+#
 
 $(LIBVGFONT):
 	make -C libs/vgfont/ INCLUDES='$(CFLAGS)'
 
-clean:
-	@$(RM) $(BIN) $(OBJS) flvtoh264 flvtoh264.o .depend
-	make -C libs/vgfont clean
+${BUILDDIR}/%.o: %.c
+	$(CC) -MD -MP $(CFLAGS) -c -o $@ $<
 
-distclean: clean
-	@$(RM) config.h config.mak
+#
+# Depdencies
+#
 
-.PHONY: all clean default depend distclean
+-include $(DEPS)

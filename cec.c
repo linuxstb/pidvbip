@@ -84,7 +84,7 @@ static int CecKeyPress(void *(cbParam), const cec_keypress (key))
 {
   fprintf(stderr,"Key: %d, duration: %d\n",key.keycode,key.duration);
 
-  if (key.duration == 0) { // Key down event
+  if ((key.duration == 0) || (key.duration == 500))  { // Key down event
     switch (key.keycode) {
       case CEC_USER_CONTROL_CODE_SELECT:
       case CEC_USER_CONTROL_CODE_DISPLAY_INFORMATION:
@@ -121,6 +121,8 @@ static int CecKeyPress(void *(cbParam), const cec_keypress (key))
         cec_add_keypress('l'); break;
       case CEC_USER_CONTROL_CODE_RIGHT:
         cec_add_keypress('r'); break;
+      case CEC_USER_CONTROL_CODE_AN_CHANNELS_LIST:
+        cec_add_keypress('c'); break;
       case CEC_USER_CONTROL_CODE_PAUSE:
       case CEC_USER_CONTROL_CODE_F2_RED:
         cec_add_keypress(' '); break;

@@ -103,7 +103,7 @@ next_packet:
 
      if (coding == OMX_VIDEO_CodingUnused) {
        fprintf(stderr,"Setting up OMX pipeline... - vcodectype=%d\n",codec->vcodectype);
-       omx_setup_pipeline(pipe, codec->vcodectype, audio_dest);
+       omx_setup_pipeline(pipe, codec->vcodectype, audio_dest, ((codec->width*codec->height) > 720*576) ? 1 : 0);
  
        fprintf(stderr,"Done setting up OMX pipeline.\n");
        coding = codec->vcodectype;

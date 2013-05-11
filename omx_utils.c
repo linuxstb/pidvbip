@@ -26,6 +26,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include <string.h>
 
 #include "omx_utils.h"
+#include "configfile.h"
+
+extern struct configfile_parameters global_settings;
 
 OMX_TICKS pts_to_omx(uint64_t pts)
 {
@@ -457,15 +460,15 @@ OMX_ERRORTYPE omx_init_component(struct omx_pipeline_t* pipe, struct omx_compone
 }
 
 
-OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTYPE video_codec, char* audio_dest)
+OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTYPE video_codec, char* audio_dest, int is_hd)
 {
   OMX_VIDEO_PARAM_PORTFORMATTYPE format;
   OMX_TIME_CONFIG_CLOCKSTATETYPE cstate;
 
   pipe->do_deinterlace = 0;
 
-  /* TODO: This should be user-configurable, and for any codec where the resolution is <= 720x576 */
-  if (video_codec == OMX_VIDEO_CodingMPEG2) {
+  if (((is_hd == 0) && (global_settings.deinterlace_sd)) || ((is_hd == 1) && (global_settings.deinterlace_hd))) {
+    fprintf(stderr,"Enabling de-interlace\n");
     pipe->do_deinterlace = 1;
   }
 

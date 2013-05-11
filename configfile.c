@@ -85,6 +85,10 @@ cmdline_opt_t cmdline_opts[] = {
   {   0, "no-cec",            "Disable CEC support",                     OPT_BOOL, &global_settings.nocec, 0, NULL },
 #endif
 
+  {   0, NULL,                "Playback options",                         OPT_NULL, NULL, 0, NULL         },
+  {   0, "deinterlace-sd",    "De-interlace SD content (<= 720x576)",     OPT_BOOL, &global_settings.deinterlace_sd, 0, NULL },
+  {   0, "deinterlace-hd",    "De-interlace HD content (> 720x576)",      OPT_BOOL, &global_settings.deinterlace_hd, 0, NULL },
+
 #if ENABLE_LIBAVFORMAT
   {   0, NULL,                "Experimental features",                   OPT_NULL, NULL, 0, NULL         },
   {   0, "avplay",            "Filename of video file to play",          OPT_STR,  &global_settings.avplay, -1, NULL },

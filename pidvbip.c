@@ -695,6 +695,7 @@ next_channel:
 	        htsp_destroy_message(&msg);
                 osd_blank_video(&osd,0);
               };
+              htsp_unlock(&htsp);
               curr_streaming = 0;
 	    } else {
               osd_alert(&osd, "Restarting subscription");
@@ -702,7 +703,6 @@ next_channel:
               actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
               goto change_channel;
             };
-	    htsp_unlock(&htsp);
             break;
 
             break;

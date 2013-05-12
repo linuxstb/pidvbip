@@ -684,8 +684,6 @@ next_channel:
             };
             break;
 
-            break;
-
           default:
             break;            
         }

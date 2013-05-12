@@ -353,19 +353,6 @@ static int get_actual_channel(int auto_hdtv, int user_channel_id)
   return actual_channel_id;
 }
 
-double get_time(void)
-{
-  struct timeval tv;
-
-  gettimeofday(&tv,NULL);
-
-  double x = tv.tv_sec;
-  x *= 1000;
-  x += tv.tv_usec / 1000;
-
-  return x;
-}
-
 extern struct configfile_parameters global_settings;
 
 int main(int argc, char* argv[])
@@ -379,7 +366,6 @@ int main(int argc, char* argv[])
     struct codecs_t codecs;
     struct osd_t osd;
     pthread_t htspthread = 0;
-    double osd_cleartime = 0;
     int curr_streaming = 1;
     struct msgqueue_t msgqueue;
 
@@ -554,8 +540,7 @@ next_channel:
 
     fprintf(stderr,"Tuning to channel %d - \"%s\"\n",channels_getlcn(user_channel_id),channels_getname(user_channel_id));
 
-    osd_show_info(&osd,user_channel_id);
-    osd_cleartime = get_time() + 5000;
+    osd_show_info(&osd,user_channel_id,5000);
 
     fprintf(stderr,"Waiting for lock\n");
     htsp_lock(&htsp);
@@ -607,10 +592,6 @@ next_channel:
                 new_channel = new_channel % 10000;
               }
             }
-            if (osd_cleartime) {
-              osd_clear(&osd);
-              osd_cleartime = 0;
-            }
             osd_show_newchannel(&osd,new_channel);
             new_channel_timeout = get_time() + 1000;
             break;
@@ -618,14 +599,12 @@ next_channel:
           case 'q':
             goto done;
 
-          case 'i':
-            if (osd_cleartime) {
+          case 'i': /* Toggle info screen */
+            if (osd.osd_state == OSD_INFO) {
               /* Hide info if currently shown */
               osd_clear(&osd);
-              osd_cleartime = 0;
 	    } else {
-              osd_show_info(&osd,user_channel_id);
-              osd_cleartime = get_time() + 20000; /* 20 second timeout */
+              osd_show_info(&osd,user_channel_id, 60000); /* 60 second timeout */
             }
 
             break;
@@ -712,15 +691,7 @@ next_channel:
         }
       }
 
-      if ((osd_cleartime) && (get_time() > osd_cleartime)) {
-        osd_clear(&osd);
-        osd_cleartime = 0;
-      }
-
-      if ((blank_video_timeout) && (get_time() > blank_video_timeout)) {
-        osd_blank_video(&osd,0);
-        blank_video_timeout = 0;
-      }
+      osd_update(&osd, user_channel_id);
 
       if ((new_channel_timeout) && (get_time() >= new_channel_timeout)) {
         fprintf(stderr,"new_channel = %d\n",new_channel);

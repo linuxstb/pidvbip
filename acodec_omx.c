@@ -161,6 +161,7 @@ static void* acodec_omx_thread(struct codec_init_args_t* args)
     exit(1);
   }
   mpg123_param(m, MPG123_VERBOSE, 2, 0); /* Brabble a bit about the parsing/decoding. */
+  mpg123_param(m, MPG123_FLAGS, MPG123_FORCE_STEREO, 0); /* Force Stereo output */
 
   /* Now mpg123 is being prepared for feeding. The main loop will read chunks from stdin and feed them to mpg123;
      then take decoded data as available to write to stdout. */

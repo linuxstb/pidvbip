@@ -649,6 +649,7 @@ int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscri
   unsigned char* buf = list;
 
   subscription->numstreams = 0;
+  subscription->numaudiostreams = 0;
   subscription->videostream = -1;
   subscription->audiostream = -1;
 
@@ -694,15 +695,11 @@ int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscri
       subscription->streams[i].type = HMF_STREAM_VIDEO;
       subscription->streams[i].codec = HMF_VIDEO_CODEC_MPEG2;
       subscription->videostream = i;
-      htsp_get_int(&tmpmsg,"width",&subscription->streams[i].width);
-      htsp_get_int(&tmpmsg,"height",&subscription->streams[i].height);
       DEBUGF("Video stream is index %d: MPEG-2\n",subscription->streams[i].index);
     } else if (strcmp(typestr,"H264")==0) {
       subscription->streams[i].type = HMF_STREAM_VIDEO;
       subscription->streams[i].codec = HMF_VIDEO_CODEC_H264;
       subscription->videostream = i;
-      htsp_get_int(&tmpmsg,"width",&subscription->streams[i].width);
-      htsp_get_int(&tmpmsg,"height",&subscription->streams[i].height);
       DEBUGF("Video stream is index %d: H264\n",subscription->streams[i].index);
     } else if (strcmp(typestr,"MPEG2AUDIO")==0) {
       subscription->streams[i].type = HMF_STREAM_AUDIO;
@@ -733,6 +730,14 @@ int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscri
       subscription->streams[i].type = HMF_UNKNOWN;
       subscription->streams[i].codec = HMF_UNKNOWN;
       fprintf(stderr,"Warning: Unknown stream type \"%s\"\n",typestr);
+    }
+
+    if (subscription->streams[i].type == HMF_STREAM_VIDEO) {
+      htsp_get_int(&tmpmsg,"width",&subscription->streams[i].width);
+      htsp_get_int(&tmpmsg,"height",&subscription->streams[i].height);
+    } else if (subscription->streams[i].type == HMF_STREAM_AUDIO) {
+      subscription->numaudiostreams++;
+      htsp_get_int(&tmpmsg,"audio_type",&subscription->streams[i].audio_type);
     }
 
     free(typestr);

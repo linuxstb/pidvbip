@@ -45,12 +45,14 @@ struct htsp_stream_t
   int width;
   int height;
   char lang[4];
+  int audio_type;  /* iso639_language_descriptor audio_type */
 };
 
 struct htsp_subscription_t
 {
   struct htsp_stream_t* streams;
   int numstreams;
+  int numaudiostreams;
   int videostream;
   int audiostream;
 };

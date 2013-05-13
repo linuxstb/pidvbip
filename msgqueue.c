@@ -47,22 +47,29 @@ int msgqueue_get(struct msgqueue_t* q, int timeout_ms)
 
   pthread_mutex_lock(&q->mutex);
 
-  gettimeofday(&tv, NULL);
+  if (timeout_ms) {
+    gettimeofday(&tv, NULL);
 
-  /* Convert from timeval to timespec */
-  ts.tv_sec  = tv.tv_sec;
-  ts.tv_nsec = tv.tv_usec * 1000;
+    /* Convert from timeval to timespec */
+    ts.tv_sec  = tv.tv_sec;
+    ts.tv_nsec = tv.tv_usec * 1000;
 
-  /* Add timeout value and normalise */
-  ts.tv_nsec += timeout_ms * 1000000;
-  while (ts.tv_nsec > 1000000000) {
-    ts.tv_sec++;
-    ts.tv_nsec -= 1000000000;
-  }
+    /* Add timeout value and normalise */
+    ts.tv_nsec += timeout_ms * 1000000;
+    while (ts.tv_nsec > 1000000000) {
+      ts.tv_sec++;
+      ts.tv_nsec -= 1000000000;
+    }
 
-  while (q->count == 0) {
-    rc = pthread_cond_timedwait(&q->count_cv, &q->mutex, &ts);
-    if (rc == ETIMEDOUT) {
+    while (q->count == 0) {
+      rc = pthread_cond_timedwait(&q->count_cv, &q->mutex, &ts);
+      if (rc == ETIMEDOUT) {
+        pthread_mutex_unlock(&q->mutex);
+        return -1;
+      }
+    }
+  } else {
+    if (q->count == 0) {
       pthread_mutex_unlock(&q->mutex);
       return -1;
     }

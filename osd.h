@@ -26,6 +26,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include <pthread.h>
 #include "libs/vgfont/vgfont.h"
 
+#include "codec.h"
+
 /* The various OSD screens */
 #define OSD_NONE 0
 #define OSD_INFO 1
@@ -54,6 +56,7 @@ void osd_show_info(struct osd_t* osd, int channel_id, int timeout);
 void osd_show_newchannel(struct osd_t* osd, int channel);
 void osd_clear(struct osd_t* osd);
 void osd_clear_newchannel(struct osd_t* osd);
+void osd_show_audio_menu(struct osd_t* osd, struct codecs_t* codecs, int audio_stream);
 void osd_blank_video(struct osd_t* osd, int on_off);
 void osd_update(struct osd_t* osd, int channel_id);
 

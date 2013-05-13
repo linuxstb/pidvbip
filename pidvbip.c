@@ -58,6 +58,9 @@ struct htsp_t htsp;
 
 static struct termios orig;
 
+/* Messages to the HTSP receiver thread - low eight bits are a parameter */
+#define MSG_CHANGE_AUDIO_STREAM 0x100
+
 void reset_stdin(void)
 {
   tcsetattr(0, TCSANOW, &orig);
@@ -191,6 +194,8 @@ static void do_pause(struct codecs_t* codecs, int pause)
 }
 
 
+static struct msgqueue_t htsp_msgqueue;
+
 /* The HTSP thread reads from the network and passes the incoming stream packets to the
    appropriate codec (video/audio/subtitle) */
 void* htsp_receiver_thread(struct codecs_t* codecs)
@@ -214,6 +219,23 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
 #endif
 
   while (ok) {
+    int x = msgqueue_get(&htsp_msgqueue,0);
+    if (x != -1) {
+      switch (x & 0xffffff00) {
+        case MSG_CHANGE_AUDIO_STREAM:
+          codec_new_channel(&codecs->acodec);
+          codecs->subscription.audiostream = x & 0xff;
+          codecs->acodec.acodectype = codecs->subscription.streams[codecs->subscription.audiostream].codec;
+          codecs->acodec.first_packet = 1;
+          codecs->acodec.is_running = 1;
+          fprintf(stderr,"Processed audio stream change - new stream is %d\n",x&0xff);
+          break;
+
+        default:
+          fprintf(stderr,"Unknown HTSP thread message 0x%08x\n",x);
+      }
+    }
+
     htsp_lock(&htsp);
     res = htsp_recv_message(&htsp,&msg,100);
     current_subscriptionId = htsp.subscriptionId;
@@ -268,6 +290,8 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
           htsp_get_int(&msg,"subscriptionId",&subscriptionId);
 
           if (subscriptionId == current_subscriptionId) {
+	    //            fprintf(stderr,"muxpkt: stream=%d, audio_stream=%d, video_stream=%d\n",stream,codecs->subscription.streams[codecs->subscription.audiostream].index,codecs->subscription.streams[codecs->subscription.videostream].index);
+
             if (stream==codecs->subscription.streams[codecs->subscription.videostream].index) {
               packet = malloc(sizeof(*packet));
               packet->buf = msg.msg;
@@ -305,6 +329,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
                 htsp_get_bin(&msg,"payload",&packet->packet,&packet->packetlength);
  
                 codec_queue_add_item(&codecs->acodec,packet);
+		//fprintf(stderr,"Queuing acodec packet - PTS=%lld, size=%d\n",packet->PTS, packet->packetlength);
                 free_msg = 0;   // Don't free this message
               }
             }
@@ -506,6 +531,7 @@ int main(int argc, char* argv[])
 
     /* We have finished the initial connection and sync, now start the
        receiving thread */
+    msgqueue_init(&htsp_msgqueue);
     pthread_create(&htspthread,NULL,(void * (*)(void *))htsp_receiver_thread,(void*)&codecs);
 
     memset(&codecs.vcodec,0,sizeof(codecs.vcodec));
@@ -550,6 +576,12 @@ next_channel:
                                    HMF_S64,"timeshiftPeriod",3600,
                                    HMF_S64,"normts",1,
                                    HMF_S64,"subscriptionId",++htsp.subscriptionId,
+#if 0
+                                   /* Transcoding */
+                                   HMF_STR,"videoCodec","H264",
+                                   HMF_STR,"audioCodec","MPEG2AUDIO",
+                                   HMF_S64,"maxResolution",576,  /* Max height of the stream */
+#endif
                                    HMF_NULL);
     res = htsp_send_message(&htsp,&msg);
     htsp_unlock(&htsp);
@@ -682,6 +714,33 @@ next_channel:
               actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
               goto change_channel;
             };
+            break;
+
+          case 'a':
+            {}; /* Keep gcc happy */
+            int i;
+            int first_audio_stream = -1;
+            int next_audio_stream = -1;
+            for (i=0;i<codecs.subscription.numstreams;i++) {
+              struct htsp_stream_t *stream = &codecs.subscription.streams[i];
+              if (stream->type == HMF_STREAM_AUDIO) {
+                if (first_audio_stream == -1)
+                  first_audio_stream = i;
+
+                if ((next_audio_stream == -1) && (i>codecs.subscription.audiostream))
+                  next_audio_stream = i;
+              }
+            }
+
+            if (next_audio_stream == -1)
+              next_audio_stream = first_audio_stream;
+
+            if (codecs.subscription.audiostream != next_audio_stream) {
+	      msgqueue_add(&htsp_msgqueue,MSG_CHANGE_AUDIO_STREAM | next_audio_stream);
+            }
+
+            osd_show_audio_menu(&osd,&codecs,next_audio_stream);
+
             break;
 
           default:

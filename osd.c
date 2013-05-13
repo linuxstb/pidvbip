@@ -34,6 +34,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "osd.h"
 #include "channels.h"
 #include "events.h"
+#include "codec.h"
 
 #define SCREEN 0
 #define BG_LAYER 0
@@ -492,6 +493,22 @@ void osd_clear_newchannel(struct osd_t* osd)
   pthread_mutex_unlock(&osd->osd_mutex);
 
   fprintf(stderr,"Clearing OSD...\n");
+}
+
+void osd_show_audio_menu(struct osd_t* osd, struct codecs_t* codecs, int audio_stream)
+{
+  /* Only display to console for now */
+  int i;
+
+  for (i=0;i<codecs->subscription.numstreams;i++) {
+    struct htsp_stream_t *stream = &codecs->subscription.streams[i];
+    if (stream->type == HMF_STREAM_AUDIO) {
+      if (i==audio_stream) {
+        fprintf(stderr,"*** ");
+      }
+      fprintf(stderr,"Stream %d, codec %d, lang %s, type=%d\n",i,stream->codec,stream->lang,stream->audio_type);
+    }
+  }
 }
 
 void osd_clear(struct osd_t* osd)

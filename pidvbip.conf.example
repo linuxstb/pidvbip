@@ -1,21 +1,48 @@
-[general]
+# Example configuration file.  Place in $HOME/.pidvbip or pass full
+# path and filename to pidvbip with the "-c" option.
+#
+# Command-line arguments will override anything in this config file.
 
-# IP address or hostname of tvheadend server
+##### Server options
+
+# Use AVAHI to search for tvh servers
+enable-avahi=0
+
+# Hostname or IP address of tvheadend server
 host=192.168.55.3
 
 # HTSP port of tvheadend server
 port=9982
 
-# Username and password if authentication is required
+# HTSP username
 username=pi
+
+# HTSP password
 password=pi
 
-# The first channel to be displayed
-initial_channel=605
 
-# Set to 0 to start pidvbip without starting to view a channel, 1 to
-# start streaming immediately
-startup_streaming=1
+##### Startup options
 
-# HDMI audio output = "hdmi", analogue audio output = "local"
-audio_dest=hdmi
+# Number of initial channel to tune to
+channel=1
+
+# Do not stream a channel on startup (0=stream; 1=do not stream)
+startup-stopped=0
+
+
+##### Hardware configuration
+
+# Audio output destination: hdmi,local
+audio-output=hdmi
+
+# Disable CEC support - 0=Enable CEC; 1=Disable CEC
+no-cec=0
+
+
+##### Playback options
+
+# De-interlace SD content (<= 720x576)
+deinterlace-sd=1
+
+# De-interlace HD content (> 720x576)
+deinterlace-hd=0

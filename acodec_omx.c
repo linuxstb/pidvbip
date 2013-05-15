@@ -235,7 +235,7 @@ next_packet:
 
     buf = get_next_buffer(&pipe->audio_render);
     buf->nTimeStamp = pts_to_omx(current->data->PTS);
-    fprintf(stderr,"Audio timestamp=%lld\n",current->data->PTS);
+    //fprintf(stderr,"Audio timestamp=%lld\n",current->data->PTS);
 
     res = -1;
     if (codec->acodectype == HMF_AUDIO_CODEC_AC3) {

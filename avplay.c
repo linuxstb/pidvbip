@@ -235,6 +235,7 @@ int avplay(struct codecs_t* codecs, const char* url)
     if ((pkt.stream_index == video_stream_idx) || (pkt.stream_index == audio_stream_idx)) {
       packet = malloc(sizeof(*packet));
       packet->PTS = av_rescale_q(pkt.pts, fmt_ctx->streams[pkt.stream_index]->time_base, omx_timebase);
+      packet->DTS = -1;
 
       packet->packetlength = pkt.size;
 

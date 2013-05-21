@@ -58,6 +58,8 @@ struct htsp_t htsp;
 
 static struct termios orig;
 
+int * channellist_offset=0;
+
 /* Messages to the HTSP receiver thread - low eight bits are a parameter */
 #define MSG_CHANGE_AUDIO_STREAM 0x100
 
@@ -604,6 +606,14 @@ next_channel:
       if (c != -1) {
         DEBUGF("char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
 
+        /* determine if we have an OSD shown, if we do we use a different keyset */
+        if (osd.osd_state != OSD_NONE) {
+            fprintf(stderr,"OSD present - Checking alternative keys\n");
+            if (osd_process_key(&osd,c) == 1) {
+              goto skip_keypress;
+            };
+        };
+
         switch (c) {
           case '0':
           case '1':
@@ -643,8 +653,8 @@ next_channel:
 
           case 'c':
             channels_dump();
-            osd_show_channellist(&osd, 0, channels_return_struct());
-/*            osd_cleartime = get_time() + 40000;  40 second timeout */
+            channellist_offset=0;
+            osd_show_channellist(&osd, channels_return_struct());
             break;
 
           case 'h':
@@ -749,6 +759,8 @@ next_channel:
             break;            
         }
       }
+
+skip_keypress:
 
       osd_update(&osd, user_channel_id);
 

@@ -288,6 +288,7 @@ void osd_show_channellist(struct osd_t* osd, int offset, struct channel_t* p)
   pthread_mutex_lock(&osd->osd_mutex);
   graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
   pthread_mutex_unlock(&osd->osd_mutex);
+  osd_onscreen = 1;
 }
 
 static void osd_show_channelname(struct osd_t* osd, const char *text)
@@ -312,7 +313,7 @@ static void osd_show_channelname(struct osd_t* osd, const char *text)
                                      GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
                                      GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
                                      text, text_length, text_size);
-
+  osd_onscreen = 1;
 }
 
 void osd_alert(struct osd_t* osd, char* text)
@@ -350,6 +351,7 @@ void osd_alert(struct osd_t* osd, char* text)
   graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
 
   pthread_mutex_unlock(&osd->osd_mutex);
+  osd_onscreen = 1;
 }
 
 static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event)
@@ -423,7 +425,7 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event)
     render_paragraph(osd->img,iso_text,30,OSD_XMARGIN+350,800);
     free(iso_text);
   }
-
+  osd_onscreen = 1;
   //fprintf(stderr,"Title:       %s\n",event->title);
   //fprintf(stderr,"Start:       %04d-%02d-%02d %02d:%02d:%02d\n",start_time.tm_year+1900,start_time.tm_mon+1,start_time.tm_mday,start_time.tm_hour,start_time.tm_min,start_time.tm_sec);
   //fprintf(stderr,"Stop:        %04d-%02d-%02d %02d:%02d:%02d\n",stop_time.tm_year+1900,stop_time.tm_mon+1,stop_time.tm_mday,stop_time.tm_hour,stop_time.tm_min,stop_time.tm_sec);
@@ -453,6 +455,7 @@ static void osd_show_time(struct osd_t* osd)
                                      GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
                                      GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
 				     str, strlen(str), 40);
+  osd_onscreen = 1;
 }
 
 void osd_show_info(struct osd_t* osd, int channel_id)
@@ -479,6 +482,7 @@ void osd_show_info(struct osd_t* osd, int channel_id)
 
   free(iso_text);
   event_free(event);
+  osd_onscreen = 1;
 }
 
 void osd_show_newchannel(struct osd_t* osd, int channel)
@@ -501,6 +505,7 @@ void osd_show_newchannel(struct osd_t* osd, int channel)
   osd_show_channelname(osd,str);
   graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
   pthread_mutex_unlock(&osd->osd_mutex);
+  osd_onscreen = 1;
 }
 
 void osd_clear_newchannel(struct osd_t* osd)
@@ -513,6 +518,7 @@ void osd_clear_newchannel(struct osd_t* osd)
   pthread_mutex_unlock(&osd->osd_mutex);
 
   fprintf(stderr,"Clearing OSD...\n");
+  osd_onscreen = 0;
 }
 
 void osd_clear(struct osd_t* osd)
@@ -521,6 +527,9 @@ void osd_clear(struct osd_t* osd)
   graphics_resource_fill(osd->img, 0, 0, osd->display_width, osd->display_height, GRAPHICS_RGBA32(0,0,0,0));
   graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
   pthread_mutex_unlock(&osd->osd_mutex);
+
+  /* Clear the variable to show osd is not on screen */
+  osd_onscreen = 0;
 
   fprintf(stderr,"Clearing OSD...\n");
 }

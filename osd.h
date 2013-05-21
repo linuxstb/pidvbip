@@ -46,4 +46,7 @@ void osd_clear(struct osd_t* osd);
 void osd_clear_newchannel(struct osd_t* osd);
 void osd_blank_video(struct osd_t* osd, int on_off);
 
+/* Onscreen variable, used to detect if OSD is shown */
+int osd_onscreen;
+
 #endif

@@ -65,6 +65,6 @@ void osd_update(struct osd_t* osd, int channel_id);
 double get_time(void);
 
 /* Onscreen variable, used to detect if OSD is shown */
-int osd_onscreen;
+int osd_onscreen = 0;
 
 #endif

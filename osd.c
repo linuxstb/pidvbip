@@ -34,6 +34,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "osd.h"
 #include "channels.h"
 #include "events.h"
+#include "codec.h"
 
 #define SCREEN 0
 #define BG_LAYER 0
@@ -43,7 +44,20 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #define OSD_XMARGIN 32
 #define OSD_YMARGIN 18
 
-void utf8decode(char* str, char* r)
+double get_time(void)
+{
+  struct timeval tv;
+
+  gettimeofday(&tv,NULL);
+
+  double x = tv.tv_sec;
+  x *= 1000;
+  x += tv.tv_usec / 1000;
+
+  return x;
+}
+
+static void utf8decode(char* str, char* r)
 {
   int x,y,z,ud;
   char* p = str;
@@ -202,6 +216,7 @@ void osd_init(struct osd_t* osd)
    graphics_display_resource(osd->img_blank, 0, BG_LAYER, 0, 0, GRAPHICS_RESOURCE_WIDTH, GRAPHICS_RESOURCE_HEIGHT, VC_DISPMAN_ROT0, 1);
 
    osd->video_blanked = 0;
+   osd->osd_cleartime = 0.0;
 
    pthread_mutex_init(&osd->osd_mutex,NULL);
 }
@@ -439,17 +454,19 @@ static void osd_show_time(struct osd_t* osd)
   time_t now;
   char str[32];
   int s;
-  int width = 188;
+  int width = 218;
   int height = 80;
 
-  osd_draw_window(osd,1700,18,width,height);
+  osd_draw_window(osd,1670,18,width,height);
 
   now = time(NULL);
   localtime_r(&now,&now_tm);
 
-  snprintf(str,sizeof(str),"%02d:%02d",now_tm.tm_hour,now_tm.tm_min);
+  snprintf(str,sizeof(str),"%02d:%02d.%02d",now_tm.tm_hour,now_tm.tm_min,now_tm.tm_sec);
 
-  s = graphics_resource_render_text_ext(osd->img, 1730, OSD_YMARGIN+25,
+  osd->last_now = now;
+
+  s = graphics_resource_render_text_ext(osd->img, 1700, OSD_YMARGIN+25,
                                      width,
                                      height,
                                      GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
@@ -458,11 +475,13 @@ static void osd_show_time(struct osd_t* osd)
   osd_onscreen = 1;
 }
 
-void osd_show_info(struct osd_t* osd, int channel_id)
+void osd_show_info(struct osd_t* osd, int channel_id, int timeout)
 {
   char str[128];
+  
+  osd->displayed_event = channels_geteventid(channel_id);
 
-  struct event_t* event = event_copy(channels_geteventid(channel_id));
+  struct event_t* event = event_copy(osd->displayed_event);
 
   event_dump(event);
 
@@ -481,6 +500,12 @@ void osd_show_info(struct osd_t* osd, int channel_id)
   pthread_mutex_unlock(&osd->osd_mutex);
 
   free(iso_text);
+
+  osd->osd_state = OSD_INFO;
+  if (timeout) {
+    osd->osd_cleartime = get_time() + timeout;
+  }
+
   event_free(event);
   osd_onscreen = 1;
 }
@@ -488,6 +513,12 @@ void osd_show_info(struct osd_t* osd, int channel_id)
 void osd_show_newchannel(struct osd_t* osd, int channel)
 {
   char str[128];
+
+  if ((osd->osd_state != OSD_NONE) && (osd->osd_state != OSD_NEWCHANNEL)) {
+    osd_clear(osd);
+  }
+
+  osd->osd_state = OSD_NEWCHANNEL;
 
   snprintf(str,sizeof(str),"%d",channel);
   if (channel < 1000) {
@@ -521,6 +552,22 @@ void osd_clear_newchannel(struct osd_t* osd)
   osd_onscreen = 0;
 }
 
+void osd_show_audio_menu(struct osd_t* osd, struct codecs_t* codecs, int audio_stream)
+{
+  /* Only display to console for now */
+  int i;
+
+  for (i=0;i<codecs->subscription.numstreams;i++) {
+    struct htsp_stream_t *stream = &codecs->subscription.streams[i];
+    if (stream->type == HMF_STREAM_AUDIO) {
+      if (i==audio_stream) {
+        fprintf(stderr,"*** ");
+      }
+      fprintf(stderr,"Stream %d, codec %d, lang %s, type=%d\n",i,stream->codec,stream->lang,stream->audio_type);
+    }
+  }
+}
+
 void osd_clear(struct osd_t* osd)
 {
   pthread_mutex_lock(&osd->osd_mutex);
@@ -532,4 +579,27 @@ void osd_clear(struct osd_t* osd)
   osd_onscreen = 0;
 
   fprintf(stderr,"Clearing OSD...\n");
+
+  osd->osd_state = OSD_NONE;
+  osd->osd_cleartime = 0;
+}
+
+void osd_update(struct osd_t* osd, int channel_id)
+{
+  if ((osd->osd_cleartime) && (get_time() > osd->osd_cleartime)) {
+    osd_clear(osd);
+    return;
+  }
+
+  if (osd->osd_state == OSD_INFO) {
+    time_t now = time(NULL);
+    if (now != osd->last_now) {
+      osd_show_time(osd);
+      graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
+    }
+
+    if (osd->displayed_event != channels_geteventid(channel_id)) {
+      osd_show_info(osd, channel_id, 0);
+    }
+  }
 }

@@ -161,6 +161,7 @@ static void* acodec_omx_thread(struct codec_init_args_t* args)
     exit(1);
   }
   mpg123_param(m, MPG123_VERBOSE, 2, 0); /* Brabble a bit about the parsing/decoding. */
+  mpg123_param(m, MPG123_FLAGS, MPG123_FORCE_STEREO, 0); /* Force Stereo output */
 
   /* Now mpg123 is being prepared for feeding. The main loop will read chunks from stdin and feed them to mpg123;
      then take decoded data as available to write to stdout. */
@@ -234,17 +235,7 @@ next_packet:
 
     buf = get_next_buffer(&pipe->audio_render);
     buf->nTimeStamp = pts_to_omx(current->data->PTS);
-
-    buf->nFlags = 0;
-    if(codec->first_packet)
-    {
-      //usleep(1000000);
-      fprintf(stderr,"First audio packet\n");
-      buf->nFlags |= OMX_BUFFERFLAG_STARTTIME;
-      codec->first_packet = 0;
-    }
-
-    buf->nFlags |= OMX_BUFFERFLAG_ENDOFFRAME;
+    //fprintf(stderr,"Audio timestamp=%lld\n",current->data->PTS);
 
     res = -1;
     if (codec->acodectype == HMF_AUDIO_CODEC_AC3) {
@@ -263,16 +254,25 @@ next_packet:
   
         done_init = 1;
       }
+      int header_length = 0;
+      unsigned char* s = current->data->packet;
+      if ((s[0] == 0xff) && ((s[0] & 0xf0) == 0xf0)) { /* ADTS 7 or 9 byte header */
+        if (s[1] & 1) { // CRC absent
+          header_length = 7;
+        } else {
+          header_length = 9;
+        }
+      }
       NeAACDecFrameInfo hInfo;
-      unsigned char* ret = NeAACDecDecode(hAac, &hInfo, current->data->packet + 7, current->data->packetlength-7);
+      unsigned char* ret = NeAACDecDecode(hAac, &hInfo, current->data->packet + header_length, current->data->packetlength-header_length);
   
       if (hInfo.error) {
-        fprintf(stderr,"Error decoding frame - %d\n",hInfo.error);
+        fprintf(stderr,"Error decoding frame - %d (%s)\n",hInfo.error,NeAACDecGetErrorMessage(hInfo.error));
         exit(1);
       }
   
-      if (hInfo.bytesconsumed != current->data->packetlength - 7) {
-        fprintf(stderr,"Did not consume entire packet\n");
+      if (hInfo.bytesconsumed != current->data->packetlength - header_length) {
+        fprintf(stderr,"AUDIO: Did not consume entire packet\n");
         exit(1);
       }
   
@@ -284,6 +284,17 @@ next_packet:
     }
 
     if (res == 0) {
+      buf->nFlags = 0;
+      if(codec->first_packet)
+      {
+        //usleep(1000000);
+        fprintf(stderr,"First audio packet\n");
+        buf->nFlags |= OMX_BUFFERFLAG_STARTTIME;
+        codec->first_packet = 0;
+      }
+
+      buf->nFlags |= OMX_BUFFERFLAG_ENDOFFRAME;
+
       OERR(OMX_EmptyThisBuffer(pipe->audio_render.h, buf));
     }
 

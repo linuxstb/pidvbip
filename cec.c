@@ -27,18 +27,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include <pthread.h>
 #include <libcec/cecc.h>
 
-#define CEC_CONFIG_VERSION CEC_CLIENT_VERSION_CURRENT
+#include "msgqueue.h"
 
-struct cec_key_queue {
-  char keys[10];
-  int numkeys;
-  pthread_mutex_t mutex;
-};
+#define CEC_CONFIG_VERSION CEC_CLIENT_VERSION_CURRENT
 
 /* Global variables to hold the libcec status */
 static libcec_configuration cec_config;
 static ICECCallbacks        cec_callbacks;
-static struct cec_key_queue key_queue;
 
 static int CecLogMessage(void *(cbParam), const cec_log_message message)
 {
@@ -47,85 +42,54 @@ static int CecLogMessage(void *(cbParam), const cec_log_message message)
   return 0;
 }
 
-char cec_get_keypress(void)
-{
-  int res;
-
-  pthread_mutex_lock(&key_queue.mutex);
-
-  if (key_queue.numkeys == 0) {
-    res = -1;
-  } else {
-    res = key_queue.keys[0];
-    key_queue.numkeys--;
-    if (key_queue.numkeys > 0) {
-      memmove(key_queue.keys,key_queue.keys+1,key_queue.numkeys);
-    }
-  }
-
-  pthread_mutex_unlock(&key_queue.mutex);
-
-  return res;
-}
-
-static void cec_add_keypress(char key)
-{
-  pthread_mutex_lock(&key_queue.mutex);
-
-  if (key_queue.numkeys < sizeof(key_queue.keys)) {
-    fprintf(stderr,"[CEC] Queuing keypress '%c', numkeys=%d\n",key,key_queue.numkeys);
-    key_queue.keys[key_queue.numkeys++]=key;
-  }
-
-  pthread_mutex_unlock(&key_queue.mutex);
-}
-
 static int CecKeyPress(void *(cbParam), const cec_keypress (key))
 {
+  struct msgqueue_t *msgqueue = cbParam;
+
   fprintf(stderr,"Key: %d, duration: %d\n",key.keycode,key.duration);
 
   if ((key.duration == 0) || (key.duration == 500))  { // Key down event
     switch (key.keycode) {
       case CEC_USER_CONTROL_CODE_SELECT:
       case CEC_USER_CONTROL_CODE_DISPLAY_INFORMATION:
-        cec_add_keypress('i'); break;
+        msgqueue_add(msgqueue,'i'); break;
       case CEC_USER_CONTROL_CODE_CHANNEL_UP:
-        cec_add_keypress('n'); break;
+        msgqueue_add(msgqueue,'n'); break;
       case CEC_USER_CONTROL_CODE_CHANNEL_DOWN:
-        cec_add_keypress('p'); break;
+        msgqueue_add(msgqueue,'p'); break;
       case CEC_USER_CONTROL_CODE_NUMBER0:
-        cec_add_keypress('0'); break;
+        msgqueue_add(msgqueue,'0'); break;
       case CEC_USER_CONTROL_CODE_NUMBER1:
-        cec_add_keypress('1'); break;
+        msgqueue_add(msgqueue,'1'); break;
       case CEC_USER_CONTROL_CODE_NUMBER2:
-        cec_add_keypress('2'); break;
+        msgqueue_add(msgqueue,'2'); break;
       case CEC_USER_CONTROL_CODE_NUMBER3:
-        cec_add_keypress('3'); break;
+        msgqueue_add(msgqueue,'3'); break;
       case CEC_USER_CONTROL_CODE_NUMBER4:
-        cec_add_keypress('4'); break;
+        msgqueue_add(msgqueue,'4'); break;
       case CEC_USER_CONTROL_CODE_NUMBER5:
-        cec_add_keypress('5'); break;
+        msgqueue_add(msgqueue,'5'); break;
       case CEC_USER_CONTROL_CODE_NUMBER6:
-        cec_add_keypress('6'); break;
+        msgqueue_add(msgqueue,'6'); break;
       case CEC_USER_CONTROL_CODE_NUMBER7:
-        cec_add_keypress('7'); break;
+        msgqueue_add(msgqueue,'7'); break;
       case CEC_USER_CONTROL_CODE_NUMBER8:
-        cec_add_keypress('8'); break;
+        msgqueue_add(msgqueue,'8'); break;
       case CEC_USER_CONTROL_CODE_NUMBER9:
-        cec_add_keypress('9'); break;
+        msgqueue_add(msgqueue,'9'); break;
       case CEC_USER_CONTROL_CODE_UP:
-        cec_add_keypress('u'); break;
+        msgqueue_add(msgqueue,'u'); break;
       case CEC_USER_CONTROL_CODE_DOWN:
-        cec_add_keypress('d'); break;
+        msgqueue_add(msgqueue,'d'); break;
       case CEC_USER_CONTROL_CODE_LEFT:
-        cec_add_keypress('l'); break;
+        msgqueue_add(msgqueue,'l'); break;
       case CEC_USER_CONTROL_CODE_RIGHT:
-        cec_add_keypress('r'); break;
+        msgqueue_add(msgqueue,'r'); break;
       case CEC_USER_CONTROL_CODE_AN_CHANNELS_LIST:
-        cec_add_keypress('c'); break;
+        msgqueue_add(msgqueue,'c'); break;
       case CEC_USER_CONTROL_CODE_PAUSE:
       case CEC_USER_CONTROL_CODE_F2_RED:
-        cec_add_keypress(' '); break;
+        msgqueue_add(msgqueue,' '); break;
       default:
         break;
     }
@@ -135,10 +99,12 @@ static int CecKeyPress(void *(cbParam), const cec_keypress (key))
 
 static int CecCommand(void *(cbParam), const cec_command (command))
 {
+  struct msgqueue_t *msgqueue = cbParam;
+
   switch (command.opcode) {
     case CEC_OPCODE_STANDBY:
       fprintf(stderr,"<Standby> command received\n");
-      cec_add_keypress('q');
+      msgqueue_add(msgqueue,'o');
       break;
     default:
       fprintf(stderr,"Cmd: initiator=%d, destination=%d, opcode=0x%02x\n",command.initiator,command.destination,command.opcode);
@@ -246,10 +212,8 @@ static void clear_callbacks(ICECCallbacks* cec_callbacks)
   cec_callbacks->CBCecSourceActivated      = NULL;
 }
 
-int cec_init(int init_video)
+int cec_init(int init_video, struct msgqueue_t* msgqueue)
 {
-  int res;
-
   /* Set the CEC configuration */
   clear_config(&cec_config);
   snprintf(cec_config.strDeviceName, 13, "pidvbip");
@@ -304,7 +268,7 @@ int cec_init(int init_video)
   }
 
   /* Enable callbacks, first parameter is the callback data passed to every callback */
-  cec_enable_callbacks(NULL, &cec_callbacks);
+  cec_enable_callbacks(msgqueue, &cec_callbacks);
 
   /* Get the menu language of the TV */
   cec_menu_language language;
@@ -318,10 +282,6 @@ int cec_init(int init_video)
   /* Select ourselves as the source - this will also power-on the TV if needed */
   fprintf(stderr,"Setting ourselves as the source\n");
   cec_set_active_source(CEC_DEVICE_TYPE_RECORDING_DEVICE);
-
-  /* Clear the keypress queue */
-  key_queue.numkeys = 0;
-  pthread_mutex_init(&key_queue.mutex,NULL);
 
   return 0;
 }

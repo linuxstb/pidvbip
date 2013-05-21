@@ -230,11 +230,12 @@ int avplay(struct codecs_t* codecs, const char* url)
   AVRational omx_timebase = {1,1000000};
   /* read frames from the file */
   while (av_read_frame(fmt_ctx, &pkt) >= 0) {
-    fprintf(stderr,"Read pkt - index=%d\n",pkt.stream_index);
+    //fprintf(stderr,"Read pkt - index=%d\n",pkt.stream_index);
 
     if ((pkt.stream_index == video_stream_idx) || (pkt.stream_index == audio_stream_idx)) {
       packet = malloc(sizeof(*packet));
       packet->PTS = av_rescale_q(pkt.pts, fmt_ctx->streams[pkt.stream_index]->time_base, omx_timebase);
+      packet->DTS = -1;
 
       packet->packetlength = pkt.size;
 
@@ -262,12 +263,12 @@ int avplay(struct codecs_t* codecs, const char* url)
 #ifdef DUMP_VIDEO
 	write(fd,packet->packet,packet->packetlength);
 #endif
-	fprintf(stderr,"Adding video packet - PTS=%lld, size=%d\n",packet->PTS, packet->packetlength);
+	//	fprintf(stderr,"Adding video packet - PTS=%lld, size=%d\n",packet->PTS, packet->packetlength);
         first_video = 0;
         while (codecs->vcodec.queue_count > 100) { usleep(100000); }  // FIXME
 	codec_queue_add_item(&codecs->vcodec,packet);
       } else {
-	fprintf(stderr,"Adding audio packet - PTS=%lld, size=%d\n",packet->PTS, packet->packetlength);
+	///	fprintf(stderr,"Adding audio packet - PTS=%lld, size=%d\n",packet->PTS, packet->packetlength);
         while (codecs->acodec.queue_count > 100) { usleep(100000); }  // FIXME
 	codec_queue_add_item(&codecs->acodec,packet);
       }

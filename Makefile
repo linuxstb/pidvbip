@@ -40,7 +40,9 @@ SRCS = \
 	codec.c \
 	events.c \
 	htsp.c \
+	input.c \
 	configfile.c \
+	msgqueue.c \
 	pidvbip.c \
 	omx_utils.c \
 	osd.c \

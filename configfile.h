@@ -11,6 +11,8 @@ struct configfile_parameters
   int  startup_stopped;
   char *audio_dest;
   char *configfile;
+  int deinterlace_sd;
+  int deinterlace_hd;
 #if ENABLE_AVAHI
   int  avahi;
 #endif

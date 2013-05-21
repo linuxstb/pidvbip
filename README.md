@@ -87,6 +87,7 @@ Once running, the following keys are mapped to actions:
     ' ' - pause/resume playback
     'c' - display list of channels and current events to the console
     'o' - To unsubscribe from current channel and go idle
+    'a' - Cycle through available audio streams
 
 pidvbip currently supports hardware decoding of H264 and MPEG-2 video
 streams, and software decoding of MPEG, AAC and A/52 (AC-3) audio

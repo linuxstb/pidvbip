@@ -32,7 +32,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include <termios.h>
 #include <ctype.h>
 #include <sys/time.h>
-#include <linux/input.h>
 #include <interface/vmcs_host/vcgencmd.h>
 #include <bcm_host.h>
 
@@ -47,8 +46,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "osd.h"
 #include "avahi.h"
 #include "cec.h"
+#include "msgqueue.h"
 #include "avplay.h"
 #include "omx_utils.h"
+#include "input.h"
 
 struct omx_pipeline_t omxpipe;
 
@@ -56,6 +57,9 @@ struct omx_pipeline_t omxpipe;
 struct htsp_t htsp;
 
 static struct termios orig;
+
+/* Messages to the HTSP receiver thread - low eight bits are a parameter */
+#define MSG_CHANGE_AUDIO_STREAM 0x100
 
 void reset_stdin(void)
 {
@@ -190,6 +194,8 @@ static void do_pause(struct codecs_t* codecs, int pause)
 }
 
 
+static struct msgqueue_t htsp_msgqueue;
+
 /* The HTSP thread reads from the network and passes the incoming stream packets to the
    appropriate codec (video/audio/subtitle) */
 void* htsp_receiver_thread(struct codecs_t* codecs)
@@ -213,6 +219,23 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
 #endif
 
   while (ok) {
+    int x = msgqueue_get(&htsp_msgqueue,0);
+    if (x != -1) {
+      switch (x & 0xffffff00) {
+        case MSG_CHANGE_AUDIO_STREAM:
+          codec_new_channel(&codecs->acodec);
+          codecs->subscription.audiostream = x & 0xff;
+          codecs->acodec.acodectype = codecs->subscription.streams[codecs->subscription.audiostream].codec;
+          codecs->acodec.first_packet = 1;
+          codecs->acodec.is_running = 1;
+          fprintf(stderr,"Processed audio stream change - new stream is %d\n",x&0xff);
+          break;
+
+        default:
+          fprintf(stderr,"Unknown HTSP thread message 0x%08x\n",x);
+      }
+    }
+
     htsp_lock(&htsp);
     res = htsp_recv_message(&htsp,&msg,100);
     current_subscriptionId = htsp.subscriptionId;
@@ -267,6 +290,8 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
           htsp_get_int(&msg,"subscriptionId",&subscriptionId);
 
           if (subscriptionId == current_subscriptionId) {
+	    //            fprintf(stderr,"muxpkt: stream=%d, audio_stream=%d, video_stream=%d\n",stream,codecs->subscription.streams[codecs->subscription.audiostream].index,codecs->subscription.streams[codecs->subscription.videostream].index);
+
             if (stream==codecs->subscription.streams[codecs->subscription.videostream].index) {
               packet = malloc(sizeof(*packet));
               packet->buf = msg.msg;
@@ -304,6 +329,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
                 htsp_get_bin(&msg,"payload",&packet->packet,&packet->packetlength);
  
                 codec_queue_add_item(&codecs->acodec,packet);
+		//fprintf(stderr,"Queuing acodec packet - PTS=%lld, size=%d\n",packet->PTS, packet->packetlength);
                 free_msg = 0;   // Don't free this message
               }
             }
@@ -352,110 +378,6 @@ static int get_actual_channel(int auto_hdtv, int user_channel_id)
   return actual_channel_id;
 }
 
-double get_time(void)
-{
-  struct timeval tv;
-
-  gettimeofday(&tv,NULL);
-
-  double x = tv.tv_sec;
-  x *= 1000;
-  x += tv.tv_usec / 1000;
-
-  return x;
-}
-
-#define KEY_RELEASE 0
-#define KEY_PRESS 1
-#define KEY_KEEPING_PRESSED 2
-
-int get_input_key(int fd)
-{
-  struct input_event ev[64];
-  int i;
-
-  size_t rb = read(fd, ev, sizeof(ev));
-
-  if (rb < (int) sizeof(struct input_event)) {
-    fprintf(stderr,"Short read\n");
-    return -1;
-  }
-
-  for (i = 0; i < (int)(rb / sizeof(struct input_event));i++) {
-    if (ev[i].type == EV_KEY) {
-      if ((ev[i].value == KEY_PRESS) || (ev[i].value == KEY_KEEPING_PRESSED)) {
-        fprintf(stderr,"input code %d\n",ev[1].code);
-        switch(ev[1].code) {
-          case KEY_0:
-          case KEY_NUMERIC_0:
-            return '0';
-          case KEY_1:
-          case KEY_NUMERIC_1:
-            return '1';
-          case KEY_2:
-          case KEY_NUMERIC_2:
-            return '2';
-          case KEY_3:
-          case KEY_NUMERIC_3:
-            return '3';
-          case KEY_4:
-          case KEY_NUMERIC_4:
-            return '4';
-          case KEY_5:
-          case KEY_NUMERIC_5:
-            return '5';
-          case KEY_6:
-          case KEY_NUMERIC_6:
-            return '6';
-          case KEY_7:
-          case KEY_NUMERIC_7:
-            return '7';
-          case KEY_8:
-          case KEY_NUMERIC_8:
-            return '8';
-          case KEY_9:
-          case KEY_NUMERIC_9:
-            return '9';
-          case KEY_H:
-            return 'h';
-          case KEY_I:
-          case KEY_INFO:
-            return 'i';
-          case KEY_Q:
-          case KEY_RED:
-            return 'q';
-          case KEY_N:
-          case KEY_PAGEUP:
-          case KEY_CHANNELUP:
-            return 'n';
-          case KEY_P:
-          case KEY_PAGEDOWN:
-          case KEY_CHANNELDOWN:
-            return 'p';
-          case KEY_UP:
-            return 'u';
-          case KEY_DOWN:
-            return 'd';
-          case KEY_LEFT:
-            return 'l';
-          case KEY_RIGHT:
-            return 'r';
-          case KEY_O:
-          case KEY_TAPE:
-            return 'o';
-          case KEY_SCREEN:
-          case BTN_TRIGGER_HAPPY16:
-            return ' ';
-   
-          default: break;
-        }
-      }
-    }
-  }
-
-  return -1;
-}
-
 extern struct configfile_parameters global_settings;
 
 int main(int argc, char* argv[])
@@ -469,14 +391,13 @@ int main(int argc, char* argv[])
     struct codecs_t codecs;
     struct osd_t osd;
     pthread_t htspthread = 0;
-    double osd_cleartime = 0;
-    int inputfd;
-    char inputname[256] = "Unknown";
-    char *inputdevice = "/dev/input/event0";
     int curr_streaming = 1;
+    struct msgqueue_t msgqueue;
 
     htsp.host = NULL;
     htsp.ip = NULL;
+
+    msgqueue_init(&msgqueue);
 
     memset(&omxpipe,0,sizeof(omxpipe));
     pthread_mutex_init(&omxpipe.omx_active_mutex, NULL);
@@ -516,7 +437,7 @@ int main(int argc, char* argv[])
 
 #if ENABLE_LIBCEC
     if (!global_settings.nocec) {
-      cec_init(0);
+      cec_init(0,&msgqueue);
     }
 #endif
 
@@ -524,14 +445,7 @@ int main(int argc, char* argv[])
       fprintf(stderr,"WARNING: No hardware MPEG-2 license detected - MPEG-2 video will not work\n");
     }
 
-    if ((inputfd = open(inputdevice, O_RDONLY)) >= 0) {
-      ioctl (inputfd, EVIOCGNAME (sizeof (inputname)), inputname);
-      fprintf(stderr,"Using %s - %s\n", inputdevice, inputname);
-
-      /* Disable auto-repeat (for now...) */
-      int ioctl_params[2] = { 0, 0 };
-      ioctl(inputfd,EVIOCSREP,ioctl_params);
-    }
+    input_init(&msgqueue);
 
     osd_init(&osd);
 
@@ -617,6 +531,7 @@ int main(int argc, char* argv[])
 
     /* We have finished the initial connection and sync, now start the
        receiving thread */
+    msgqueue_init(&htsp_msgqueue);
     pthread_create(&htspthread,NULL,(void * (*)(void *))htsp_receiver_thread,(void*)&codecs);
 
     memset(&codecs.vcodec,0,sizeof(codecs.vcodec));
@@ -651,8 +566,7 @@ next_channel:
 
     fprintf(stderr,"Tuning to channel %d - \"%s\"\n",channels_getlcn(user_channel_id),channels_getname(user_channel_id));
 
-    osd_show_info(&osd,user_channel_id);
-    osd_cleartime = get_time() + 5000;
+    osd_show_info(&osd,user_channel_id,5000);
 
     fprintf(stderr,"Waiting for lock\n");
     htsp_lock(&htsp);
@@ -662,6 +576,12 @@ next_channel:
                                    HMF_S64,"timeshiftPeriod",3600,
                                    HMF_S64,"normts",1,
                                    HMF_S64,"subscriptionId",++htsp.subscriptionId,
+#if 0
+                                   /* Transcoding */
+                                   HMF_STR,"videoCodec","H264",
+                                   HMF_STR,"audioCodec","MPEG2AUDIO",
+                                   HMF_S64,"maxResolution",576,  /* Max height of the stream */
+#endif
                                    HMF_NULL);
     res = htsp_send_message(&htsp,&msg);
     htsp_unlock(&htsp);
@@ -678,32 +598,8 @@ next_channel:
     new_channel_timeout = 0;
     while (1) {
       int c;
-      struct timeval tv = { 0L, 100000L };  /* 100ms */
-      fd_set fds;
-      int maxfd = 0;
-      FD_ZERO(&fds);
-      FD_SET(0, &fds);
-      if (inputfd >= 0) {
-        FD_SET(inputfd,&fds);
-        maxfd = inputfd;
-      }
-      c = -1;
-      if (select(maxfd+1, &fds, NULL, NULL, &tv)==0) {
-        c = -1;
-      } else {
-        if (FD_ISSET(0,&fds)) {
-          c = getchar();
-        }
-        if ((inputfd >= 0) && (FD_ISSET(inputfd,&fds))) {
-          c = get_input_key(inputfd);
-        }
-      }
 
-#if ENABLE_LIBCEC
-      if ((!global_settings.nocec) && (c==-1)) {
-        c = cec_get_keypress();
-      }
-#endif
+      c = msgqueue_get(&msgqueue, 100);
 
       if (c != -1) {
         DEBUGF("char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
@@ -728,10 +624,6 @@ next_channel:
                 new_channel = new_channel % 10000;
               }
             }
-            if (osd_cleartime) {
-              osd_clear(&osd);
-              osd_cleartime = 0;
-            }
             osd_show_newchannel(&osd,new_channel);
             new_channel_timeout = get_time() + 1000;
             break;
@@ -739,14 +631,12 @@ next_channel:
           case 'q':
             goto done;
 
-          case 'i':
-            if (osd_cleartime) {
+          case 'i': /* Toggle info screen */
+            if (osd.osd_state == OSD_INFO) {
               /* Hide info if currently shown */
               osd_clear(&osd);
-              osd_cleartime = 0;
 	    } else {
-              osd_show_info(&osd,user_channel_id);
-              osd_cleartime = get_time() + 20000; /* 20 second timeout */
+              osd_show_info(&osd,user_channel_id, 60000); /* 60 second timeout */
             }
 
             break;
@@ -816,6 +706,7 @@ next_channel:
 	        htsp_destroy_message(&msg);
                 osd_blank_video(&osd,0);
               };
+              htsp_unlock(&htsp);
               curr_streaming = 0;
 	    } else {
               osd_alert(&osd, "Restarting subscription");
@@ -823,8 +714,32 @@ next_channel:
               actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
               goto change_channel;
             };
-	    htsp_unlock(&htsp);
             break;
+
+          case 'a':
+            {}; /* Keep gcc happy */
+            int i;
+            int first_audio_stream = -1;
+            int next_audio_stream = -1;
+            for (i=0;i<codecs.subscription.numstreams;i++) {
+              struct htsp_stream_t *stream = &codecs.subscription.streams[i];
+              if (stream->type == HMF_STREAM_AUDIO) {
+                if (first_audio_stream == -1)
+                  first_audio_stream = i;
+
+                if ((next_audio_stream == -1) && (i>codecs.subscription.audiostream))
+                  next_audio_stream = i;
+              }
+            }
+
+            if (next_audio_stream == -1)
+              next_audio_stream = first_audio_stream;
+
+            if (codecs.subscription.audiostream != next_audio_stream) {
+	      msgqueue_add(&htsp_msgqueue,MSG_CHANGE_AUDIO_STREAM | next_audio_stream);
+            }
+
+            osd_show_audio_menu(&osd,&codecs,next_audio_stream);
 
             break;
 
@@ -833,15 +748,7 @@ next_channel:
         }
       }
 
-      if ((osd_cleartime) && (get_time() > osd_cleartime)) {
-        osd_clear(&osd);
-        osd_cleartime = 0;
-      }
-
-      if ((blank_video_timeout) && (get_time() > blank_video_timeout)) {
-        osd_blank_video(&osd,0);
-        blank_video_timeout = 0;
-      }
+      osd_update(&osd, user_channel_id);
 
       if ((new_channel_timeout) && (get_time() >= new_channel_timeout)) {
         fprintf(stderr,"new_channel = %d\n",new_channel);

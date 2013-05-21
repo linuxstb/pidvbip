@@ -643,6 +643,8 @@ next_channel:
 
           case 'c':
             channels_dump();
+            osd_show_channellist(&osd, 0, channels_return_struct());
+/*            osd_cleartime = get_time() + 40000;  40 second timeout */
             break;
 
           case 'h':

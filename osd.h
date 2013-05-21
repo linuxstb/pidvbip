@@ -53,7 +53,7 @@ struct osd_t {
 void osd_init(struct osd_t* osd);
 void osd_done(struct osd_t* osd);
 void osd_alert(struct osd_t* osd, char* text);
-void osd_show_info(struct osd_t* osd, int channel_id);
+void osd_show_info(struct osd_t* osd, int channel_id, int timeout);
 void osd_show_channellist(struct osd_t* osd, int offset, struct channel_t* p);
 void osd_show_newchannel(struct osd_t* osd, int channel);
 void osd_clear(struct osd_t* osd);
@@ -65,6 +65,6 @@ void osd_update(struct osd_t* osd, int channel_id);
 double get_time(void);
 
 /* Onscreen variable, used to detect if OSD is shown */
-int osd_onscreen = 0;
+int osd_onscreen;
 
 #endif

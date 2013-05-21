@@ -303,6 +303,7 @@ void osd_show_channellist(struct osd_t* osd, int offset, struct channel_t* p)
   pthread_mutex_lock(&osd->osd_mutex);
   graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
   pthread_mutex_unlock(&osd->osd_mutex);
+  osd->osd_cleartime = get_time() + 20000;
   osd_onscreen = 1;
 }
 

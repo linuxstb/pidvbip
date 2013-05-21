@@ -378,115 +378,6 @@ static int get_actual_channel(int auto_hdtv, int user_channel_id)
   return actual_channel_id;
 }
 
-<<<<<<< HEAD
-double get_time(void)
-{
-  struct timeval tv;
-
-  gettimeofday(&tv,NULL);
-
-  double x = tv.tv_sec;
-  x *= 1000;
-  x += tv.tv_usec / 1000;
-
-  return x;
-}
-
-#define KEY_RELEASE 0
-#define KEY_PRESS 1
-#define KEY_KEEPING_PRESSED 2
-
-int get_input_key(int fd)
-{
-  struct input_event ev[64];
-  int i;
-
-  size_t rb = read(fd, ev, sizeof(ev));
-
-  if (rb < (int) sizeof(struct input_event)) {
-    fprintf(stderr,"Short read\n");
-    return -1;
-  }
-
-  for (i = 0; i < (int)(rb / sizeof(struct input_event));i++) {
-    if (ev[i].type == EV_KEY) {
-      if ((ev[i].value == KEY_PRESS) || (ev[i].value == KEY_KEEPING_PRESSED)) {
-        fprintf(stderr,"input code %d\n",ev[1].code);
-        switch(ev[1].code) {
-          case KEY_0:
-          case KEY_NUMERIC_0:
-            return '0';
-          case KEY_1:
-          case KEY_NUMERIC_1:
-            return '1';
-          case KEY_2:
-          case KEY_NUMERIC_2:
-            return '2';
-          case KEY_3:
-          case KEY_NUMERIC_3:
-            return '3';
-          case KEY_4:
-          case KEY_NUMERIC_4:
-            return '4';
-          case KEY_5:
-          case KEY_NUMERIC_5:
-            return '5';
-          case KEY_6:
-          case KEY_NUMERIC_6:
-            return '6';
-          case KEY_7:
-          case KEY_NUMERIC_7:
-            return '7';
-          case KEY_8:
-          case KEY_NUMERIC_8:
-            return '8';
-          case KEY_9:
-          case KEY_NUMERIC_9:
-            return '9';
-          case KEY_H:
-            return 'h';
-          case KEY_I:
-          case KEY_INFO:
-            return 'i';
-          case KEY_Q:
-          case KEY_RED:
-            return 'q';
-          case KEY_N:
-          case KEY_PAGEUP:
-          case KEY_CHANNELUP:
-            return 'n';
-          case KEY_P:
-          case KEY_PAGEDOWN:
-          case KEY_CHANNELDOWN:
-            return 'p';
-          case KEY_UP:
-            return 'u';
-          case KEY_DOWN:
-            return 'd';
-          case KEY_LEFT:
-            return 'l';
-          case KEY_RIGHT:
-            return 'r';
-          case KEY_O:
-          case KEY_TAPE:
-            return 'o';
-          case KEY_C:
-            return 'c';
-          case KEY_SCREEN:
-          case BTN_TRIGGER_HAPPY16:
-            return ' ';
-   
-          default: break;
-        }
-      }
-    }
-  }
-
-  return -1;
-}
-
-=======
->>>>>>> 951f86907a6c005a63047a4891416fcb834559ec
 extern struct configfile_parameters global_settings;
 
 int main(int argc, char* argv[])
@@ -752,8 +643,6 @@ next_channel:
 
           case 'c':
             channels_dump();
-              osd_show_channellist(&osd, 0, channels_return_struct());
-              osd_cleartime = get_time() + 40000; /* 40 second timeout */
             break;
 
           case 'h':

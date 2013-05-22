@@ -606,7 +606,8 @@ void osd_update(struct osd_t* osd, int channel_id)
 
 int osd_process_key(struct osd_t* osd, int c) {
 /* process and check keypresses whilst osd shown */
-int return_key = 0;
+
+  if (osd->osd_state == OSD_NONE) return c;
 
   if (osd->osd_state == OSD_CHANNELLIST) {
     switch (c) {
@@ -615,7 +616,7 @@ int return_key = 0;
         channellist_offset += 3;
         fprintf(stderr,"OSD page (%d)\n",channellist_offset);
         osd_show_channellist(osd, channels_return_struct());
-        return_key=1;
+        return -1;
         break;
       case 'p':
         fprintf(stderr,"OSD key: p pressed -- previous page\n");
@@ -625,9 +626,9 @@ int return_key = 0;
           channellist_offset = 0;
         };
         osd_show_channellist(osd, channels_return_struct());
-        return_key=1;
+        return -1;
         break;
     };
   };
-return return_key;
+return c;
 }

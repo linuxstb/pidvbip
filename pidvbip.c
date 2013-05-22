@@ -603,16 +603,10 @@ next_channel:
 
       c = msgqueue_get(&msgqueue, 100);
 
+      c = osd_process_key(&osd,c);
+
       if (c != -1) {
         DEBUGF("char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
-
-        /* determine if we have an OSD shown, if we do we use a different keyset */
-        if (osd.osd_state != OSD_NONE) {
-            fprintf(stderr,"OSD present - Checking alternative keys\n");
-            if (osd_process_key(&osd,c) == 1) {
-              goto skip_keypress;
-            };
-        };
 
         switch (c) {
           case '0':

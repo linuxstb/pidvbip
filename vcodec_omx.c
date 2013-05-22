@@ -42,6 +42,8 @@ static void* vcodec_omx_thread(struct codec_init_args_t* args)
    int is_paused = 0;
    int64_t prev_DTS;
    OMX_BUFFERHEADERTYPE *buf;
+   int current_aspect;
+   int aspect;
 
    free(args);
 
@@ -56,6 +58,9 @@ next_channel:
    coding = OMX_VIDEO_CodingUnused;
    codec->first_packet = 1;
    prev_DTS = -1;
+   current_aspect = 0;
+   pipe->video_render.aspect = 0;
+   aspect = 0;
 
    while (1)
    {
@@ -90,6 +95,24 @@ next_packet:
          current = NULL;
          is_paused = 1;
          goto next_packet;
+       } else if (current->msgtype == MSG_SET_ASPECT_4_3) {
+         omx_set_display_region(pipe, 240, 0, 1440, 1080);
+         current = NULL;
+         goto next_packet;
+       } else if (current->msgtype == MSG_SET_ASPECT_16_9) {
+         omx_set_display_region(pipe, 0, 0, 1920, 1080);
+         current = NULL;
+         goto next_packet;
+       } else if (current->msgtype == MSG_ZOOM) {
+         if ((int)current->data) {
+           fprintf(stderr,"4:3 on!\n");
+           omx_set_display_region(pipe, 240, 0, 1440, 1080);
+         } else {
+           fprintf(stderr,"4:3 off\n");
+           omx_set_display_region(pipe, 0, 0, 1920, 1080);
+         }
+         current = NULL;
+         goto next_packet;
        }
        if ((prev_DTS != -1) && ((prev_DTS + 40000) != current->data->DTS) && ((prev_DTS + 20000) != current->data->DTS)) {
          fprintf(stderr,"DTS discontinuity - DTS=%lld, prev_DTS=%lld (diff = %lld)\n",current->data->DTS,prev_DTS,current->data->DTS-prev_DTS);
@@ -99,6 +122,35 @@ next_packet:
 
      if (current->data == NULL) {
        fprintf(stderr,"ERROR: data is NULL (expect segfault!)");
+     }
+
+     if ((current->data->frametype == 'I') && (codec->vcodectype == OMX_VIDEO_CodingMPEG2)) {
+       unsigned char* p = current->data->packet;
+       /* Parse the MPEG stream to extract the aspect ratio.
+          TODO: Handle the Active Format Description (AFD) which is frame-accurate.  This is just GOP-accurate .
+
+          "AFD is optionally carried in the user data of video elementary bitstreams, after the sequence
+          extension, GOP header, and/or picture coding extension."
+        */
+       if ((p[0]==0) && (p[1]==0) && (p[2]==1) && (p[3]==0xb3)) { // Sequence header
+	 //int width = (p[4] << 4) | (p[5] & 0xf0) >> 4;
+         //int height = (p[5] & 0x0f) << 8 | p[6];
+         aspect = (p[7] & 0xf0) >> 4;
+
+         //fprintf(stderr,"MPEG-2 sequence header - width=%d, height=%d, aspect=%d\n",width,height,aspect);
+       }
+     }
+
+     /* Check if aspect ratio in video_render component has changed */
+     if ((codec->vcodectype == OMX_VIDEO_CodingMPEG2) && (pipe->video_render.aspect != current_aspect)) {
+       if (pipe->video_render.aspect == 2) { // 4:3
+         fprintf(stderr,"Switching to 4:3\n");
+         omx_set_display_region(pipe, 240, 0, 1440, 1080);
+       } else { // 16:9 - DVB can only be 4:3 or 16:9
+         fprintf(stderr,"Switching to 16:9\n");
+         omx_set_display_region(pipe, 0, 0, 1920, 1080);
+       }
+       current_aspect = pipe->video_render.aspect;
      }
 
      if (coding == OMX_VIDEO_CodingUnused) {
@@ -139,6 +191,9 @@ next_packet:
        bytes_left -= to_copy;
        buf->nTimeStamp = pts_to_omx(current->data->PTS);
        buf->nFilledLen = to_copy;
+
+       buf->hMarkTargetComponent = pipe->video_render.h;
+       buf->pMarkData = (OMX_PTR)aspect;
 
        buf->nFlags = 0;
        if(codec->first_packet)

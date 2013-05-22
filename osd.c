@@ -316,7 +316,7 @@ void osd_alert(struct osd_t* osd, char* text)
   pthread_mutex_unlock(&osd->osd_mutex);
 }
 
-static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event)
+static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event, struct event_t* nextEvent)
 {
   char str[64];
   int s;
@@ -331,6 +331,7 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event)
   if (event==NULL)
     return;
 
+  /* Start/stop time - current event */
   localtime_r((time_t*)&event->start,&start_time);
   localtime_r((time_t*)&event->stop,&stop_time);
   duration = event->stop - event->start;
@@ -343,7 +344,7 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event)
                                      GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
 				     str, strlen(str), 40);
 
-
+  /* Title - current event */
   if (event->title) {
     char* iso_text = malloc(strlen(event->title)+1);
     utf8decode(event->title,iso_text);
@@ -355,7 +356,6 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event)
                                        iso_text, strlen(iso_text), 40);
     free(iso_text);
   }
-
 
   snprintf(str,sizeof(str),"%dh %02dm",duration/3600,(duration%3600)/60);
   s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 800,
@@ -387,6 +387,36 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event)
     render_paragraph(osd->img,iso_text,30,OSD_XMARGIN+350,800);
     free(iso_text);
   }
+
+
+  if (nextEvent) {
+    osd_draw_window(osd,OSD_XMARGIN,1002,width,78-OSD_YMARGIN);
+    /* Start/stop time - next event */
+    localtime_r((time_t*)&nextEvent->start,&start_time);
+    localtime_r((time_t*)&nextEvent->stop,&stop_time);
+
+    snprintf(str,sizeof(str),"%02d:%02d - %02d:%02d",start_time.tm_hour,start_time.tm_min,stop_time.tm_hour,stop_time.tm_min);
+    s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 1020,
+                                       width,
+                                       height,
+                                       GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
+                                       GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
+				     str, strlen(str), 40);
+
+
+    if (nextEvent->title) {
+      char* iso_text = malloc(strlen(nextEvent->title)+1);
+      utf8decode(nextEvent->title,iso_text);
+      s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+350, 1020,
+                                         width,
+                                         height,
+                                         GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
+                                         GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
+                                         iso_text, strlen(iso_text), 40);
+      free(iso_text);
+    }
+  }
+
 
   //fprintf(stderr,"Title:       %s\n",event->title);
   //fprintf(stderr,"Start:       %04d-%02d-%02d %02d:%02d:%02d\n",start_time.tm_year+1900,start_time.tm_mon+1,start_time.tm_mday,start_time.tm_hour,start_time.tm_min,start_time.tm_sec);
@@ -425,12 +455,17 @@ void osd_show_info(struct osd_t* osd, int channel_id, int timeout)
 {
   char str[128];
   
-  osd->displayed_event = channels_geteventid(channel_id);
+  osd->event = channels_geteventid(channel_id);
+  osd->nextEvent = channels_getnexteventid(channel_id);
 
-  struct event_t* event = event_copy(osd->displayed_event);
+  struct event_t* event = event_copy(osd->event);
+  struct event_t* nextEvent = event_copy(osd->nextEvent);
 
+  fprintf(stderr,"***OSD: event=%d\n",(event ? event->eventId : -1));
   event_dump(event);
-
+  fprintf(stderr,"***OSD: nextEvent=%d\n",(nextEvent ? nextEvent->eventId : -1));
+  event_dump(nextEvent);
+  fprintf(stderr,"******\n");
   snprintf(str,sizeof(str),"%03d - %s",channels_getlcn(channel_id),channels_getname(channel_id));
   char* iso_text = malloc(strlen(str)+1);
   utf8decode(str,iso_text);
@@ -440,7 +475,7 @@ void osd_show_info(struct osd_t* osd, int channel_id, int timeout)
 
   osd_show_time(osd);
 
-  osd_show_eventinfo(osd,event);
+  osd_show_eventinfo(osd,event,nextEvent);
 
   graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
   pthread_mutex_unlock(&osd->osd_mutex);
@@ -453,6 +488,7 @@ void osd_show_info(struct osd_t* osd, int channel_id, int timeout)
   }
 
   event_free(event);
+  event_free(nextEvent);
 }
 
 void osd_show_newchannel(struct osd_t* osd, int channel)
@@ -538,7 +574,7 @@ void osd_update(struct osd_t* osd, int channel_id)
       graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
     }
 
-    if (osd->displayed_event != channels_geteventid(channel_id)) {
+    if (osd->event != channels_geteventid(channel_id)) {
       osd_show_info(osd, channel_id, 0);
     }
   }

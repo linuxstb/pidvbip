@@ -205,6 +205,11 @@ static OMX_ERRORTYPE omx_event_handler(OMX_IN OMX_HANDLETYPE hComponent,
 
     break;
 
+  case OMX_EventMark:
+    component->aspect = (OMX_MARKTYPE*)pEventData;
+    //fprintf(stderr,"[EVENT] OMX_EventMark - component->aspect=%d\n",component->aspect);
+    break;
+
     default:
       fprintf(stderr,"[EVENT] Got an event of type %x on %s %p (d1: %x, d2 %x)\n", eEvent,
        component->name, hComponent, (unsigned int)nData1, (unsigned int)nData2);
@@ -434,6 +439,27 @@ static void omx_config_pcm(struct omx_component_t* audio_render, int samplerate,
   OERR(OMX_SetConfig(audio_render->h, OMX_IndexConfigBrcmAudioDestination, &ar_dest));
 }
 
+void omx_set_display_region(struct omx_pipeline_t* pipe, int x, int y, int width, int height)
+{
+  OMX_CONFIG_DISPLAYREGIONTYPE region;
+
+  OMX_INIT_STRUCTURE(region);
+  region.nPortIndex = 90; /* Video render input port */
+
+  region.set = OMX_DISPLAY_SET_DEST_RECT | OMX_DISPLAY_SET_FULLSCREEN | OMX_DISPLAY_SET_NOASPECT;
+
+  region.fullscreen = OMX_FALSE;
+  region.noaspect = OMX_TRUE;
+
+  region.dest_rect.x_offset = x;
+  region.dest_rect.y_offset = y;
+  region.dest_rect.width = width;
+  region.dest_rect.height = height;
+
+  fprintf(stderr,"Setting display region\n");
+  OERR(OMX_SetParameter(pipe->video_render.h, OMX_IndexConfigDisplayRegion, &region));
+}
+
 OMX_ERRORTYPE omx_init_component(struct omx_pipeline_t* pipe, struct omx_component_t* component, char* compname)
 {
   pthread_mutex_init(&component->cmd_queue_mutex, NULL);
@@ -464,6 +490,10 @@ OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTY
 {
   OMX_VIDEO_PARAM_PORTFORMATTYPE format;
   OMX_TIME_CONFIG_CLOCKSTATETYPE cstate;
+
+  OMX_CONFIG_BOOLEANTYPE configBoolTrue;
+  OMX_INIT_STRUCTURE(configBoolTrue);
+  configBoolTrue.bEnabled = OMX_TRUE;
 
   pipe->do_deinterlace = 0;
 
@@ -521,11 +551,7 @@ OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTY
 
   omx_config_pcm(&pipe->audio_render, 48000, 2, 16, audio_dest);
 
-  OMX_CONFIG_BOOLEANTYPE configBool;
-  OMX_INIT_STRUCTURE(configBool);
-  configBool.bEnabled = OMX_TRUE;
-  OERR(OMX_SetConfig(pipe->audio_render.h, OMX_IndexConfigBrcmClockReferenceSource, &configBool));
-
+  OERR(OMX_SetConfig(pipe->audio_render.h, OMX_IndexConfigBrcmClockReferenceSource, &configBoolTrue));
 
   omx_send_command_and_wait(&pipe->audio_render, OMX_CommandStateSet, OMX_StateIdle, NULL);
 
@@ -581,6 +607,10 @@ OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTY
 
   /* Change audio_render to OMX_StateExecuting */
   omx_send_command_and_wait(&pipe->audio_render, OMX_CommandStateSet, OMX_StateExecuting, NULL);
+
+  /* Enable passing of buffer marks */
+  OERR(OMX_SetParameter(pipe->video_decode.h, OMX_IndexParamPassBufferMarks, &configBoolTrue));
+  OERR(OMX_SetParameter(pipe->video_render.h, OMX_IndexParamPassBufferMarks, &configBoolTrue));
 
   return OMX_ErrorNone;
 }

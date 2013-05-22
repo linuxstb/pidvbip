@@ -20,6 +20,7 @@ struct packet_t
   unsigned char* buf;     /* The buffer to be freed after use */
   unsigned char* packet;  /* Pointer to the actual video data (within buf) */
   int packetlength;       /* Number of bytes in packet */
+  int frametype;
   int64_t PTS;
   int64_t DTS;
 };
@@ -28,6 +29,9 @@ struct packet_t
 #define MSG_STOP         2
 #define MSG_PAUSE        3
 #define MSG_NEW_CHANNEL  4
+#define MSG_ZOOM         5
+#define MSG_SET_ASPECT_4_3   6
+#define MSG_SET_ASPECT_16_9  7
 
 struct codec_queue_t
 {
@@ -72,6 +76,7 @@ struct codecs_t {
 void codec_queue_init(struct codec_t* codec);
 void codec_new_channel(struct codec_t* codec);
 void codec_stop(struct codec_t* codec);
+void codec_send_message(struct codec_t* codec, int m, void* data);
 void codec_pause(struct codec_t* codec);
 void codec_resume(struct codec_t* codec);
 void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet);

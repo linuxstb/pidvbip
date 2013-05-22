@@ -295,9 +295,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
             if (stream==codecs->subscription.streams[codecs->subscription.videostream].index) {
               packet = malloc(sizeof(*packet));
               packet->buf = msg.msg;
-
-              int frametype;
-              htsp_get_int(&msg,"frametype",&frametype);
+              htsp_get_int(&msg,"frametype",&packet->frametype);
 
               // htsp_dump_message(&msg);
               if (htsp_get_int64(&msg,"pts",&packet->PTS) > 0) {
@@ -393,6 +391,7 @@ int main(int argc, char* argv[])
     pthread_t htspthread = 0;
     int curr_streaming = 1;
     struct msgqueue_t msgqueue;
+    int zoom = 0;
 
     htsp.host = NULL;
     htsp.ip = NULL;
@@ -741,6 +740,11 @@ next_channel:
 
             osd_show_audio_menu(&osd,&codecs,next_audio_stream);
 
+            break;
+
+          case 'z':
+            zoom = 1 - zoom;
+            codec_send_message(&codecs.vcodec,MSG_ZOOM,(void*)zoom);
             break;
 
           default:

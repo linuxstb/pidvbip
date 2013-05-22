@@ -103,7 +103,7 @@ void codec_new_channel(struct codec_t* codec)
   codec_stop0(codec, MSG_NEW_CHANNEL);
 }
 
-void codec_pause(struct codec_t* codec)
+void codec_send_message(struct codec_t* codec, int m, void* data)
 {
   struct codec_queue_t* new = malloc(sizeof(struct codec_queue_t));
 
@@ -111,8 +111,8 @@ void codec_pause(struct codec_t* codec)
     fprintf(stderr,"FATAL ERROR: out of memory adding to queue\n");
     exit(1);
   }
-  new->msgtype = MSG_PAUSE;
-  new->data = NULL;
+  new->msgtype = m;
+  new->data = data;
 
   pthread_mutex_lock(&codec->queue_mutex);
 
@@ -134,6 +134,11 @@ void codec_pause(struct codec_t* codec)
   codec->queue_count++;
 
   pthread_mutex_unlock(&codec->queue_mutex);
+}
+
+void codec_pause(struct codec_t* codec)
+{
+  codec_send_message(codec, MSG_PAUSE, NULL);
 }
 
 void codec_resume(struct codec_t* codec)

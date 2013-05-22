@@ -73,6 +73,8 @@ struct omx_component_t
   OMX_BUFFERHEADERTYPE *buffers;
   int port_settings_changed;
 
+  int aspect; /* Last aspect ratio reported from video_render MarkEvent callback */
+
   pthread_mutex_t buf_mutex;
   int buf_notempty;
   pthread_cond_t buf_notempty_cv;
@@ -110,5 +112,6 @@ void summarise_buffers(OMX_BUFFERHEADERTYPE *buffers);
 int omx_get_free_buffer_count(struct omx_component_t* component);
 void omx_alloc_buffers(struct omx_component_t *component, int port);
 OMX_TICKS pts_to_omx(uint64_t pts);
+void omx_set_display_region(struct omx_pipeline_t* pipe, int x, int y, int width, int height);
 
 #endif

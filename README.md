@@ -90,6 +90,7 @@ Once running, the following keys are mapped to actions:
         - n for next screen of channels, or p for previous screen of channels in listing
     'o' - To toggle subscribe/unsubscribe (idle) on current channel
     'a' - Cycle through available audio streams
+    'z' - Force 4:3 (pillarbox) or 16:9 (fullscreen) display
 
 pidvbip currently supports hardware decoding of H264 and MPEG-2 video
 streams, and software decoding of MPEG, AAC and A/52 (AC-3) audio

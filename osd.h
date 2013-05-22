@@ -48,7 +48,8 @@ struct osd_t {
   /* State of various screens */
   double osd_cleartime;
   time_t last_now;
-  int displayed_event;
+  int event;
+  int nextEvent;
 };
 
 void osd_init(struct osd_t* osd);

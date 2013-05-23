@@ -58,6 +58,8 @@ struct htsp_t htsp;
 
 static struct termios orig;
 
+int * channellist_offset=0;
+
 /* Messages to the HTSP receiver thread - low eight bits are a parameter */
 #define MSG_CHANGE_AUDIO_STREAM 0x100
 
@@ -622,6 +624,8 @@ next_channel:
 
       c = msgqueue_get(&msgqueue, 100);
 
+      c = osd_process_key(&osd,c);
+
       if (c != -1) {
         DEBUGF("char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
 
@@ -664,6 +668,8 @@ next_channel:
 
           case 'c':
             channels_dump();
+            channellist_offset=0;
+            osd_show_channellist(&osd);
             break;
 
           case 'h':

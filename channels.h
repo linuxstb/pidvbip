@@ -2,6 +2,7 @@
 #define _CHANNELS_H
 
 #include <stdint.h>
+#include "events.h"
 
 #define CTYPE_NONE    0
 #define CTYPE_UNKNOWN 1
@@ -11,9 +12,10 @@
 
 struct channel_t
 {
-  int id;
-  uint32_t eventId;
-  uint32_t nextEventId;
+  int id;   /* Our internal ID */
+  int tvh_id[MAX_HTSP_SERVERS]; /* tvheadend ID */
+  uint32_t eventId[MAX_HTSP_SERVERS];
+  uint32_t nextEventId[MAX_HTSP_SERVERS];
   int lcn;
   int type;
   char* name;
@@ -23,12 +25,11 @@ struct channel_t
 
 static struct channel_t* channels;
 static struct channel_t* channels_cache;
-static int num_channels;
-
+static int next_id = 0;
 
 void channels_init(void);
-void channels_add(int lcn, int id, char* name, int type, uint32_t eventId, uint32_t nextEventId);
-void channels_update(int lcn, int id, char* name, int type, uint32_t eventId, uint32_t nextEventId);
+void channels_add(int server, int lcn, int tvh_id, char* name, int type, uint32_t eventId, uint32_t nextEventId);
+void channels_update(int server, int lcn, int tvh_id, char* name, int type, uint32_t eventId, uint32_t nextEventId);
 struct channel_t* channels_return_struct(void);
 void channels_dump(void);
 int channels_getid(int lcn);

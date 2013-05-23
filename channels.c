@@ -6,24 +6,6 @@
 
 /* Channels are merged from different servers, based on LCN */
 
-struct channel_t
-{
-  int id;   /* Our internal ID */
-  int tvh_id[MAX_HTSP_SERVERS]; /* tvheadend ID */
-  uint32_t eventId[MAX_HTSP_SERVERS];
-  uint32_t nextEventId[MAX_HTSP_SERVERS];
-  int lcn;
-  int type;
-  char* name;
-  struct channel_t* next;
-  struct channel_t* prev;
-};
-
-static struct channel_t* channels;
-static struct channel_t* channels_cache;
-
-static int next_id = 0;
-
 void channels_init(void)
 {
   channels = NULL;

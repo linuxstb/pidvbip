@@ -211,9 +211,9 @@ fail:
         avahi_simple_poll_free(simple_poll);
 
     if (tvh_hostname) {
-      htsp->host = tvh_hostname;
-      htsp->ip = tvh_ip;
-      htsp->port = tvh_port;
+      htsp->host[0] = tvh_hostname;
+      htsp->ip[0] = tvh_ip;
+      htsp->port[0] = tvh_port;
     }
 
     return ret;

@@ -4,20 +4,25 @@
 #include <stdint.h>
 #include <pthread.h>
 
+#define MAX_HTSP_SERVERS 2
+
 struct htsp_t 
 {
-    struct sockaddr_in *remote;
-    int sock;
-    char* ip;
-    char* host;
-    int port;
-    unsigned char challange[32];
+    int numservers;
+    struct sockaddr_in *remote[MAX_HTSP_SERVERS];
+    int sock[MAX_HTSP_SERVERS];
+    char* ip[MAX_HTSP_SERVERS];
+    char* host[MAX_HTSP_SERVERS];
+    int port[MAX_HTSP_SERVERS];
+    unsigned char challange[MAX_HTSP_SERVERS][32];
     int subscriptionId;
+    int subscriptionServer;
     pthread_mutex_t htsp_mutex;
 };
 
 struct htsp_message_t
 {
+    int server;
     unsigned char* msg;
     int msglen;
 };
@@ -71,11 +76,11 @@ void htsp_lock(struct htsp_t* htsp);
 void htsp_unlock(struct htsp_t* htsp);
 void htsp_dump_message(struct htsp_message_t* msg);
 void htsp_destroy_message(struct htsp_message_t* msg);
-int htsp_connect(struct htsp_t* htsp);
+int htsp_connect(struct htsp_t* htsp, int server);
 int htsp_create_message(struct htsp_message_t* msg, ...);
-int htsp_send_message(struct htsp_t* htsp, struct htsp_message_t* msg);
-int htsp_recv_message(struct htsp_t* htsp, struct htsp_message_t* msg, int timeout);
-int htsp_login(struct htsp_t* htsp, char* tvh_user, char* tvh_pass);
+int htsp_send_message(struct htsp_t* htsp, int server, struct htsp_message_t* msg);
+int htsp_recv_message(struct htsp_t* htsp, int server, struct htsp_message_t* msg, int timeout);
+int htsp_login(struct htsp_t* htsp, int server, char* tvh_user, char* tvh_pass);
 char* htsp_get_string(struct htsp_message_t* msg, char* name);
 int htsp_get_int(struct htsp_message_t* msg, char* name, int32_t* val);
 int htsp_get_uint(struct htsp_message_t* msg, char* name, uint32_t* val);
@@ -84,6 +89,6 @@ int htsp_get_bin(struct htsp_message_t* msg, char* name, unsigned char** data,in
 int htsp_get_list(struct htsp_message_t* msg, char* name, unsigned char** data,int* size);
 
 int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscription_t*);
-int htsp_send_skip(struct htsp_t* htsp, int time);
+int htsp_send_skip(struct htsp_t* htsp, int server, int time);
 
 #endif

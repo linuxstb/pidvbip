@@ -14,10 +14,11 @@ struct event_t {
   char* title;
   char* description;
   uint32_t serieslinkId;
+  char* serieslinkUri;
   uint32_t episodeId;
+  char* episodeUri;
   uint32_t seasonNumber;
   uint32_t episodeNumber;
-  char* episodeUri;
   uint32_t nextEventId;  
 };
 

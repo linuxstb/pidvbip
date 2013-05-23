@@ -79,6 +79,9 @@ static void event_free_items(struct event_t* event)
   if (event->description)
     free(event->description);
 
+  if (event->serieslinkUri)
+    free(event->serieslinkUri);
+
   if (event->episodeUri)
     free(event->episodeUri);
 }
@@ -135,6 +138,7 @@ void process_event_message(char* method, struct htsp_message_t* msg)
   event->title = htsp_get_string(msg,"title");
   event->description = htsp_get_string(msg,"description");
   htsp_get_uint(msg,"serieslinkId",&event->serieslinkId);
+  event->serieslinkUri = htsp_get_string(msg,"serieslinkUri");
   htsp_get_uint(msg,"episodeId",&event->episodeId);
   htsp_get_uint(msg,"episodeNumber",&event->episodeNumber);
   htsp_get_uint(msg,"seasonNumber",&event->seasonNumber);
@@ -211,6 +215,9 @@ struct event_t* event_copy(uint32_t eventId)
   if (event->episodeUri)
     copy->episodeUri = strdup(event->episodeUri);
 
+  if (event->serieslinkUri)
+    copy->serieslinkUri = strdup(event->serieslinkUri);
+
   pthread_mutex_unlock(&events_mutex);
 
   return copy;
@@ -241,6 +248,7 @@ void event_dump(struct event_t* event)
   fprintf(stderr,"Episode:     %d\n",event->episodeNumber);
   fprintf(stderr,"Description: %s\n",event->description);
   if (event->episodeUri) fprintf(stderr,"EpisodeUri:  %s\n",event->episodeUri);
+  if (event->serieslinkUri) fprintf(stderr,"SerieslinkUri:  %s\n",event->serieslinkUri);
 
   pthread_mutex_unlock(&events_mutex);
 }

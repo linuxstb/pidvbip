@@ -33,8 +33,10 @@ static int iter(struct avl* a)
 }
 #endif
 
-static struct event_t* event_get_nolock(uint32_t eventId)
+static struct event_t* event_get_nolock(uint32_t eventId, int server)
 {
+  eventId = eventId * MAX_HTSP_SERVERS + server;
+
 #ifdef USE_AVL
   struct event_t event;
   event.eventId = eventId;
@@ -52,10 +54,10 @@ static struct event_t* event_get_nolock(uint32_t eventId)
 #endif
 }
 
-struct event_t* event_get(uint32_t eventId)
+struct event_t* event_get(uint32_t eventId, int server)
 {
   pthread_mutex_lock(&events_mutex);
-  struct event_t* event = event_get_nolock(eventId);
+  struct event_t* event = event_get_nolock(eventId, server);
   pthread_mutex_unlock(&events_mutex);
 
   return event;
@@ -78,6 +80,9 @@ static void event_free_items(struct event_t* event)
 
   if (event->description)
     free(event->description);
+
+  if (event->serieslinkUri)
+    free(event->serieslinkUri);
 
   if (event->episodeUri)
     free(event->episodeUri);
@@ -103,7 +108,7 @@ void process_event_message(char* method, struct htsp_message_t* msg)
   htsp_get_uint(msg,"eventId",&eventId);
 
   pthread_mutex_lock(&events_mutex);
-  event = event_get_nolock(eventId);
+  event = event_get_nolock(eventId, msg->server);
 
 #ifdef DEBUG_EVENTS
   if (strcmp(method,"eventUpdate")==0) {
@@ -135,6 +140,7 @@ void process_event_message(char* method, struct htsp_message_t* msg)
   event->title = htsp_get_string(msg,"title");
   event->description = htsp_get_string(msg,"description");
   htsp_get_uint(msg,"serieslinkId",&event->serieslinkId);
+  event->serieslinkUri = htsp_get_string(msg,"serieslinkUri");
   htsp_get_uint(msg,"episodeId",&event->episodeId);
   htsp_get_uint(msg,"episodeNumber",&event->episodeNumber);
   htsp_get_uint(msg,"seasonNumber",&event->seasonNumber);
@@ -142,6 +148,8 @@ void process_event_message(char* method, struct htsp_message_t* msg)
   htsp_get_uint(msg,"nextEventId",&event->nextEventId);
 
   //htsp_dump_message(msg);
+
+  eventId = eventId * MAX_HTSP_SERVERS + msg->server;
 
   if (do_insert) {
 #ifdef USE_AVL
@@ -161,8 +169,10 @@ void process_event_message(char* method, struct htsp_message_t* msg)
   pthread_mutex_unlock(&events_mutex);
 }
 
-void event_delete(uint32_t eventId)
+void event_delete(uint32_t eventId, int server)
 {
+  eventId = eventId * MAX_HTSP_SERVERS + server;
+
   pthread_mutex_lock(&events_mutex);
 #ifdef USE_AVL
   struct event_t* event = event_get_nolock(eventId);
@@ -186,13 +196,13 @@ void event_delete(uint32_t eventId)
   pthread_mutex_unlock(&events_mutex);
 }
 
-struct event_t* event_copy(uint32_t eventId)
+struct event_t* event_copy(uint32_t eventId, int server)
 {
   struct event_t* event;
   struct event_t* copy;
 
   pthread_mutex_lock(&events_mutex);
-  event = event_get_nolock(eventId);
+  event = event_get_nolock(eventId,server);
 
   if (event==NULL) {
     pthread_mutex_unlock(&events_mutex);
@@ -210,6 +220,9 @@ struct event_t* event_copy(uint32_t eventId)
 
   if (event->episodeUri)
     copy->episodeUri = strdup(event->episodeUri);
+
+  if (event->serieslinkUri)
+    copy->serieslinkUri = strdup(event->serieslinkUri);
 
   pthread_mutex_unlock(&events_mutex);
 
@@ -241,6 +254,7 @@ void event_dump(struct event_t* event)
   fprintf(stderr,"Episode:     %d\n",event->episodeNumber);
   fprintf(stderr,"Description: %s\n",event->description);
   if (event->episodeUri) fprintf(stderr,"EpisodeUri:  %s\n",event->episodeUri);
+  if (event->serieslinkUri) fprintf(stderr,"SerieslinkUri:  %s\n",event->serieslinkUri);
 
   pthread_mutex_unlock(&events_mutex);
 }
@@ -272,11 +286,13 @@ static int find_hd_version(struct avl* a,struct event_t* sd_event){
 }
 #endif
 
-int event_find_hd_version(int eventId)
+int event_find_hd_version(int eventId, int server)
 {
+  eventId = eventId * MAX_HTSP_SERVERS + server;
+
   pthread_mutex_lock(&events_mutex);
 
-  struct event_t* current_event = event_get_nolock(eventId);
+  struct event_t* current_event = event_get_nolock(eventId,server);
 
   fprintf(stderr,"Searching for episode %d\n",current_event->episodeId);
 #if USE_AVL

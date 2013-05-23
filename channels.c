@@ -4,29 +4,49 @@
 #include "channels.h"
 #include "events.h"
 
+/* Channels are merged from different servers, based on LCN */
+
+struct channel_t
+{
+  int id;   /* Our internal ID */
+  int tvh_id[MAX_HTSP_SERVERS]; /* tvheadend ID */
+  uint32_t eventId[MAX_HTSP_SERVERS];
+  uint32_t nextEventId[MAX_HTSP_SERVERS];
+  int lcn;
+  int type;
+  char* name;
+  struct channel_t* next;
+  struct channel_t* prev;
+};
+
+static struct channel_t* channels;
+static struct channel_t* channels_cache;
+
+static int next_id = 0;
+
 void channels_init(void)
 {
   channels = NULL;
   channels_cache = NULL;
-  num_channels = 0;
 }
 
-void channels_add(int lcn, int id, char* name, int type, uint32_t eventId, uint32_t nextEventId)
+void channels_add(int server, int lcn, int tvh_id, char* name, int type, uint32_t eventId, uint32_t nextEventId)
 {
   struct channel_t* p = channels;
   struct channel_t* prev = NULL;
 
-  struct channel_t* new = malloc(sizeof(struct channel_t));
+  struct channel_t* new = calloc(sizeof(struct channel_t),1);
 
   new->lcn = lcn;
-  new->id = id;
+  new->tvh_id[server] = tvh_id;
   new->type = type;
   new->name = name;
-  new->eventId = eventId;
-  new->nextEventId = nextEventId;
+  new->eventId[server] = eventId;
+  new->nextEventId[server] = nextEventId;
 
   if (channels == NULL) {
     channels = new;
+    channels->id = next_id++;
     channels->next = NULL;
     channels->prev = NULL;
   } else {
@@ -38,17 +58,25 @@ void channels_add(int lcn, int id, char* name, int type, uint32_t eventId, uint3
     if (p==NULL) {
       /* Append to list */
       prev->next = new;
+      new->id = next_id++;
       new->prev = prev;
       new->next = NULL;
     } else {
-      if (p->prev == NULL) {
+      if (p->lcn == lcn) {
+        /* Update an existing channel */
+        p->tvh_id[server] = tvh_id;
+        p->eventId[server] = eventId;
+        p->nextEventId[server] = nextEventId;
+      } else if (p->prev == NULL) {
         /* Add to start */
+        new->id = next_id++;
         new->next = channels;
         new->prev = NULL;
         channels->prev = new;
         channels = new;
       } else {
         /* Add in middle */
+        new->id = next_id++;
         new->next = p;
         new->prev = prev;
         prev->next = new;
@@ -56,26 +84,24 @@ void channels_add(int lcn, int id, char* name, int type, uint32_t eventId, uint3
       }
     }
   }
-
-  num_channels++;
 }
 
-void channels_update(int lcn, int id, char* name, int type, uint32_t eventId, uint32_t nextEventId)
+void channels_update(int server, int lcn, int tvh_id, char* name, int type, uint32_t eventId, uint32_t nextEventId)
 {
   struct channel_t* p;
 
-  if ((channels_cache) && (channels_cache->id == id)) {
+  if ((channels_cache) && (channels_cache->tvh_id[server] == tvh_id)) {
     p = channels_cache;
   } else {
     p = channels;
-    while ((p) && (p->id != id)) {
+    while ((p) && (p->tvh_id[server] != tvh_id)) {
       p = p->next;
     }
   }
 
   if (p==NULL) {
-    fprintf(stderr,"Channel %d not found for update, adding.\n",id);
-    channels_add(lcn,id,name,type,eventId,nextEventId);
+    fprintf(stderr,"Channel %d not found for update, adding.\n",tvh_id);
+    channels_add(server,lcn,tvh_id,name,type,eventId,nextEventId);
   } else {
     if (lcn >= 0) p->lcn = lcn;
     if (type) p->type = type;
@@ -83,8 +109,8 @@ void channels_update(int lcn, int id, char* name, int type, uint32_t eventId, ui
       free(p->name);
       p->name = name;
     }
-    if (eventId) p->eventId = eventId;
-    if (nextEventId) p->nextEventId = nextEventId;
+    if (eventId) p->eventId[server] = eventId;
+    if (nextEventId) p->nextEventId[server] = nextEventId;
   }
 }
 
@@ -96,19 +122,26 @@ return channels;
 void channels_dump(void)
 {
   struct channel_t* p = channels;
+  int i;
 
+  fprintf(stderr,"id     tvh_id  lcn   name\n");
   while (p) {
-    fprintf(stderr,"%5d  %5d - %s",p->id,p->lcn,p->name);
-    int i = 25 - strlen(p->name);
-    while (i--)
-      fprintf(stderr," ");
+    for (i=0;i<MAX_HTSP_SERVERS;i++) {
+      if (p->tvh_id[i]) {
+        fprintf(stderr,"id=%5d  %5d - %s",p->id,p->lcn,p->name);
+        int j = 25 - strlen(p->name);
+        while (j--)
+          fprintf(stderr," ");
 
-    struct event_t* event = event_copy(p->eventId);
-    if (event) { 
-      fprintf(stderr,"%s\n",event->title);
-      event_free(event);
-    } else {
-      fprintf(stderr,"[no event]\n");
+        struct event_t* event = event_copy(p->eventId[i],i);
+        if (event) { 
+          fprintf(stderr,"%s",event->title);
+          event_free(event);
+        } else {
+          fprintf(stderr,"[no event]");
+        }
+        fprintf(stderr," [server %d, tvh_id %d]\n",i,p->tvh_id[i]);
+      }
     }
     p = p->next;
   }
@@ -154,44 +187,106 @@ char* channels_getname(int id)
   return "[NO CHANNEL]";
 }
 
-uint32_t channels_geteventid(int id)
+void channels_geteventid(int id, uint32_t* eventid, int* server)
 {
   struct channel_t* p;
+  int i;
 
   if ((channels_cache) && (channels_cache->id == id)) {
-    return channels_cache->eventId;
+    for (i=0;i<MAX_HTSP_SERVERS;i++) {
+      if (channels_cache->tvh_id[i]) {
+        *eventid = channels_cache->eventId[i];
+        *server = i;
+        return;
+      }
+    }
   }
 
   p = channels;
   while (p) {
     if (p->id == id) {
       channels_cache = p;
-      return p->eventId;
+      for (i=0;i<MAX_HTSP_SERVERS;i++) {
+        if (p->tvh_id[i]) {
+          *eventid = p->eventId[i];
+          *server = i;
+          return;
+        }
+      }
     }
     p = p->next;
   }
 
-  return 0;
+  *eventid = 0;
+  *server = -1;
 }
 
-uint32_t channels_getnexteventid(int id)
+void channels_getnexteventid(int id, uint32_t* eventid, int* server)
 {
   struct channel_t* p;
+  int i;
 
   if ((channels_cache) && (channels_cache->id == id)) {
-    return channels_cache->nextEventId;
+    for (i=0;i<MAX_HTSP_SERVERS;i++) {
+      if (channels_cache->tvh_id[i]) {
+        *eventid = channels_cache->nextEventId[i];
+        *server = i;
+        return;
+      }
+    }
   }
 
   p = channels;
   while (p) {
     if (p->id == id) {
       channels_cache = p;
-      return p->nextEventId;
+      for (i=0;i<MAX_HTSP_SERVERS;i++) {
+        if (p->tvh_id[i]) {
+          *eventid = p->nextEventId[i];
+          *server = i;
+          return;
+        }
+      }
     }
     p = p->next;
   }
 
-  return 0;
+  *eventid = 0;
+  *server = -1;
+}
+
+void channels_gettvhid(int id, int* tvh_id, int* server)
+{
+  struct channel_t* p;
+  int i;
+
+  if ((channels_cache) && (channels_cache->id == id)) {
+    for (i=0;i<MAX_HTSP_SERVERS;i++) {
+      if (channels_cache->tvh_id[i]) {
+        *tvh_id = channels_cache->tvh_id[i];
+        *server = i;
+        return;
+      }
+    }
+  }
+
+  p = channels;
+  while (p) {
+    if (p->id == id) {
+      channels_cache = p;
+      for (i=0;i<MAX_HTSP_SERVERS;i++) {
+        if (p->tvh_id[i]) {
+          *tvh_id = p->tvh_id[i];
+          *server = i;
+          return;
+        }
+      }
+    }
+    p = p->next;
+  }
+
+  *tvh_id = 0;
+  *server = -1;
 }
 
 int channels_getlcn(int id)
@@ -291,6 +386,7 @@ int channels_getfirst(void)
 
 int channels_getcount(void)
 {
-  return num_channels;
+  /* TODO: Doesn't include deleted channels */
+  return next_id;
 }
 

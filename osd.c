@@ -515,12 +515,13 @@ static void osd_show_time(struct osd_t* osd)
 void osd_show_info(struct osd_t* osd, int channel_id, int timeout)
 {
   char str[128];
+  int server;;
   
-  osd->event = channels_geteventid(channel_id);
-  osd->nextEvent = channels_getnexteventid(channel_id);
+  channels_geteventid(channel_id,&osd->event,&server);
+  channels_getnexteventid(channel_id,&osd->nextEvent,&server);
 
-  struct event_t* event = event_copy(osd->event);
-  struct event_t* nextEvent = event_copy(osd->nextEvent);
+  struct event_t* event = event_copy(osd->event,server);
+  struct event_t* nextEvent = event_copy(osd->nextEvent,server);
 
   fprintf(stderr,"***OSD: event=%d\n",(event ? event->eventId : -1));
   event_dump(event);
@@ -635,7 +636,10 @@ void osd_update(struct osd_t* osd, int channel_id)
       graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
     }
 
-    if (osd->event != channels_geteventid(channel_id)) {
+    uint32_t event;
+    int server;
+    channels_geteventid(channel_id,&event, &server);
+    if (osd->event != event) {
       osd_show_info(osd, channel_id, 0);
     }
   }

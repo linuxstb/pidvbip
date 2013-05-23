@@ -87,36 +87,36 @@ static char *get_ip(char *host)
   return ip;
 }
 
-int htsp_connect(struct htsp_t* htsp)
+int htsp_connect(struct htsp_t* htsp, int server)
 {
-    int res;
+  int res;
+  int i;
 
-    htsp->sock = create_tcp_socket();
-    if (htsp->ip == NULL)
-      htsp->ip = get_ip(htsp->host);
+  htsp->sock[server] = create_tcp_socket();
+  if (htsp->ip[server] == NULL)
+    htsp->ip[server] = get_ip(htsp->host[server]);
 
-    fprintf(stderr,"Connecting to %s (%s) port %d...\n",htsp->host,htsp->ip,htsp->port);    
+  fprintf(stderr,"Connecting to server %d: %s (%s) port %d...\n",server, htsp->host[server],htsp->ip[server],htsp->port[server]);    
 
-    htsp->remote = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in));
-    htsp->remote->sin_family = AF_INET;
+  htsp->remote[server] = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in));
+  htsp->remote[server]->sin_family = AF_INET;
 
-    res = inet_pton(AF_INET, htsp->ip, (void *)(&(htsp->remote->sin_addr.s_addr)));
+  res = inet_pton(AF_INET, htsp->ip[server], (void *)(&(htsp->remote[server]->sin_addr.s_addr)));
 
-    if (res < 0) {
-        perror("Can't set remote->sin_addr.s_addr");
-        exit(1);
-    } else if (res == 0) {
-        fprintf(stderr, "%s is not a valid IP address\n", htsp->ip);
-        return 1;
-    }
-    htsp->remote->sin_port = htons(htsp->port);
+  if (res < 0) {
+    perror("Can't set remote->sin_addr.s_addr");
+    exit(1);
+  } else if (res == 0) {
+    fprintf(stderr, "%s is not a valid IP address\n", htsp->ip[server]);
+    return 1;
+  }
+  htsp->remote[server]->sin_port = htons(htsp->port[server]);
  
-    if (connect(htsp->sock, (struct sockaddr *)htsp->remote, sizeof(struct sockaddr)) < 0){
-        perror("Could not connect");
-        return 2;
-    }
-
-    return 0;
+  if (connect(htsp->sock[server], (struct sockaddr *)htsp->remote[server], sizeof(struct sockaddr)) < 0){
+    perror("Could not connect");
+    return 2;
+  }
+  return 0;
 }
 
 static char* hmf_labels[] = { "", "MAP","S64","STR","BIN","LIST","DBL" };
@@ -323,14 +323,14 @@ int htsp_create_message(struct htsp_message_t* msg, ...)
   return 0;
 }
 
-int htsp_send_message(struct htsp_t* htsp, struct htsp_message_t* msg)
+int htsp_send_message(struct htsp_t* htsp, int server, struct htsp_message_t* msg)
 {
   int res;
   int sent = 0;
 
   while(sent < msg->msglen)
   {
-    res = send(htsp->sock, msg->msg + sent, msg->msglen-sent, 0);
+    res = send(htsp->sock[server], msg->msg + sent, msg->msglen-sent, 0);
     if(res == -1){
       perror("Can't send query");
       return 1;
@@ -360,23 +360,12 @@ int safe_recv(int sock, unsigned char* p, int bytesleft)
   return 0;
 }
 
-int htsp_recv_message(struct htsp_t* htsp, struct htsp_message_t* msg, int timeout)
+static int do_htsp_recv_message(int fd, struct htsp_message_t* msg)
 {
-  int res;
   unsigned char buf[4];
-
-  if (timeout) {
-    struct timeval tv = { 0L, timeout*1000 };  /* timeout in ms */
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(htsp->sock, &fds);
-    if (select(htsp->sock + 1, &fds, NULL, NULL, &tv)==0) {
-      return 1;
-    }
-  }
-
+  int res;
   //fprintf(stderr,"Waiting for response...\n");
-  res = safe_recv(htsp->sock, buf, 4);
+  res = safe_recv(fd, buf, 4);
   
   if (res < 0) {
     fprintf(stderr,"Error in recv - res=%d\n",res);
@@ -392,12 +381,53 @@ int htsp_recv_message(struct htsp_t* htsp, struct htsp_message_t* msg, int timeo
   }
   memcpy(msg->msg, buf, 4);
 
-  res = safe_recv(htsp->sock, msg->msg+4, msg->msglen);
+  res = safe_recv(fd, msg->msg+4, msg->msglen);
 
   return 0;
 }
 
-int htsp_login(struct htsp_t* htsp, char* tvh_user, char* tvh_pass)
+int htsp_recv_message(struct htsp_t* htsp, int server, struct htsp_message_t* msg, int timeout)
+{
+  int res;
+  int max_fd;
+  int i;
+  fd_set fds;
+
+  if (timeout) {
+    struct timeval tv = { 0L, timeout*1000 };  /* timeout in ms */
+    FD_ZERO(&fds);
+    if (server >= 0) {
+      FD_SET(htsp->sock[server], &fds);
+      max_fd = htsp->sock[server];
+    } else {
+      max_fd = 0;
+      for (i=0;i<htsp->numservers;i++) {
+        FD_SET(htsp->sock[i], &fds);
+        if (max_fd < htsp->sock[i]) 
+          max_fd = htsp->sock[i];
+      }
+    }
+    if (select(max_fd + 1, &fds, NULL, NULL, &tv)==0) {
+      return 1;
+    }
+  }
+
+  if (server >= 0) {
+    msg->server = server;
+    return do_htsp_recv_message(htsp->sock[server], msg);
+  } else {
+    for (i=0;i<htsp->numservers;i++) {
+      if (FD_ISSET(htsp->sock[i],&fds)) {
+        msg->server = i;
+        return do_htsp_recv_message(htsp->sock[i], msg);
+      }
+    }
+  }
+
+
+}
+
+int htsp_login(struct htsp_t* htsp, int server, char* tvh_user, char* tvh_pass)
 {
   struct htsp_message_t msg;
   int res;
@@ -414,14 +444,14 @@ int htsp_login(struct htsp_t* htsp, char* tvh_user, char* tvh_pass)
 
   //fprintf(stderr,"Sending hello message - %d bytes\n",msg.msglen);
 
-  if ((res = htsp_send_message(htsp,&msg)) > 0) {
+  if ((res = htsp_send_message(htsp,server,&msg)) > 0) {
     fprintf(stderr,"Could not send message\n");
     return 1;
   }
 
   htsp_destroy_message(&msg);
 
-  res = htsp_recv_message(htsp,&msg,0);
+  res = htsp_recv_message(htsp,server,&msg,0);
 
   if (res > 0) {
     fprintf(stderr,"Error receiving hello response\n");
@@ -444,13 +474,13 @@ int htsp_login(struct htsp_t* htsp, char* tvh_user, char* tvh_pass)
                              HMF_STR,"username",tvh_user,
                              HMF_BIN,"digest",20,d,
                              HMF_NULL);
-    if ((res = htsp_send_message(htsp,&msg)) > 0) {
+    if ((res = htsp_send_message(htsp,server,&msg)) > 0) {
       fprintf(stderr,"Could not send message (authenticate)\n");
       return 1;
     };
     htsp_destroy_message(&msg);
 
-    res = htsp_recv_message(htsp,&msg,0);
+    res = htsp_recv_message(htsp,server,&msg,0);
     if (res > 0) {
       fprintf(stderr,"Error receiving login response\n");
       return 1;
@@ -751,7 +781,7 @@ int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscri
   return 0;
 }
 
-int htsp_send_skip(struct htsp_t* htsp, int time)
+int htsp_send_skip(struct htsp_t* htsp, int server, int time)
 {
   int res;
   struct htsp_message_t msg;
@@ -761,7 +791,7 @@ int htsp_send_skip(struct htsp_t* htsp, int time)
                                  HMF_S64,"time",time*1000000,
                                  HMF_S64,"subscriptionId",htsp->subscriptionId,
                                  HMF_NULL);
-  res = htsp_send_message(htsp,&msg);
+  res = htsp_send_message(htsp,server,&msg);
 
   fprintf(stderr,"Sent subscriptionSkip(%d) message, res=%d\n",time,res);
 

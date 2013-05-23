@@ -23,12 +23,12 @@ struct event_t {
 };
 
 void process_event_message(char* method, struct htsp_message_t* msg);
-struct event_t* event_get(uint32_t eventId);
-struct event_t* event_copy(uint32_t eventId);
-void event_delete(uint32_t eventId);
+struct event_t* event_get(uint32_t eventId, int server);
+struct event_t* event_copy(uint32_t eventId, int server);
+void event_delete(uint32_t eventId, int server);
 void event_free(struct event_t* event);
 void event_dump(struct event_t* event);
-int event_find_hd_version(int eventId);
+int event_find_hd_version(int eventId, int server);
 void events_init(void);
 
 #endif

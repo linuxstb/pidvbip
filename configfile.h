@@ -7,6 +7,12 @@ struct configfile_parameters
   int  port;
   char *username;
   char *password;
+
+  char *host2;
+  int  port2;
+  char *username2;
+  char *password2;
+
   int  initial_channel;
   int  startup_stopped;
   char *audio_dest;

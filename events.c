@@ -33,8 +33,10 @@ static int iter(struct avl* a)
 }
 #endif
 
-static struct event_t* event_get_nolock(uint32_t eventId)
+static struct event_t* event_get_nolock(uint32_t eventId, int server)
 {
+  eventId = eventId * MAX_HTSP_SERVERS + server;
+
 #ifdef USE_AVL
   struct event_t event;
   event.eventId = eventId;
@@ -52,10 +54,10 @@ static struct event_t* event_get_nolock(uint32_t eventId)
 #endif
 }
 
-struct event_t* event_get(uint32_t eventId)
+struct event_t* event_get(uint32_t eventId, int server)
 {
   pthread_mutex_lock(&events_mutex);
-  struct event_t* event = event_get_nolock(eventId);
+  struct event_t* event = event_get_nolock(eventId, server);
   pthread_mutex_unlock(&events_mutex);
 
   return event;
@@ -106,7 +108,7 @@ void process_event_message(char* method, struct htsp_message_t* msg)
   htsp_get_uint(msg,"eventId",&eventId);
 
   pthread_mutex_lock(&events_mutex);
-  event = event_get_nolock(eventId);
+  event = event_get_nolock(eventId, msg->server);
 
 #ifdef DEBUG_EVENTS
   if (strcmp(method,"eventUpdate")==0) {
@@ -147,6 +149,8 @@ void process_event_message(char* method, struct htsp_message_t* msg)
 
   //htsp_dump_message(msg);
 
+  eventId = eventId * MAX_HTSP_SERVERS + msg->server;
+
   if (do_insert) {
 #ifdef USE_AVL
     avl_insert(&events,(struct avl*)event);
@@ -165,8 +169,10 @@ void process_event_message(char* method, struct htsp_message_t* msg)
   pthread_mutex_unlock(&events_mutex);
 }
 
-void event_delete(uint32_t eventId)
+void event_delete(uint32_t eventId, int server)
 {
+  eventId = eventId * MAX_HTSP_SERVERS + server;
+
   pthread_mutex_lock(&events_mutex);
 #ifdef USE_AVL
   struct event_t* event = event_get_nolock(eventId);
@@ -190,13 +196,13 @@ void event_delete(uint32_t eventId)
   pthread_mutex_unlock(&events_mutex);
 }
 
-struct event_t* event_copy(uint32_t eventId)
+struct event_t* event_copy(uint32_t eventId, int server)
 {
   struct event_t* event;
   struct event_t* copy;
 
   pthread_mutex_lock(&events_mutex);
-  event = event_get_nolock(eventId);
+  event = event_get_nolock(eventId,server);
 
   if (event==NULL) {
     pthread_mutex_unlock(&events_mutex);
@@ -280,11 +286,13 @@ static int find_hd_version(struct avl* a,struct event_t* sd_event){
 }
 #endif
 
-int event_find_hd_version(int eventId)
+int event_find_hd_version(int eventId, int server)
 {
+  eventId = eventId * MAX_HTSP_SERVERS + server;
+
   pthread_mutex_lock(&events_mutex);
 
-  struct event_t* current_event = event_get_nolock(eventId);
+  struct event_t* current_event = event_get_nolock(eventId,server);
 
   fprintf(stderr,"Searching for episode %d\n",current_event->episodeId);
 #if USE_AVL

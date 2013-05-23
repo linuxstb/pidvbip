@@ -74,6 +74,10 @@ cmdline_opt_t cmdline_opts[] = {
   { 'p', "port",              "Port",                                    OPT_INT,  &global_settings.port, 9982, NULL },
   { 'U', "username",          "HTSP username",                           OPT_STR,  &global_settings.username, 0, NULL },
   { 'P', "password",          "HTSP password",                           OPT_STR,  &global_settings.password, 0, NULL },
+  {   0, "host2",             "Server 2 Hostname or IP address",         OPT_STR,  &global_settings.host2, 0, NULL },
+  {   0, "port2",             "Server 2 Port",                           OPT_INT,  &global_settings.port2, 9982, NULL },
+  {   0, "username2",         "Server 2 HTSP username",                  OPT_STR,  &global_settings.username, 0, NULL },
+  {   0, "password2",         "Server 2 HTSP password",                  OPT_STR,  &global_settings.password, 0, NULL },
 
   {   0, NULL,                "Startup options",                         OPT_NULL, NULL, 0, NULL         },
   {  'i', "channel",          "Number of initial channel to tune to",    OPT_INT,  &global_settings.initial_channel, -1, NULL },

@@ -84,7 +84,7 @@ int mpeg2_codec_enabled(void)
 /* Enable to dump video streams to files (for debugging) */
 //#define DUMP_VIDEO
 
-void process_message(char* method,struct htsp_message_t* msg,char* debugtext)
+static void process_message(char* method,struct htsp_message_t* msg,char* debugtext)
 {
   if ((strcmp(method,"eventAdd")==0) || (strcmp(method,"eventUpdate")==0)) {
     process_event_message(method,msg);
@@ -92,7 +92,7 @@ void process_message(char* method,struct htsp_message_t* msg,char* debugtext)
     uint32_t eventId;
     if (htsp_get_uint(msg,"eventId",&eventId)==0) {
       //fprintf(stderr,"eventDelete: %d\n",eventId);
-      event_delete(eventId);
+      event_delete(eventId, msg->server);
     } else {
       fprintf(stderr,"Warning eventDelete event not found (%d)\n",eventId);
     }
@@ -147,10 +147,10 @@ void process_message(char* method,struct htsp_message_t* msg,char* debugtext)
       }
 
       if (strcmp(method,"channelAdd")==0) {
-        channels_add(channelNumber,channelId,channelName,channelType,eventid,nexteventid);
+        channels_add(msg->server, channelNumber,channelId,channelName,channelType,eventid,nexteventid);
         //fprintf(stderr,"channelAdd - id=%d,lcn=%d,name=%s,current_event=%d,next_event=%d\n",channelId,channelNumber,channelName,eventid,nexteventid);
       } else {
-        channels_update(channelNumber,channelId,channelName,channelType,eventid,nexteventid);
+        channels_update(msg->server, channelNumber,channelId,channelName,channelType,eventid,nexteventid);
         //fprintf(stderr,"channelUpdate - id=%d,current_event=%d,next_event=%d\n",channelId,eventid,nexteventid);
       }
     }
@@ -237,7 +237,8 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
     }
 
     htsp_lock(&htsp);
-    res = htsp_recv_message(&htsp,&msg,100);
+    res = htsp_recv_message(&htsp,-1,&msg,100);
+    //fprintf(stderr,"Received messaged from server %d\n",msg.server);
     current_subscriptionId = htsp.subscriptionId;
     htsp_unlock(&htsp);
     if (res == 1) {
@@ -363,10 +364,12 @@ void usage(void)
 static int get_actual_channel(int auto_hdtv, int user_channel_id)
 {
   int actual_channel_id = user_channel_id;
+  int server;
 
   if ((auto_hdtv) && (channels_gettype(user_channel_id)==CTYPE_SDTV)) {
-    uint32_t current_eventId = channels_geteventid(user_channel_id);
-    int hd_channel = event_find_hd_version(current_eventId);
+    uint32_t current_eventId;
+    channels_geteventid(user_channel_id, &current_eventId, &server);
+    int hd_channel = event_find_hd_version(current_eventId, server);
     if (hd_channel >= 0) {
       fprintf(stderr,"Auto-switching to channel %d (%s)\n",channels_getlcn(hd_channel),channels_getname(hd_channel));
       actual_channel_id = hd_channel;
@@ -392,9 +395,12 @@ int main(int argc, char* argv[])
     int curr_streaming = 1;
     struct msgqueue_t msgqueue;
     int zoom = 0;
-
-    htsp.host = NULL;
-    htsp.ip = NULL;
+    int i;
+ 
+    for (i=0;i<MAX_HTSP_SERVERS;i++) {
+      htsp.host[i] = NULL;
+      htsp.ip[i] = NULL;
+    }
 
     msgqueue_init(&msgqueue);
 
@@ -417,11 +423,14 @@ int main(int argc, char* argv[])
     } else 
 #endif
     {
-      htsp.host = global_settings.host;
-      htsp.port = global_settings.port;
+      fprintf(stderr,"Copying hosts - host2=%s\n",global_settings.host2);
+      htsp.host[0] = global_settings.host;
+      htsp.port[0] = global_settings.port;
+      htsp.host[1] = global_settings.host2;
+      htsp.port[1] = global_settings.port2;
     };
 
-    if ((htsp.host == NULL) || (htsp.host[0] == 0 || htsp.port == 0)) {
+    if ((htsp.host[0] == NULL) || (htsp.host[0][0] == 0 || htsp.port[0] == 0)) {
       fprintf(stderr,"ERROR: Could not obtain host or port for TVHeadend\n");
       fprintf(stderr,"       Please ensure config file or cmd-line params\n");
       fprintf(stderr,"       are provided and try again\n");
@@ -429,7 +438,14 @@ int main(int argc, char* argv[])
       exit(1);
     };
 
-    fprintf(stderr,"Using host \"%s:%d\"\n",htsp.host,htsp.port);
+    htsp.numservers = 1;
+    fprintf(stderr,"Using host \"%s:%d\"\n",htsp.host[0],htsp.port[0]);
+
+    fprintf(stderr,"host[1]=%s\n",htsp.host[1]);
+    if (htsp.host[1]) {
+      htsp.numservers++;
+      fprintf(stderr,"Using host \"%s:%d\"\n",htsp.host[1],htsp.port[1]);
+    }
     bcm_host_init();
 
     OERR(OMX_Init());
@@ -444,6 +460,18 @@ int main(int argc, char* argv[])
       fprintf(stderr,"WARNING: No hardware MPEG-2 license detected - MPEG-2 video will not work\n");
     }
 
+    channels_init();
+    events_init();
+
+    struct termios new;
+    tcgetattr(0, &orig);
+    memcpy(&new, &orig, sizeof(struct termios));
+    new.c_lflag &= ~(ICANON | ECHO | ECHOE | ECHOK | ECHONL | ECHOPRT | ECHOKE | ICRNL);
+    new.c_cc[VTIME] = 0;
+    new.c_cc[VMIN] = 1;
+    tcsetattr(0, TCSANOW, &new);
+    atexit(reset_stdin);
+
     input_init(&msgqueue);
 
     osd_init(&osd);
@@ -452,62 +480,54 @@ int main(int argc, char* argv[])
 
     htsp_init(&htsp);
 
-    if ((res = htsp_connect(&htsp)) > 0) {
-        fprintf(stderr,"Error connecting to htsp server, aborting.\n");
+    fprintf(stderr,"Connecting to %d servers\n",htsp.numservers);
+    for (i=0;i<htsp.numservers;i++) {
+      fprintf(stderr,"Connecting to server %d - %s\n",i,htsp.host[i]);
+      if ((res = htsp_connect(&htsp, i)) > 0) {
+        fprintf(stderr,"Error connecting to htsp server %d, aborting.\n", i);
         return 2;
+      }
+
+      res = htsp_login(&htsp, i, global_settings.username, global_settings.password);
+
+      if (res > 0) {
+        fprintf(stderr,"Could not login to server %d\n", i);
+        return 3;
+      }
+      osd_alert(&osd, "Loading channels...");
+      res = htsp_create_message(&msg,HMF_STR,"method","enableAsyncMetadata",HMF_S64,"epg",1,HMF_NULL);
+      res = htsp_send_message(&htsp,i, &msg);
+      htsp_destroy_message(&msg);
+
+      // Receive the acknowledgement from enableAsyncMetadata
+      res = htsp_recv_message(&htsp,i, &msg,0);
+
+      int num_events = 0;
+      int done = 0;
+      while (!done)
+      {
+        // TODO: Store all received channels/tags/dvr data and stop when completed message received.
+        res = htsp_recv_message(&htsp,i, &msg,0);
+
+        char* method = htsp_get_string(&msg,"method");
+
+        if (method) {
+          if (strcmp(method,"initialSyncCompleted")==0) {
+            done=1;
+          } else {
+            process_message(method,&msg,"Initial sync:");
+          }
+
+          free(method);
+        }
+
+        htsp_destroy_message(&msg);
+      }
+
+      osd_alert(&osd, NULL);
+
+      fprintf(stderr,"Initial sync completed - read data for %d events\n",num_events);
     }
-
-    res = htsp_login(&htsp, global_settings.username, global_settings.password);
-
-    if (res > 0) {
-      fprintf(stderr,"Could not login to server\n");
-      return 3;
-    }
-    osd_alert(&osd, "Loading channels...");
-    res = htsp_create_message(&msg,HMF_STR,"method","enableAsyncMetadata",HMF_S64,"epg",1,HMF_NULL);
-    res = htsp_send_message(&htsp,&msg);
-    htsp_destroy_message(&msg);
-
-    // Receive the acknowledgement from enableAsyncMetadata
-    res = htsp_recv_message(&htsp,&msg,0);
-
-    channels_init();
-    events_init();
-
-    struct termios new;
-    tcgetattr(0, &orig);
-    memcpy(&new, &orig, sizeof(struct termios));
-    new.c_lflag &= ~(ICANON | ECHO);
-    new.c_cc[VTIME] = 0;
-    new.c_cc[VMIN] = 1;
-    tcsetattr(0, TCSANOW, &new);
-    atexit(reset_stdin);
-
-    int num_events = 0;
-    int done = 0;
-    while (!done)
-    {
-       // TODO: Store all received channels/tags/dvr data and stop when completed message received.
-       res = htsp_recv_message(&htsp,&msg,0);
-
-       char* method = htsp_get_string(&msg,"method");
-
-       if (method) {
-         if (strcmp(method,"initialSyncCompleted")==0) {
-           done=1;
-         } else {
-           process_message(method,&msg,"Initial sync:");
-         }
-
-         free(method);
-       }
-
-       htsp_destroy_message(&msg);
-    }
-
-    osd_alert(&osd, NULL);
-
-    fprintf(stderr,"Initial sync completed - read data for %d events\n",num_events);
 
     if (channels_getcount() == 0) {
       fprintf(stderr,"No channels available, exiting.\n");
@@ -557,7 +577,7 @@ next_channel:
 
     if (htsp.subscriptionId > 0) {
       res = htsp_create_message(&msg,HMF_STR,"method","unsubscribe",HMF_S64,"subscriptionId",htsp.subscriptionId,HMF_NULL);
-      res = htsp_send_message(&htsp,&msg);
+      res = htsp_send_message(&htsp,htsp.subscriptionServer,&msg);
       htsp_destroy_message(&msg);
     }
 
@@ -567,11 +587,13 @@ next_channel:
 
     osd_show_info(&osd,user_channel_id,5000);
 
+    int tvh_id;
+    channels_gettvhid(actual_channel_id,&tvh_id,&htsp.subscriptionServer);
     fprintf(stderr,"Waiting for lock\n");
     htsp_lock(&htsp);
     fprintf(stderr,"locked\n");
     res = htsp_create_message(&msg,HMF_STR,"method","subscribe",
-                                   HMF_S64,"channelId",actual_channel_id,
+                                   HMF_S64,"channelId",tvh_id,
                                    HMF_S64,"timeshiftPeriod",3600,
                                    HMF_S64,"normts",1,
                                    HMF_S64,"subscriptionId",++htsp.subscriptionId,
@@ -582,7 +604,7 @@ next_channel:
                                    HMF_S64,"maxResolution",576,  /* Max height of the stream */
 #endif
                                    HMF_NULL);
-    res = htsp_send_message(&htsp,&msg);
+    res = htsp_send_message(&htsp,htsp.subscriptionServer,&msg);
     htsp_unlock(&htsp);
 
     htsp_destroy_message(&msg);
@@ -661,7 +683,7 @@ next_channel:
 				           HMF_S64,"speed",(codecs.is_paused == 0 ? 100 : 0),
                                            HMF_S64,"subscriptionId",htsp.subscriptionId,
                                            HMF_NULL);
-            res = htsp_send_message(&htsp,&msg);
+            res = htsp_send_message(&htsp,htsp.subscriptionServer,&msg);
             htsp_unlock(&htsp);
             htsp_destroy_message(&msg);
             break;
@@ -676,22 +698,22 @@ next_channel:
 
           case 'u':
             do_pause(&codecs,1);
-            htsp_send_skip(&htsp,10*60);  // +10 minutes
+            htsp_send_skip(&htsp,htsp.subscriptionServer,10*60);  // +10 minutes
             break;
 
           case 'd':
             do_pause(&codecs,1);
-            htsp_send_skip(&htsp,-10*60); // -10 minutes
+            htsp_send_skip(&htsp,htsp.subscriptionServer,-10*60); // -10 minutes
             break;
 
           case 'l':
             do_pause(&codecs,1);
-            htsp_send_skip(&htsp,-30);    // -30 seconds
+            htsp_send_skip(&htsp,htsp.subscriptionServer,-30);    // -30 seconds
             break;
 
           case 'r':
             do_pause(&codecs,1);
-            htsp_send_skip(&htsp,30);     // +30 seconds
+            htsp_send_skip(&htsp,htsp.subscriptionServer,30);     // +30 seconds
             break;
 
           case 'o':
@@ -701,7 +723,7 @@ next_channel:
 	      if (htsp.subscriptionId > 0) {
                 osd_alert(&osd, "Stopping current subscription");
 	        res = htsp_create_message(&msg,HMF_STR,"method","unsubscribe",HMF_S64,"subscriptionId",htsp.subscriptionId,HMF_NULL);
-	        res = htsp_send_message(&htsp,&msg);
+	        res = htsp_send_message(&htsp,htsp.subscriptionServer,&msg);
 	        htsp_destroy_message(&msg);
                 osd_blank_video(&osd,0);
               };

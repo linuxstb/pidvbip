@@ -25,7 +25,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 #include <pthread.h>
 #include "libs/vgfont/vgfont.h"
-#include "channels.h"
 
 #include "codec.h"
 
@@ -56,7 +55,7 @@ void osd_init(struct osd_t* osd);
 void osd_done(struct osd_t* osd);
 void osd_alert(struct osd_t* osd, char* text);
 void osd_show_info(struct osd_t* osd, int channel_id, int timeout);
-void osd_show_channellist(struct osd_t* osd, struct channel_t* p);
+void osd_show_channellist(struct osd_t* osd);
 void osd_show_newchannel(struct osd_t* osd, int channel);
 void osd_clear(struct osd_t* osd);
 void osd_clear_newchannel(struct osd_t* osd);

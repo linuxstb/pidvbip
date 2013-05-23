@@ -669,7 +669,7 @@ next_channel:
           case 'c':
             channels_dump();
             channellist_offset=0;
-            osd_show_channellist(&osd, channels_return_struct());
+            osd_show_channellist(&osd);
             break;
 
           case 'h':
@@ -779,8 +779,6 @@ next_channel:
             break;            
         }
       }
-
-skip_keypress:
 
       osd_update(&osd, user_channel_id);
 

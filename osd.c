@@ -254,7 +254,7 @@ static void osd_draw_window(struct osd_t* osd, int x, int y, int width, int heig
    graphics_resource_fill(osd->img, x+width-2, y, 2, height, GRAPHICS_RGBA32(0xff,0xff,0xff,0xa0));
 }
 
-void osd_show_channellist(struct osd_t* osd, struct channel_t* p)
+void osd_show_channellist(struct osd_t* osd)
 {
    int32_t s=0;
    uint32_t width,height;
@@ -265,6 +265,7 @@ void osd_show_channellist(struct osd_t* osd, struct channel_t* p)
    const char *text = "Channel Listing";
    char ch_text[100];
    int tmp_offset = 0;
+   int counter_offset = 0;
    uint32_t text_length = strlen(text);
 
    fprintf(stderr,"osd_show_channellist\n");
@@ -284,16 +285,20 @@ void osd_show_channellist(struct osd_t* osd, struct channel_t* p)
                                      GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
                                      GRAPHICS_RGBA32(0x173,0x216,0x230,0x80), /* bg */
                                      text, text_length, text_size);
-  if (channellist_offset > 0) {
-      fprintf(stderr,"channellist_offset %d\n",channellist_offset);
-      while (tmp_offset != channellist_offset) {
-        p = p->next;
-        tmp_offset += 1;
-      };
+
+  if (channellist_offset == 0) {
+    tmp_offset = channels_getfirst();
+  } else {
+    tmp_offset = channels_getfirst();
+    counter_offset = channellist_offset;
+    while (counter_offset != 0) {
+      tmp_offset = channels_getnext(tmp_offset);
+      counter_offset--;
+    };
   };
-  while (p) {
-    fprintf(stderr,"chan: %5d  %5d - %s\n",p->id,p->lcn,p->name);
-    snprintf(ch_text,sizeof(ch_text),"%5d - %s",p->lcn,p->name);
+
+  while (1) {
+    snprintf(ch_text,sizeof(ch_text),"%5d - %s",channels_getlcn(tmp_offset),channels_getname(tmp_offset));
     fprintf(stderr,"Now rendering '%s' at offset %d\n",ch_text,curr_offset);
        s = graphics_resource_render_text_ext(osd->img, x_offset+50, curr_offset,
                                      width,
@@ -301,7 +306,7 @@ void osd_show_channellist(struct osd_t* osd, struct channel_t* p)
                                      GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
                                      GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
                                      ch_text, strlen(ch_text), text_size);
-    p = p->next;
+    tmp_offset = channels_getnext(tmp_offset);
     curr_offset += 65;
     if (curr_offset > 978) {
       fprintf(stderr,"Next page needed at offset %d\n",curr_offset);
@@ -652,21 +657,23 @@ int osd_process_key(struct osd_t* osd, int c) {
 
   if (osd->osd_state == OSD_CHANNELLIST) {
     switch (c) {
-      case 'n':
-        fprintf(stderr,"OSD key: n pressed -- next page (%d)\n",channellist_offset);
+      case 'd':
+        fprintf(stderr,"OSD key: d pressed -- next page (%d)\n",channellist_offset);
         channellist_offset += 3;
-        fprintf(stderr,"OSD page (%d)\n",channellist_offset);
-        osd_show_channellist(osd, channels_return_struct());
+        if (channels_getcount() <= channellist_offset) {
+          channellist_offset = 0;
+        };
+        osd_show_channellist(osd);
         return -1;
         break;
-      case 'p':
-        fprintf(stderr,"OSD key: p pressed -- previous page\n");
+      case 'u':
+        fprintf(stderr,"OSD key: u pressed -- previous page\n");
         if (channellist_offset > 3) {
           channellist_offset -= 3;
         } else {
           channellist_offset = 0;
         };
-        osd_show_channellist(osd, channels_return_struct());
+        osd_show_channellist(osd);
         return -1;
         break;
     };

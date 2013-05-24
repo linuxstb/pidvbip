@@ -86,7 +86,9 @@ Once running, the following keys are mapped to actions:
     'h' - toggle auto-switching to HD versions of programmes from an SD channel
     ' ' - pause/resume playback
     'c' - display list of channels and current events to the console
-    'o' - To unsubscribe from current channel and go idle
+        - Also shows basic onscreen channel listing, whilst onscreen use
+        - d for down a screen of channels, or u for up a screen of channels in listing
+    'o' - To toggle subscribe/unsubscribe (idle) on current channel
     'a' - Cycle through available audio streams
     'z' - Force 4:3 (pillarbox) or 16:9 (fullscreen) display
 

@@ -664,13 +664,17 @@ next_channel:
             }
             break;
 
-          case 'c':
+          case 'c':            
             if (osd.osd_state == OSD_CHANNELS) {
               osd_clear(&osd);              
               user_channel_id = osd.channellist_selected_channel;
               actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
               goto change_channel;
             } else {
+              if (osd.osd_state != OSD_NONE) {
+                osd_clear(&osd); 
+              }
+          
               osd.channellist_selected_channel = user_channel_id;
               osd.channellist_start_channel = user_channel_id;
               osd.channellist_selected_pos = 1;

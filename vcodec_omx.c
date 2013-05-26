@@ -73,11 +73,11 @@ next_packet:
          pthread_mutex_unlock(&codec->queue_mutex);
          is_paused = 0;
        }
-       //fprintf(stderr,"[vcodec] getting next item\n");
+       //fprintf(stderr,"[vcodec] getting next item\n\n");
        current = codec_queue_get_next_item(codec); 
-       //fprintf(stderr,"[vcodec] got next item\n");
+       //fprintf(stderr,"[vcodec] got next item\n\n");
 
-       if (current->msgtype == MSG_NEW_CHANNEL) {
+       if ((current->msgtype == MSG_NEW_CHANNEL) || (current->msgtype == MSG_STOP)) {
          codec_queue_free_item(codec,current);
          current = NULL;
          if (pipe->omx_active) {

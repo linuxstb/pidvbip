@@ -219,7 +219,7 @@ next_packet:
       DEBUGF("[acodec] Stopping\n");
       codec_queue_free_item(codec,current);
       pthread_mutex_unlock(&pipe->omx_active_mutex);
-      goto stop;
+      goto new_channel;
     } else if (current->msgtype == MSG_NEW_CHANNEL) {
       //fprintf(stderr,"[acodec] NEW_CHANNEL received, going to new_channel\n");
       codec_queue_free_item(codec,current);
@@ -268,12 +268,14 @@ next_packet:
   
       if (hInfo.error) {
         fprintf(stderr,"Error decoding frame - %d (%s)\n",hInfo.error,NeAACDecGetErrorMessage(hInfo.error));
-        exit(1);
+        res = 1;
+        //exit(1);
       }
   
       if (hInfo.bytesconsumed != current->data->packetlength - header_length) {
         fprintf(stderr,"AUDIO: Did not consume entire packet\n");
-        exit(1);
+        res = 1;
+//        exit(1);
       }
   
       if (hInfo.samples > 0) {
@@ -304,7 +306,6 @@ next_packet:
 
     codec_queue_free_item(codec,current);
   }
-stop:
 
   /* Done decoding, now just clean up and leave. */
   mpg123_delete(m);

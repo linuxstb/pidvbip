@@ -26,12 +26,14 @@ struct packet_t
 };
 
 #define MSG_PACKET       1
-#define MSG_STOP         2
-#define MSG_PAUSE        3
-#define MSG_NEW_CHANNEL  4
-#define MSG_ZOOM         5
-#define MSG_SET_ASPECT_4_3   6
-#define MSG_SET_ASPECT_16_9  7
+#define MSG_PLAY         2
+#define MSG_STOP         3
+#define MSG_PAUSE        4
+#define MSG_NEW_CHANNEL  5
+#define MSG_ZOOM         6
+#define MSG_SET_ASPECT_4_3   7
+#define MSG_SET_ASPECT_16_9  8
+#define MSG_HTSP_STARTED 9
 
 struct codec_queue_t
 {
@@ -66,6 +68,8 @@ struct codec_t
 };
 
 struct codecs_t {
+  pthread_mutex_t playback_mutex;  /* Locked by the thread with access to playback - htsp/avplay/etc */
+  
   struct codec_t vcodec;
   struct codec_t acodec; // Audio
   struct codec_t scodec; // Subtitles

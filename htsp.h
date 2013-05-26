@@ -3,12 +3,16 @@
 
 #include <stdint.h>
 #include <pthread.h>
+#include "msgqueue.h"
 
 #define MAX_HTSP_SERVERS 2
 
 struct htsp_t 
 {
+    struct msgqueue_t msgqueue;
+    struct msgqueue_t* main_msgqueue;
     int numservers;
+    int sync_completed;
     struct sockaddr_in *remote[MAX_HTSP_SERVERS];
     int sock[MAX_HTSP_SERVERS];
     char* ip[MAX_HTSP_SERVERS];
@@ -17,7 +21,6 @@ struct htsp_t
     unsigned char challange[MAX_HTSP_SERVERS][32];
     int subscriptionId;
     int subscriptionServer;
-    pthread_mutex_t htsp_mutex;
 };
 
 struct htsp_message_t
@@ -72,8 +75,6 @@ struct htsp_subscription_t
 #define HMF_DBL  6
 
 void htsp_init(struct htsp_t* htsp);
-void htsp_lock(struct htsp_t* htsp);
-void htsp_unlock(struct htsp_t* htsp);
 void htsp_dump_message(struct htsp_message_t* msg);
 void htsp_destroy_message(struct htsp_message_t* msg);
 int htsp_connect(struct htsp_t* htsp, int server);

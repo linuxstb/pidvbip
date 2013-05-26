@@ -32,6 +32,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #define OSD_NONE 0
 #define OSD_INFO 1
 #define OSD_NEWCHANNEL 2
+#define OSD_CHANNELS 3
 
 struct osd_t {
   GRAPHICS_RESOURCE_HANDLE img_blank;
@@ -48,6 +49,10 @@ struct osd_t {
   time_t last_now;
   uint32_t event;
   uint32_t  nextEvent;
+  /* state of channel list */
+  int channellist_start_channel;
+  int channellist_selected_channel;
+  int channellist_selected_pos; 
 };
 
 void osd_init(struct osd_t* osd);

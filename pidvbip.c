@@ -614,13 +614,16 @@ next_channel:
 
     int new_channel;
     double new_channel_timeout;
-
+    int current_channel_id;
+    
     new_channel = -1;
     new_channel_timeout = 0;
+    current_channel_id = channels_getid(1);
     while (1) {
       int c;
 
       c = msgqueue_get(&msgqueue, 100);
+      c = osd_process_key(&osd, c);
 
       if (c != -1) {
         DEBUGF("char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
@@ -656,16 +659,26 @@ next_channel:
             if (osd.osd_state == OSD_INFO) {
               /* Hide info if currently shown */
               osd_clear(&osd);
-	    } else {
+            } else {
               osd_show_info(&osd,user_channel_id, 60000); /* 60 second timeout */
             }
-
             break;
 
           case 'c':
-            channels_dump();
+            if (osd.osd_state == OSD_CHANNELS) {
+              osd_clear(&osd);              
+              user_channel_id = osd.channellist_selected_channel;
+              actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
+              goto change_channel;
+            } else {
+              osd.channellist_selected_channel = user_channel_id;
+              osd.channellist_start_channel = user_channel_id;
+              osd.channellist_selected_pos = 1;
+              osd_channellist_display(&osd);
+            }                    
+            //channels_dump();
             break;
-
+            
           case 'h':
             auto_hdtv = 1 - auto_hdtv;
             int new_actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);

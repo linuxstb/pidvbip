@@ -29,7 +29,7 @@ pidvbip requires the following dependencies:
 libmpg123-dev libfaad-dev liba52-dev libavahi-client-dev libfreetype6-dev
 
 At the time of writing (January 2013), the version of libcec shipped
-with Raspbian does not work with pidvbip.  Install the latest verison
+with Raspbian does not work with pidvbip.  Install the latest version
 from git with the following commands:
 
     git clone https://github.com/Pulse-Eight/libcec.git

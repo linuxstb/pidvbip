@@ -36,6 +36,7 @@ SRCS = \
 	sha1.c \
 	acodec_omx.c \
 	avl.c \
+	cec.c \
 	channels.c \
 	codec.c \
 	events.c \
@@ -57,8 +58,6 @@ LIBVGFONT 	= $(ROOTDIR)/libs/vgfont/libvgfont.a
 #
 # Optional
 #
-
-SRCS-$(CONFIG_LIBCEC) 		+= cec.c
 
 SRCS-$(CONFIG_AVAHI)  		+= avahi.c
 

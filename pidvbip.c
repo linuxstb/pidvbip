@@ -547,11 +547,9 @@ int main(int argc, char* argv[])
 
     OERR(OMX_Init());
 
-#if ENABLE_LIBCEC
     if (!global_settings.nocec) {
-      cec_init(0,&msgqueue);
+      cec_init(&msgqueue);
     }
-#endif
 
     if (! mpeg2_codec_enabled()) {
       fprintf(stderr,"WARNING: No hardware MPEG-2 license detected - MPEG-2 video will not work\n");

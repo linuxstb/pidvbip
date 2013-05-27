@@ -1,293 +1,327 @@
 /*
-
-pidvbip - tvheadend client for the Raspberry Pi
-
-(C) Dave Chapman 2012-2013
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-
-*/
+ *  CEC code taken from Showtime:
+ *
+ *
+ *  Showtime mediacenter
+ *  Copyright (C) 2007-2012 Andreas Öman
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
 #include <pthread.h>
-#include <libcec/cecc.h>
+#include <bcm_host.h>
+#include <IL/OMX_Core.h>
+#include <interface/vmcs_host/vc_cecservice.h>
+#include <interface/vchiq_arm/vchiq_if.h>
 
-#include "msgqueue.h"
+#include "cec.h"
 
-#define CEC_CONFIG_VERSION CEC_CLIENT_VERSION_CURRENT
+int display_status = 0;
 
-/* Global variables to hold the libcec status */
-static libcec_configuration cec_config;
-static ICECCallbacks        cec_callbacks;
+#define DISPLAY_STATUS_OFF             0
+#define DISPLAY_STATUS_ON              1
+#define DISPLAY_STATUS_ON_NOT_VISIBLE  2
 
-static int CecLogMessage(void *(cbParam), const cec_log_message message)
-{
-  //fprintf(stderr,"LOG (%d): %s\n",message.level,message.message);
-
-  return 0;
-}
-
-static int CecKeyPress(void *(cbParam), const cec_keypress (key))
-{
-  struct msgqueue_t *msgqueue = cbParam;
-
-  fprintf(stderr,"Key: %d, duration: %d\n",key.keycode,key.duration);
-
-  if ((key.duration == 0) || (key.duration == 500))  { // Key down event
-    switch (key.keycode) {
-      case CEC_USER_CONTROL_CODE_SELECT:
-      case CEC_USER_CONTROL_CODE_DISPLAY_INFORMATION:
-        msgqueue_add(msgqueue,'i'); break;
-      case CEC_USER_CONTROL_CODE_CHANNEL_UP:
-        msgqueue_add(msgqueue,'n'); break;
-      case CEC_USER_CONTROL_CODE_CHANNEL_DOWN:
-        msgqueue_add(msgqueue,'p'); break;
-      case CEC_USER_CONTROL_CODE_NUMBER0:
-        msgqueue_add(msgqueue,'0'); break;
-      case CEC_USER_CONTROL_CODE_NUMBER1:
-        msgqueue_add(msgqueue,'1'); break;
-      case CEC_USER_CONTROL_CODE_NUMBER2:
-        msgqueue_add(msgqueue,'2'); break;
-      case CEC_USER_CONTROL_CODE_NUMBER3:
-        msgqueue_add(msgqueue,'3'); break;
-      case CEC_USER_CONTROL_CODE_NUMBER4:
-        msgqueue_add(msgqueue,'4'); break;
-      case CEC_USER_CONTROL_CODE_NUMBER5:
-        msgqueue_add(msgqueue,'5'); break;
-      case CEC_USER_CONTROL_CODE_NUMBER6:
-        msgqueue_add(msgqueue,'6'); break;
-      case CEC_USER_CONTROL_CODE_NUMBER7:
-        msgqueue_add(msgqueue,'7'); break;
-      case CEC_USER_CONTROL_CODE_NUMBER8:
-        msgqueue_add(msgqueue,'8'); break;
-      case CEC_USER_CONTROL_CODE_NUMBER9:
-        msgqueue_add(msgqueue,'9'); break;
-      case CEC_USER_CONTROL_CODE_UP:
-        msgqueue_add(msgqueue,'u'); break;
-      case CEC_USER_CONTROL_CODE_DOWN:
-        msgqueue_add(msgqueue,'d'); break;
-      case CEC_USER_CONTROL_CODE_LEFT:
-        msgqueue_add(msgqueue,'l'); break;
-      case CEC_USER_CONTROL_CODE_RIGHT:
-        msgqueue_add(msgqueue,'r'); break;
+#if 0
+/* TODO: Figure this one out */
       case CEC_USER_CONTROL_CODE_AN_CHANNELS_LIST:
         msgqueue_add(msgqueue,'c'); break;
-      case CEC_USER_CONTROL_CODE_PAUSE:
-      case CEC_USER_CONTROL_CODE_F2_RED:
-        msgqueue_add(msgqueue,' '); break;
-      default:
-        break;
-    }
-  }
-  return 0;
-}
-
-static int CecCommand(void *(cbParam), const cec_command (command))
-{
-  struct msgqueue_t *msgqueue = cbParam;
-
-  switch (command.opcode) {
-    case CEC_OPCODE_STANDBY:
-      fprintf(stderr,"<Standby> command received\n");
-      msgqueue_add(msgqueue,'o');
-      break;
-    default:
-      fprintf(stderr,"Cmd: initiator=%d, destination=%d, opcode=0x%02x\n",command.initiator,command.destination,command.opcode);
-      break;
-  }
-  return 0;
-}
-
-static void CecSourceActivated(void *(cbParam),const cec_logical_address logical_address, const uint8_t activated)
-{
-  fprintf(stderr,"[CEC] Source %sactivated\n",(activated ? "" : "de"));
-}
-
-static int CecAlert(void *(cbParam), const libcec_alert type, const libcec_parameter (param))
-{
-  fprintf(stderr,"CecAlert - type=%d\n",type);
-  switch (type)
-    {
-    case CEC_ALERT_CONNECTION_LOST:
-      printf("Connection lost - exiting\n");
-      exit(1);
-      break;
-    default:
-      break;
-    }
-  return 0;
-}
-
-static void clear_cec_logical_addresses(cec_logical_addresses* addresses)
-{
-  int i;
-
-  addresses->primary = CECDEVICE_UNREGISTERED;
-  for (i = 0; i < 16; i++)
-    addresses->addresses[i] = 0;
-}
-
-static void set_cec_logical_address(cec_logical_addresses* addresses, cec_logical_address address)
-{
-  if (addresses->primary == CECDEVICE_UNREGISTERED)
-    addresses->primary = address;
-
-  addresses->addresses[(int) address] = 1;
-}
-
-static void clear_config(libcec_configuration* config)
-{
-  int i;
-
-  config->iPhysicalAddress =                CEC_PHYSICAL_ADDRESS_TV;
-  config->baseDevice = (cec_logical_address)CEC_DEFAULT_BASE_DEVICE;
-  config->iHDMIPort =                       CEC_DEFAULT_HDMI_PORT;
-  config->tvVendor =              (uint64_t)CEC_VENDOR_UNKNOWN;
-  config->clientVersion =         (uint32_t)CEC_CLIENT_VERSION_CURRENT;
-  config->serverVersion =         (uint32_t)CEC_SERVER_VERSION_CURRENT;
-  config->bAutodetectAddress =              0;
-  config->bGetSettingsFromROM =             CEC_DEFAULT_SETTING_GET_SETTINGS_FROM_ROM;
-  config->bUseTVMenuLanguage =              CEC_DEFAULT_SETTING_USE_TV_MENU_LANGUAGE;
-  config->bActivateSource =                 CEC_DEFAULT_SETTING_ACTIVATE_SOURCE;
-  config->bPowerOffScreensaver =            CEC_DEFAULT_SETTING_POWER_OFF_SCREENSAVER;
-  config->bPowerOffOnStandby =              CEC_DEFAULT_SETTING_POWER_OFF_ON_STANDBY;
-  config->bShutdownOnStandby =              CEC_DEFAULT_SETTING_SHUTDOWN_ON_STANDBY;
-  config->bSendInactiveSource =             CEC_DEFAULT_SETTING_SEND_INACTIVE_SOURCE;
-  config->iFirmwareVersion =                CEC_FW_VERSION_UNKNOWN;
-  config->bPowerOffDevicesOnStandby =       CEC_DEFAULT_SETTING_POWER_OFF_DEVICES_STANDBY;
-  memcpy(config->strDeviceLanguage,         CEC_DEFAULT_DEVICE_LANGUAGE, 3);
-  config->iFirmwareBuildDate =              CEC_FW_BUILD_UNKNOWN;
-  config->bMonitorOnly =                    0;
-  config->cecVersion =         (cec_version)CEC_DEFAULT_SETTING_CEC_VERSION;
-  config->adapterType =                     ADAPTERTYPE_UNKNOWN;
-  config->iDoubleTapTimeoutMs =             CEC_DOUBLE_TAP_TIMEOUT_MS;
-  config->comboKey =                        CEC_USER_CONTROL_CODE_STOP;
-  config->iComboKeyTimeoutMs =              CEC_DEFAULT_COMBO_TIMEOUT_MS;
-
-  memset(config->strDeviceName, 0, 13);
-
-  /* deviceTypes.Clear(); */
-  for (i = 0; i < 5; i++)
-    config->deviceTypes.types[i] = CEC_DEVICE_TYPE_RESERVED;
-
-  clear_cec_logical_addresses(&config->logicalAddresses);
-  clear_cec_logical_addresses(&config->wakeDevices);
-  clear_cec_logical_addresses(&config->powerOffDevices);
-
-#if CEC_DEFAULT_SETTING_POWER_OFF_SHUTDOWN == 1
-  set_cec_logical_address(&config->powerOffDevices,CECDEVICE_BROADCAST);
 #endif
 
-#if CEC_DEFAULT_SETTING_ACTIVATE_SOURCE == 1
-  set_cec_logical_address(&config->wakeDevices,CECDEVICE_TV);
+const static int btn_to_action[256] = {
+  [CEC_User_Control_Select]             = 'i',
+  [CEC_User_Control_DisplayInformation] = 'i',
+  [CEC_User_Control_Left]               = 'l',
+  [CEC_User_Control_Up]                 = 'u',
+  [CEC_User_Control_Right]              = 'r',
+  [CEC_User_Control_Down]               = 'd',
+  [CEC_User_Control_ChannelUp]          = 'n',
+  [CEC_User_Control_ChannelDown]        = 'p',
+  [CEC_User_Control_SoundSelect]        = 'a',
+
+  [CEC_User_Control_Pause]              = ' ',
+  [CEC_User_Control_F2Red]              = ' ',
+
+  [CEC_User_Control_Rewind]             = 'l',
+  [CEC_User_Control_FastForward]        = 'r',
+  [CEC_User_Control_Number0]            = '0',
+  [CEC_User_Control_Number1]            = '1',
+  [CEC_User_Control_Number2]            = '2',
+  [CEC_User_Control_Number3]            = '3',
+  [CEC_User_Control_Number4]            = '4',
+  [CEC_User_Control_Number5]            = '5',
+  [CEC_User_Control_Number6]            = '6',
+  [CEC_User_Control_Number7]            = '7',
+  [CEC_User_Control_Number8]            = '8',
+  [CEC_User_Control_Number9]            = '9',
+};
+
+
+const uint32_t myVendorId = CEC_VENDOR_ID_BROADCOM;
+uint16_t physical_address;
+CEC_AllDevices_T logical_address;
+
+
+
+static void
+SetStreamPath(const VC_CEC_MESSAGE_T *msg)
+{
+    uint16_t requestedAddress;
+
+    requestedAddress = (msg->payload[1] << 8) + msg->payload[2];
+    if (requestedAddress != physical_address)
+        return;
+    vc_cec_send_ActiveSource(physical_address, VC_FALSE);
+}
+
+
+static void
+give_device_power_status(const VC_CEC_MESSAGE_T *msg)
+{
+    // Send CEC_Opcode_ReportPowerStatus
+    uint8_t response[2];
+    response[0] = CEC_Opcode_ReportPowerStatus;
+    response[1] = CEC_POWER_STATUS_ON;
+    vc_cec_send_message(msg->initiator, response, 2, VC_TRUE);
+}
+
+
+static void
+give_device_vendor_id(const VC_CEC_MESSAGE_T *msg)
+ {
+  uint8_t response[4];
+  response[0] = CEC_Opcode_DeviceVendorID;
+  response[1] = (uint8_t) ((myVendorId >> 16) & 0xff);
+  response[2] = (uint8_t) ((myVendorId >> 8) & 0xff);
+  response[3] = (uint8_t) ((myVendorId >> 0) & 0xff);
+  vc_cec_send_message(msg->initiator, response, 4, VC_TRUE);
+}
+
+
+static void
+send_cec_version(const VC_CEC_MESSAGE_T *msg)
+ {
+  uint8_t response[2];
+  response[0] = CEC_Opcode_CECVersion;
+  response[1] = 0x5;
+  vc_cec_send_message(msg->initiator, response, 2, VC_TRUE);
+}
+
+
+static void
+vc_cec_report_physicalAddress(uint8_t dest)
+{
+    uint8_t msg[4];
+    msg[0] = CEC_Opcode_ReportPhysicalAddress;
+    msg[1] = (uint8_t) ((physical_address) >> 8 & 0xff);
+    msg[2] = (uint8_t) ((physical_address) >> 0 & 0xff);
+    msg[3] = CEC_DeviceType_Tuner;
+    vc_cec_send_message(CEC_BROADCAST_ADDR, msg, 4, VC_TRUE);
+}
+
+static void
+send_deck_status(const VC_CEC_MESSAGE_T *msg)
+{
+  uint8_t response[2];
+  response[0] = CEC_Opcode_DeckStatus;
+  response[1] = CEC_DECK_INFO_NO_MEDIA;
+  vc_cec_send_message(msg->initiator, response, 2, VC_TRUE);
+}
+
+
+static void
+send_osd_name(const VC_CEC_MESSAGE_T *msg, const char *name)
+{
+  uint8_t response[15];
+  int l = strlen(name);
+  if (l > 14) l = 14;
+  response[0] = CEC_Opcode_SetOSDName;
+  memcpy(response + 1, name, l);
+  vc_cec_send_message(msg->initiator, response, l+1, VC_TRUE);
+}
+
+
+static void
+cec_callback(void *callback_data, uint32_t param0, uint32_t param1,
+	     uint32_t param2, uint32_t param3, uint32_t param4)
+{
+  VC_CEC_NOTIFY_T reason  = (VC_CEC_NOTIFY_T) CEC_CB_REASON(param0);
+  struct msgqueue_t *msgqueue = callback_data;
+
+#if 0
+  uint32_t len     = CEC_CB_MSG_LENGTH(param0);
+  uint32_t retval  = CEC_CB_RC(param0);
+  printf("cec_callback: debug: "
+	 "reason=0x%04x, len=0x%02x, retval=0x%02x, "
+	 "param1=0x%08x, param2=0x%08x, param3=0x%08x, param4=0x%08x\n",
+	 reason, len, retval, param1, param2, param3, param4);
 #endif
 
-  config->callbackParam = NULL;
-  config->callbacks     = NULL;
+  VC_CEC_MESSAGE_T msg;
+  CEC_OPCODE_T opcode;
+  if(vc_cec_param2message(param0, param1, param2, param3, param4, &msg))
+    return;
+
+
+  switch(reason) {
+  default:
+    break;
+  case VC_CEC_BUTTON_PRESSED:
+    fprintf(stderr,"[CEC] - 0x%02x button pressed\n",msg.payload[1]);
+    msgqueue_add(msgqueue,btn_to_action[msg.payload[1]]);
+    break;
+
+
+  case VC_CEC_RX:
+
+    opcode = CEC_CB_OPCODE(param1);
+#if 1
+    printf("opcode = %x (from:0x%x to:0x%x)\n", opcode,
+	   CEC_CB_INITIATOR(param1), CEC_CB_FOLLOWER(param1));
+#endif
+    switch(opcode) {
+    case CEC_Opcode_GiveDevicePowerStatus:
+      give_device_power_status(&msg);
+      break;
+
+    case CEC_Opcode_GiveDeviceVendorID:
+      give_device_vendor_id(&msg);
+      break;
+
+    case CEC_Opcode_SetStreamPath:
+      SetStreamPath(&msg);
+      break;
+
+    case CEC_Opcode_GivePhysicalAddress:
+      vc_cec_report_physicalAddress(msg.initiator);
+      break;
+
+    case CEC_Opcode_GiveOSDName:
+      send_osd_name(&msg, "pidvbip");
+      break;
+
+    case CEC_Opcode_GetCECVersion:
+      send_cec_version(&msg);
+      break;
+
+    case CEC_Opcode_GiveDeckStatus:
+      send_deck_status(&msg);
+      break;
+
+    default:
+      //      printf("\nDon't know how to handle status code 0x%x\n\n", opcode);
+      vc_cec_send_FeatureAbort(msg.initiator, opcode,
+			       CEC_Abort_Reason_Unrecognised_Opcode);
+      break;
+    }
+    break;
+  }
 }
 
-static void clear_callbacks(ICECCallbacks* cec_callbacks)
+
+/**
+ *
+ */
+static void
+tv_service_callback(void *callback_data, uint32_t reason,
+		    uint32_t param1, uint32_t param2)
 {
-  cec_callbacks->CBCecLogMessage           = NULL;
-  cec_callbacks->CBCecKeyPress             = NULL;
-  cec_callbacks->CBCecCommand              = NULL;
-  cec_callbacks->CBCecConfigurationChanged = NULL;
-  cec_callbacks->CBCecAlert                = NULL;
-  cec_callbacks->CBCecMenuStateChanged     = NULL;
-  cec_callbacks->CBCecSourceActivated      = NULL;
+  struct msgqueue_t *msgqueue = callback_data;
+
+  fprintf(stderr,"[CEC] tv_service_callback - reason=0x%08x\n",reason);
+
+  if(reason & 1) {
+    display_status = DISPLAY_STATUS_OFF;
+  } else {
+    display_status = DISPLAY_STATUS_ON;
+  }
 }
 
-int cec_init(int init_video, struct msgqueue_t* msgqueue)
+
+/**
+ * We deal with CEC and HDMI events, etc here
+ */
+static void *
+cec_thread(void *aux)
 {
-  /* Set the CEC configuration */
-  clear_config(&cec_config);
-  snprintf(cec_config.strDeviceName, 13, "pidvbip");
-  cec_config.clientVersion       = CEC_CONFIG_VERSION;
-  cec_config.bActivateSource     = 0;
+  TV_DISPLAY_STATE_T state;
+  struct msgqueue_t *msgqueue = aux;
 
-  /* Say we are a recording/tuner/playback device */
-  cec_config.deviceTypes.types[0] = CEC_DEVICE_TYPE_RECORDING_DEVICE;
+  vc_tv_register_callback(tv_service_callback, msgqueue);
+  vc_tv_get_display_state(&state);
 
-  /* Set the callbacks */
-  clear_callbacks(&cec_callbacks);
-  cec_callbacks.CBCecLogMessage  = &CecLogMessage;
-  cec_callbacks.CBCecKeyPress    = &CecKeyPress;
-  cec_callbacks.CBCecCommand     = &CecCommand;
-  cec_callbacks.CBCecAlert       = &CecAlert;
-  cec_callbacks.CBCecSourceActivated= &CecSourceActivated;
+  vc_cec_set_passive(1);
 
-  cec_config.callbacks           = &cec_callbacks;
+  vc_cec_register_callback(((CECSERVICE_CALLBACK_T) cec_callback), msgqueue);
+  vc_cec_register_all();
 
-  /* Initialise the library */
-  if (!cec_initialise(&cec_config)) {
-    fprintf(stderr,"Error initialising libcec, aborting\n");
-    return 1;
+ restart:
+  while(1) {
+    if(!vc_cec_get_physical_address(&physical_address) &&
+       physical_address == 0xffff) {
+    } else {
+      fprintf(stderr,"[CEC]: Got physical address 0x%04x\n", physical_address);
+      break;
+    }
+    
+    sleep(1);
   }
 
-  if (init_video) {
-    /* init video on targets that need this */
-    cec_init_video_standalone();
+
+  const int addresses = 
+    (1 << CEC_AllDevices_eRec1) |
+    (1 << CEC_AllDevices_eRec2) |
+    (1 << CEC_AllDevices_eRec3) |
+    (1 << CEC_AllDevices_eFreeUse);
+
+  for(logical_address = 0; logical_address < 15; logical_address++) {
+    if(((1 << logical_address) & addresses) == 0)
+      continue;
+    if(vc_cec_poll_address(CEC_AllDevices_eRec1) > 0)
+      break;
   }
 
-  /* Locate CEC device */
-  cec_adapter devices[10];
-  int nadapters = cec_find_adapters(devices, 10, NULL);
-
-  if (nadapters <= 0) {
-    fprintf(stderr,"Error, no CEC adapters found.\n");
-    cec_destroy();
-    return 2;
+  if(logical_address == 15) {
+    printf("Unable to find a free logical address, retrying\n");
+    sleep(1);
+    goto restart;
   }
 
-  if (nadapters > 1) {
-    fprintf(stderr,"WARNING: %d adapters found, using first.\n",nadapters);
+  vc_cec_set_logical_address(logical_address, CEC_DeviceType_Rec, myVendorId);
+
+  while(1) {
+    sleep(1);
   }
 
-  fprintf(stderr,"Using CEC adapter \"%s\", path=\"%s\"\n",devices[0].comm,devices[0].path);
+  vc_cec_set_logical_address(0xd, CEC_DeviceType_Rec, myVendorId);
+  return NULL;
+}
 
-  /* Open device with a 10000ms (10s) timeout */
-  if (!cec_open(devices[0].comm, CEC_DEFAULT_CONNECT_TIMEOUT)) {
-    fprintf(stderr,"Error, cannot open device %s\n",devices[0].comm);
-    cec_destroy();
-    return 3;
-  }
 
-  /* Enable callbacks, first parameter is the callback data passed to every callback */
-  cec_enable_callbacks(msgqueue, &cec_callbacks);
 
-  /* Get the menu language of the TV */
-  cec_menu_language language;
-  cec_get_device_menu_language(CEC_DEFAULT_BASE_DEVICE, &language);
-  fprintf(stderr,"TV menu language: \"%c%c%c\"\n",language.language[0],language.language[1],language.language[2]);
+int cec_init(struct msgqueue_t* msgqueue)
+{
+  static pthread_t thread;
 
-  /* Get the power status of the TV */
-  cec_power_status power_status = cec_get_device_power_status(CEC_DEFAULT_BASE_DEVICE);
-  fprintf(stderr,"TV Power Status:  %d\n",power_status);
-
-  /* Select ourselves as the source - this will also power-on the TV if needed */
-  fprintf(stderr,"Setting ourselves as the source\n");
-  cec_set_active_source(CEC_DEVICE_TYPE_RECORDING_DEVICE);
-
-  return 0;
+  pthread_create(&thread,NULL,(void * (*)(void *))cec_thread,msgqueue);
 }
 
 int cec_done(int poweroff)
 {
+  /* TODO */
+#if 0
   if (poweroff) {
     /* Power-off the TV */
     cec_standby_devices(CEC_DEFAULT_BASE_DEVICE);
@@ -295,6 +329,7 @@ int cec_done(int poweroff)
 
   /* Cleanup */
   cec_destroy();
+#endif
 
   return 0;
 }

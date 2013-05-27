@@ -321,6 +321,8 @@ void init_avplay(struct avplay_t* avplay, struct codecs_t* codecs)
 {
   msgqueue_init(&avplay->msgqueue);
 
+  avplay->url = NULL;
+  avplay->next_url = NULL;
   avplay->codecs = codecs;
   avplay->duration = -1;
   avplay->PTS = -1;

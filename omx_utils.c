@@ -233,6 +233,15 @@ static OMX_ERRORTYPE omx_empty_buffer_done(OMX_IN OMX_HANDLETYPE hComponent,
   return OMX_ErrorNone;
 }
 
+void omx_clock_set_speed(struct omx_component_t *clock, int v)
+{
+  OMX_TIME_CONFIG_SCALETYPE scale;
+  OMX_INIT_STRUCTURE(scale);
+
+  scale.xScale = v;
+  OERR(OMX_SetConfig(clock->h, OMX_IndexConfigTimeScale, &scale));
+}
+
 static OMX_ERRORTYPE omx_fill_buffer_done(OMX_IN OMX_HANDLETYPE hComponent,
                                           OMX_IN OMX_PTR pAppData,
                                           OMX_IN OMX_BUFFERHEADERTYPE* pBuffer)

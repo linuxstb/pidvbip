@@ -253,10 +253,16 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
       char* method = htsp_get_string(&msg,"method");
 
       if (method) {
-        if (strcmp(method,"initialSyncCompleted")==0) {
+        if ((msg.server == i) && (strcmp(method,"initialSyncCompleted")==0)) {
           done=1;
         } else {
           process_message(method,&msg,"Initial sync:");
+          if ((msg.server == i) && ((!strcmp(method,"tagUpdate")) || (!strcmp(method,"dvrEntryAdd")) || (!strcmp(method,"eventAdd")))) {
+            if (!done) {
+              fprintf(stderr,"Channel update completed for server %d\n",i);
+              done = 1;
+            }
+          }
         }
 
         free(method);

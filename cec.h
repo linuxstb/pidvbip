@@ -3,8 +3,7 @@
 
 #include "msgqueue.h"
 
-int cec_init(int init_video, struct msgqueue_t* msgqueue);
-int cec_get_keypress(void);
+int cec_init(struct msgqueue_t* msgqueue);
 int cec_done(int poweroff);
 
 #endif

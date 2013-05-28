@@ -85,9 +85,7 @@ cmdline_opt_t cmdline_opts[] = {
 
   {   0, NULL,                "Hardware configuration",                  OPT_NULL, NULL, 0, NULL         },
   {  'o', "audio-output",     "Audio output destination: hdmi,local",    OPT_STR,  &global_settings.audio_dest, -1, "hdmi" },
-#if ENABLE_LIBCEC
   {   0, "no-cec",            "Disable CEC support",                     OPT_BOOL, &global_settings.nocec, 0, NULL },
-#endif
 
   {   0, NULL,                "Playback options",                         OPT_NULL, NULL, 0, NULL         },
   {   0, "deinterlace-sd",    "De-interlace SD content (<= 720x576)",     OPT_BOOL, &global_settings.deinterlace_sd, 0, NULL },

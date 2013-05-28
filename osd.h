@@ -32,7 +32,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #define OSD_NONE 0
 #define OSD_INFO 1
 #define OSD_NEWCHANNEL 2
-#define OSD_CHANNELS 3
+#define OSD_CHANNELLIST 3
 
 struct osd_t {
   GRAPHICS_RESOURCE_HANDLE img_blank;
@@ -59,12 +59,17 @@ void osd_init(struct osd_t* osd);
 void osd_done(struct osd_t* osd);
 void osd_alert(struct osd_t* osd, char* text);
 void osd_show_info(struct osd_t* osd, int channel_id, int timeout);
+void osd_show_channellist(struct osd_t* osd);
 void osd_show_newchannel(struct osd_t* osd, int channel);
 void osd_clear(struct osd_t* osd);
 void osd_clear_newchannel(struct osd_t* osd);
 void osd_show_audio_menu(struct osd_t* osd, struct codecs_t* codecs, int audio_stream);
 void osd_blank_video(struct osd_t* osd, int on_off);
 void osd_update(struct osd_t* osd, int channel_id);
+int osd_process_key(struct osd_t* osd, int c);
+void osd_channellist_display(struct osd_t* osd);
+
+extern int *channellist_offset;
 
 double get_time(void);
 

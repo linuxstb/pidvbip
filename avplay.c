@@ -26,10 +26,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include <libavutil/mathematics.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include "avplay.h"
 #include "codec.h"
 
-#define DUMP_VIDEO
+//#define DUMP_VIDEO
 
 static void convert4(unsigned char* dest, unsigned char* src, int size)
 {
@@ -98,20 +99,32 @@ static int map_acodec(enum CodecID id)
   return -1;
 }
 
-int avplay(struct codecs_t* codecs, const char* url)
+static void* avplay_thread(struct avplay_t* avplay)
 {
   AVFormatContext *fmt_ctx = NULL;
   AVPacket pkt;
   int video_stream_idx = -1, audio_stream_idx = -1;
   int ret = 0;
   struct packet_t* packet;
+  int msg;
 
   /* register all formats and codecs */
   av_register_all();
 
+restart:
+  /* Wait for a MSG_PLAY message */
+  while (((msg = msgqueue_get(&avplay->msgqueue,10000)) != MSG_PLAY) && (!avplay->next_url));
+
+  fprintf(stderr,"avplay: waiting for playback mutex\n");
+  pthread_mutex_lock(&avplay->codecs->playback_mutex);
+  fprintf(stderr,"avplay: gotplayback mutex\n");
+
+  avplay->url = strdup(avplay->next_url);
+  avplay->next_url = NULL;
+
   /* open input file, and allocate format context */
-  if (avformat_open_input(&fmt_ctx, url, NULL, NULL) < 0) {
-    fprintf(stderr, "Could not open source file %s\n", url);
+  if (avformat_open_input(&fmt_ctx, avplay->url, NULL, NULL) < 0) {
+    fprintf(stderr, "Could not open source file %s\n", avplay->url);
     return 1;
   }
 
@@ -123,7 +136,7 @@ int avplay(struct codecs_t* codecs, const char* url)
   }
 
   /* dump input information to stderr */
-  av_dump_format(fmt_ctx, 0, url, 0);
+  av_dump_format(fmt_ctx, 0, avplay->url, 0);
 
   if ((ret = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0)) >= 0) {
     video_stream_idx = ret;
@@ -142,11 +155,11 @@ int avplay(struct codecs_t* codecs, const char* url)
   fprintf(stderr,"video_stream_idx=%d\n",video_stream_idx);
   fprintf(stderr,"audio_stream_idx=%d\n",audio_stream_idx);
 
-  if ((codecs->vcodec.vcodectype = map_vcodec(fmt_ctx->streams[video_stream_idx]->codec->codec_id)) == -1) {
+  if ((avplay->codecs->vcodec.vcodectype = map_vcodec(fmt_ctx->streams[video_stream_idx]->codec->codec_id)) == -1) {
     fprintf(stderr,"Unsupported video codec\n");
     exit(1);
   }
-  if ((codecs->acodec.acodectype = map_acodec(fmt_ctx->streams[audio_stream_idx]->codec->codec_id)) == -1) {
+  if ((avplay->codecs->acodec.acodectype = map_acodec(fmt_ctx->streams[audio_stream_idx]->codec->codec_id)) == -1) {
     fprintf(stderr,"Unsupported audio codec\n");
     exit(1);
   }
@@ -157,7 +170,7 @@ int avplay(struct codecs_t* codecs, const char* url)
   int annexb_extradata_size = 0;
   int nalsize = 0;
 
-  if ((codecs->vcodec.vcodectype == OMX_VIDEO_CodingAVC) && (c->extradata)) {
+  if ((avplay->codecs->vcodec.vcodectype == OMX_VIDEO_CodingAVC) && (c->extradata)) {
     if ((c->extradata[0]==0) && (c->extradata[1]==0) && (c->extradata[2]==0) && (c->extradata[3]==1)) {
       fprintf(stderr,"Extradata is already in annexb format.\n");
       annexb_extradata = c->extradata;
@@ -229,7 +242,18 @@ int avplay(struct codecs_t* codecs, const char* url)
   int first_video = 1; 
   AVRational omx_timebase = {1,1000000};
   /* read frames from the file */
-  while (av_read_frame(fmt_ctx, &pkt) >= 0) {
+  while (1) {
+    msg = msgqueue_get(&avplay->msgqueue,0);
+
+    if (msg == MSG_STOP) {
+      break;
+    }
+
+    if (av_read_frame(fmt_ctx, &pkt) < 0) {
+      fprintf(stderr,"Error reading stream, ending\n");
+      break;
+    }
+
     //fprintf(stderr,"Read pkt - index=%d\n",pkt.stream_index);
 
     if ((pkt.stream_index == video_stream_idx) || (pkt.stream_index == audio_stream_idx)) {
@@ -261,19 +285,19 @@ int avplay(struct codecs_t* codecs, const char* url)
       
       if (pkt.stream_index == video_stream_idx) {
 #ifdef DUMP_VIDEO
-	write(fd,packet->packet,packet->packetlength);
+        write(fd,packet->packet,packet->packetlength);
 #endif
-	//	fprintf(stderr,"Adding video packet - PTS=%lld, size=%d\n",packet->PTS, packet->packetlength);
+        //fprintf(stderr,"Adding video packet - PTS=%lld, size=%d\n",packet->PTS, packet->packetlength);
         first_video = 0;
-        while (codecs->vcodec.queue_count > 100) { usleep(100000); }  // FIXME
-	codec_queue_add_item(&codecs->vcodec,packet);
+        while (avplay->codecs->vcodec.queue_count > 100) { usleep(100000); }  // FIXME
+        codec_queue_add_item(&avplay->codecs->vcodec,packet);
       } else {
-	///	fprintf(stderr,"Adding audio packet - PTS=%lld, size=%d\n",packet->PTS, packet->packetlength);
-        while (codecs->acodec.queue_count > 100) { usleep(100000); }  // FIXME
-	codec_queue_add_item(&codecs->acodec,packet);
+	  //fprintf(stderr,"Adding audio packet - PTS=%lld, size=%d\n",packet->PTS, packet->packetlength);
+        while (avplay->codecs->acodec.queue_count > 1000) { usleep(100000); }  // FIXME
+        codec_queue_add_item(&avplay->codecs->acodec,packet);
       }
     }
-    
+  
     av_free_packet(&pkt);
   }
 
@@ -282,7 +306,28 @@ int avplay(struct codecs_t* codecs, const char* url)
 #endif
 
 end:
+  codec_stop(&avplay->codecs->vcodec);
+  codec_stop(&avplay->codecs->acodec);
+  if (avplay->url) free(avplay->url);  /* This should never be null */
+  pthread_mutex_unlock(&avplay->codecs->playback_mutex);
   avformat_close_input(&fmt_ctx);
+  goto restart;
 
-  return ret;
+  return 0;
+}
+
+
+void init_avplay(struct avplay_t* avplay, struct codecs_t* codecs)
+{
+  msgqueue_init(&avplay->msgqueue);
+
+  avplay->url = NULL;
+  avplay->next_url = NULL;
+  avplay->codecs = codecs;
+  avplay->duration = -1;
+  avplay->PTS = -1;
+
+  pthread_mutex_init(&avplay->mutex,NULL);
+
+  pthread_create(&avplay->thread,NULL,(void * (*)(void *))avplay_thread,avplay);
 }

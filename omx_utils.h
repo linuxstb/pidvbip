@@ -108,6 +108,7 @@ void omx_free_buffers(struct omx_component_t *component, int port);
 OMX_ERRORTYPE omx_send_command_and_wait(struct omx_component_t* component, OMX_COMMANDTYPE Cmd, OMX_U32 nParam, OMX_PTR pCmdData);
 OMX_ERRORTYPE omx_send_command_and_wait0(struct omx_component_t* component, OMX_COMMANDTYPE Cmd, OMX_U32 nParam, OMX_PTR pCmdData);
 OMX_ERRORTYPE omx_send_command_and_wait1(struct omx_component_t* component, OMX_COMMANDTYPE Cmd, OMX_U32 nParam, OMX_PTR pCmdData);
+void omx_clock_set_speed(struct omx_component_t *clock, int v);
 void summarise_buffers(OMX_BUFFERHEADERTYPE *buffers);
 int omx_get_free_buffer_count(struct omx_component_t* component);
 void omx_alloc_buffers(struct omx_component_t *component, int port);

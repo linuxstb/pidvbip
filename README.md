@@ -28,17 +28,6 @@ pidvbip requires the following dependencies:
 
 libmpg123-dev libfaad-dev liba52-dev libavahi-client-dev libfreetype6-dev
 
-At the time of writing (January 2013), the version of libcec shipped
-with Raspbian does not work with pidvbip.  Install the latest verison
-from git with the following commands:
-
-    git clone https://github.com/Pulse-Eight/libcec.git
-    cd libcec
-    ./bootstrap
-    ./configure --with-rpi-include-path=/opt/vc/include --with-rpi-lib-path=/opt/vc/lib/
-    make
-    sudo make install
-
 After installing the above libraries, you can build pidvbip by typing
 "./configure && make" in the source code directory.
 
@@ -86,7 +75,9 @@ Once running, the following keys are mapped to actions:
     'h' - toggle auto-switching to HD versions of programmes from an SD channel
     ' ' - pause/resume playback
     'c' - display list of channels and current events to the console
-    'o' - To unsubscribe from current channel and go idle
+        - Also shows basic onscreen channel listing, whilst onscreen use
+        - d for down a screen of channels, or u for up a screen of channels in listing
+    'o' - To toggle subscribe/unsubscribe (idle) on current channel
     'a' - Cycle through available audio streams
     'z' - Force 4:3 (pillarbox) or 16:9 (fullscreen) display
 

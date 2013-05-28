@@ -46,17 +46,8 @@ typedef struct HTSSHA1 {
 void htsp_init(struct htsp_t* htsp)
 {
     htsp->subscriptionId = 0;
-    pthread_mutex_init(&htsp->htsp_mutex,NULL);
-}
-
-void htsp_lock(struct htsp_t* htsp)
-{
-  pthread_mutex_lock(&htsp->htsp_mutex);
-}
-
-void htsp_unlock(struct htsp_t* htsp)
-{
-  pthread_mutex_unlock(&htsp->htsp_mutex);
+    htsp->subscriptionServer = -1;
+    htsp->sync_completed = 0;
 }
 
 static int create_tcp_socket()
@@ -786,7 +777,6 @@ int htsp_send_skip(struct htsp_t* htsp, int server, int time)
   int res;
   struct htsp_message_t msg;
 
-  htsp_lock(htsp);
   res = htsp_create_message(&msg,HMF_STR,"method","subscriptionSkip",
                                  HMF_S64,"time",time*1000000,
                                  HMF_S64,"subscriptionId",htsp->subscriptionId,
@@ -794,8 +784,6 @@ int htsp_send_skip(struct htsp_t* htsp, int server, int time)
   res = htsp_send_message(htsp,server,&msg);
 
   fprintf(stderr,"Sent subscriptionSkip(%d) message, res=%d\n",time,res);
-
-  htsp_unlock(htsp);
 
   htsp_destroy_message(&msg);
 

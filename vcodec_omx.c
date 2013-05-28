@@ -71,13 +71,14 @@ next_packet:
          fprintf(stderr,"vcodec: Waiting for resume\n");
          pthread_cond_wait(&codec->resume_cv,&codec->queue_mutex);
          pthread_mutex_unlock(&codec->queue_mutex);
+         omx_clock_set_speed(&pipe->clock, 1<<16);
          is_paused = 0;
        }
-       //fprintf(stderr,"[vcodec] getting next item\n");
+       //fprintf(stderr,"[vcodec] getting next item\n\n");
        current = codec_queue_get_next_item(codec); 
-       //fprintf(stderr,"[vcodec] got next item\n");
+       //fprintf(stderr,"[vcodec] got next item\n\n");
 
-       if (current->msgtype == MSG_NEW_CHANNEL) {
+       if ((current->msgtype == MSG_NEW_CHANNEL) || (current->msgtype == MSG_STOP)) {
          codec_queue_free_item(codec,current);
          current = NULL;
          if (pipe->omx_active) {
@@ -93,6 +94,7 @@ next_packet:
          //fprintf(stderr,"vcodec: Paused\n");
          codec_queue_free_item(codec,current);
          current = NULL;
+         omx_clock_set_speed(&pipe->clock, 0);
          is_paused = 1;
          goto next_packet;
        } else if (current->msgtype == MSG_SET_ASPECT_4_3) {

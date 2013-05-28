@@ -55,10 +55,17 @@ int msgqueue_get(struct msgqueue_t* q, int timeout_ms)
     ts.tv_nsec = tv.tv_usec * 1000;
 
     /* Add timeout value and normalise */
-    ts.tv_nsec += timeout_ms * 1000000;
-    while (ts.tv_nsec > 1000000000) {
-      ts.tv_sec++;
-      ts.tv_nsec -= 1000000000;
+    if (timeout_ms >= 1000) {
+      ts.tv_sec += timeout_ms / 1000;;
+      timeout_ms %= 1000;
+    }
+
+    if (timeout_ms) {
+      ts.tv_nsec += timeout_ms * 1000000;
+      while (ts.tv_nsec > 1000000000) {
+        ts.tv_sec++;
+        ts.tv_nsec -= 1000000000;
+      }
     }
 
     while (q->count == 0) {

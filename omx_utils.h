@@ -72,6 +72,7 @@ struct omx_component_t
 
   OMX_BUFFERHEADERTYPE *buffers;
   int port_settings_changed;
+  int config_changed;
 
   int aspect; /* Last aspect ratio reported from video_render MarkEvent callback */
 
@@ -92,6 +93,8 @@ struct omx_pipeline_t
   struct omx_component_t audio_render;
   struct omx_component_t clock;
   struct omx_component_t image_fx; /* For deinterlacing */
+
+  struct omx_component_t camera;
 
   int do_deinterlace;
   pthread_mutex_t omx_active_mutex;

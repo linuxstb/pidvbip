@@ -50,6 +50,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "avplay.h"
 #include "omx_utils.h"
 #include "input.h"
+#include "omx_utils.h"
 
 struct omx_pipeline_t omxpipe;
 extern struct configfile_parameters global_settings;
@@ -576,6 +577,11 @@ int main(int argc, char* argv[])
     input_init(&msgqueue);
 
     osd_init(&osd);
+
+    if (global_settings.camtest) {
+      struct omx_pipeline_t camerapipe;    
+      omx_setup_camera_pipeline(&camerapipe);
+    }
 
     //osd_alert(&osd, "Connecting to server...");
 

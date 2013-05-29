@@ -210,6 +210,11 @@ static OMX_ERRORTYPE omx_event_handler(OMX_IN OMX_HANDLETYPE hComponent,
     //fprintf(stderr,"[EVENT] OMX_EventMark - component->aspect=%d\n",component->aspect);
     break;
 
+  case OMX_EventParamOrConfigChanged:
+    fprintf(stderr,"[EVENT] OMX_EventParamOrConfigChanged on component \"%s\" - d1=%x, d2=%x\n",component->name,(unsigned int)nData1, (unsigned int)nData2);
+    component->config_changed = 1;
+    break;
+
     default:
       fprintf(stderr,"[EVENT] Got an event of type %x on %s %p (d1: %x, d2 %x)\n", eEvent,
        component->name, hComponent, (unsigned int)nData1, (unsigned int)nData2);
@@ -471,6 +476,8 @@ void omx_set_display_region(struct omx_pipeline_t* pipe, int x, int y, int width
 
 OMX_ERRORTYPE omx_init_component(struct omx_pipeline_t* pipe, struct omx_component_t* component, char* compname)
 {
+  memset(component,0,sizeof(component));
+
   pthread_mutex_init(&component->cmd_queue_mutex, NULL);
   pthread_cond_init(&component->cmd_queue_count_cv,NULL);
   component->buf_notempty = 1;
@@ -494,6 +501,135 @@ OMX_ERRORTYPE omx_init_component(struct omx_pipeline_t* pipe, struct omx_compone
 
 }
 
+
+/* From: http://home.nouwen.name/RaspberryPi/documentation/ilcomponents/camera.html
+
+ In order to optimise loading of relevant drivers, the recommended initialisation sequence is:
+
+    Create component.
+    Use OMX_IndexConfigRequestCallback to request callbacks on OMX_IndexParamCameraDeviceNumber.
+    Set OMX_IndexParamISPTunerName.
+    Set OMX_IndexParamCameraFlashType.
+    Set OMX_IndexParamCameraDeviceNumber.
+    Wait for the callback that OMX_IndexParamCameraDeviceNumber has changed. At this point, all the drivers have been loaded. Other settings can be applied whilst waiting for this event.
+    Query for OMX_IndexConfigCameraSensorModes as required.
+    Change state to IDLE, and proceed as required. 
+*/
+
+OMX_ERRORTYPE omx_setup_camera_pipeline(struct omx_pipeline_t* pipe)
+{
+
+  // Create component.
+  omx_init_component(pipe, &pipe->camera, "OMX.broadcom.camera");
+
+  // Use OMX_IndexConfigRequestCallback to request callbacks on OMX_IndexParamCameraDeviceNumber.
+  OMX_CONFIG_REQUESTCALLBACKTYPE cbtype;
+  OMX_INIT_STRUCTURE(cbtype);
+  cbtype.nPortIndex=OMX_ALL;
+  cbtype.nIndex=OMX_IndexParamCameraDeviceNumber;
+  cbtype.bEnable = OMX_TRUE;
+  OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigRequestCallback, &cbtype));
+
+  // Set OMX_IndexParamISPTunerName.
+
+  // Set OMX_IndexParamCameraFlashType.
+
+  // Set OMX_IndexParamCameraDeviceNumber.
+  OMX_PARAM_U32TYPE device;
+  OMX_INIT_STRUCTURE(device);
+  device.nPortIndex = OMX_ALL;
+  device.nU32 = 0;
+  OERR(OMX_SetParameter(pipe->camera.h, OMX_IndexParamCameraDeviceNumber, &device));
+
+  dumpport(pipe->camera.h, 71);
+
+  /* Set the resolution */
+  OMX_PARAM_PORTDEFINITIONTYPE portdef;
+  OMX_INIT_STRUCTURE(portdef);
+  portdef.nPortIndex = 71;
+  OERR(OMX_GetParameter(pipe->camera.h, OMX_IndexParamPortDefinition, &portdef));
+  portdef.format.image.nFrameWidth = 640;
+  portdef.format.image.nFrameHeight = 360;
+  portdef.format.image.nStride = 640;
+  OERR(OMX_SetParameter(pipe->camera.h, OMX_IndexParamPortDefinition, &portdef));
+
+  /* Set the framerate */
+  OMX_CONFIG_FRAMERATETYPE framerate;
+  OMX_INIT_STRUCTURE(framerate);
+  framerate.nPortIndex = 71;
+  framerate.xEncodeFramerate = 25 << 16; // Q16 format - 25fps
+  OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigVideoFramerate, &framerate));
+
+  /* Set the brightness */
+  OMX_CONFIG_BRIGHTNESSTYPE brightness;
+  OMX_INIT_STRUCTURE(brightness);
+  brightness.nPortIndex = OMX_ALL;
+  brightness.nBrightness = 50; /* 0 to 100 */
+  OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigCommonBrightness, &brightness));
+
+  /* Set the sharpness */
+  OMX_CONFIG_SHARPNESSTYPE sharpness;
+  OMX_INIT_STRUCTURE(sharpness);
+  sharpness.nPortIndex = OMX_ALL;
+  sharpness.nSharpness = -50; /* -100 to 100 */
+  OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigCommonSharpness, &sharpness));
+
+  /* Set the contrast */
+  OMX_CONFIG_CONTRASTTYPE contrast;
+  OMX_INIT_STRUCTURE(contrast);
+  contrast.nPortIndex = OMX_ALL;
+  contrast.nContrast = -10; /* -100 to 100 */
+  OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigCommonContrast, &contrast));
+
+  /* Set the saturation */
+  OMX_CONFIG_SATURATIONTYPE saturation;
+  OMX_INIT_STRUCTURE(saturation);
+  saturation.nPortIndex = OMX_ALL;
+  saturation.nSaturation = 0; /* -100 to 100 */
+  OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigCommonSaturation, &saturation));
+
+  // Wait for the callback that OMX_IndexParamCameraDeviceNumber has
+  // changed. At this point, all the drivers have been loaded. Other
+  // settings can be applied whilst waiting for this event.
+  fprintf(stderr,"Waiting for camera config to change\n");
+  while (!pipe->camera.config_changed);  /* TODO: Use a condition variable */
+  fprintf(stderr,"Config changed\n");
+
+  // Query for OMX_IndexConfigCameraSensorModes as required.
+
+  // Change state to IDLE, and proceed as required. 
+  omx_send_command_and_wait(&pipe->camera, OMX_CommandStateSet, OMX_StateIdle, NULL);
+
+  OMX_CONFIG_PORTBOOLEANTYPE cameraport;
+  OMX_INIT_STRUCTURE(cameraport);
+  cameraport.nPortIndex = 71;
+  cameraport.bEnabled = OMX_TRUE;
+  OERR(OMX_SetParameter(pipe->camera.h, OMX_IndexConfigPortCapturing, &cameraport));
+
+  omx_init_component(pipe, &pipe->video_render, "OMX.broadcom.video_render");
+  omx_send_command_and_wait(&pipe->video_render, OMX_CommandStateSet, OMX_StateIdle, NULL);
+
+  OERR(OMX_SetupTunnel(pipe->camera.h, 71, pipe->video_render.h, 90));  /* Camera capture port to video render */
+
+  omx_send_command_and_wait(&pipe->camera, OMX_CommandPortEnable, 71, NULL);
+  omx_send_command_and_wait(&pipe->video_render, OMX_CommandPortEnable, 90, NULL);
+
+  omx_send_command_and_wait(&pipe->video_render, OMX_CommandStateSet, OMX_StateExecuting, NULL);
+  omx_send_command_and_wait(&pipe->camera, OMX_CommandStateSet, OMX_StateExecuting, NULL);
+
+  omx_set_display_region(pipe, 1200, 180, 640, 360);
+
+  OMX_CONFIG_DISPLAYREGIONTYPE region;
+  OMX_INIT_STRUCTURE(region);
+  region.nPortIndex = 90; /* Video render input port */
+  region.set = OMX_DISPLAY_SET_LAYER;
+  region.layer = 10;
+  OERR(OMX_SetParameter(pipe->video_render.h, OMX_IndexConfigDisplayRegion, &region));
+
+  fprintf(stderr,"Camera pipeline configured\n");
+
+  dumpport(pipe->camera.h, 71);
+}
 
 OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTYPE video_codec, char* audio_dest, int is_hd)
 {

@@ -19,6 +19,7 @@ struct configfile_parameters
   char *configfile;
   int deinterlace_sd;
   int deinterlace_hd;
+  int camtest;
 #if ENABLE_AVAHI
   int  avahi;
 #endif

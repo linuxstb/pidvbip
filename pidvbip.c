@@ -689,11 +689,13 @@ int main(int argc, char* argv[])
 
           case 'c':            
             if (osd.osd_state == OSD_CHANNELLIST) {
-              osd_clear(&osd);              
-              int new_actual_channel_id = get_actual_channel(auto_hdtv, osd.channellist_selected_channel);
+              osd_clear(&osd);    
+              user_channel_id = osd.channellist_selected_channel;  
+              int new_actual_channel_id = get_actual_channel(auto_hdtv, user_channel_id);
               if (new_actual_channel_id != actual_channel_id) {
                 actual_channel_id = new_actual_channel_id;
                 msgqueue_add(&htsp.msgqueue, HTMSG_NEW_CHANNEL | actual_channel_id);
+                osd_show_info(&osd, user_channel_id, 7000); /* 7 second timeout */
               }
             } else {
               if (osd.osd_state != OSD_NONE) {
@@ -705,8 +707,6 @@ int main(int argc, char* argv[])
               osd.channellist_selected_pos = 1;
               osd_channellist_display(&osd);
             }                    
-            //channels_dump();
-
             /* channels_dump();
              * channellist_offset=0;
              * osd_show_channellist(&osd); 

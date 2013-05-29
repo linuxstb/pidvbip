@@ -716,7 +716,7 @@ void osd_channellist_display(struct osd_t* osd)
             
       snprintf(str, sizeof(str), "%d %s", channels_getlcn(id), channels_getname(id));            
       osd_channellist_display_row(osd, x, y, width, height, str, selected);
-      //fprintf(stderr, "%d %s sel = %d\n", id, str, osd->selected_channel);  
+      fprintf(stderr, "%d %s %d\n", id, str, selected);  
       
       // Is selected channel on top, in middle or bottom of list?
       if (id == osd->channellist_selected_channel) {
@@ -732,9 +732,9 @@ void osd_channellist_display(struct osd_t* osd)
       }
       
       id = channels_getnext(id);   
+      y += 50;
     }
-    
-    y += 50; // add 50 for a new row
+    fprintf(stderr, "\n"); 
   }
   
   graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);

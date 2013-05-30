@@ -560,13 +560,6 @@ OMX_ERRORTYPE omx_setup_camera_pipeline(struct omx_pipeline_t* pipe)
   framerate.xEncodeFramerate = 25 << 16; // Q16 format - 25fps
   OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigVideoFramerate, &framerate));
 
-  /* Set the brightness */
-  OMX_CONFIG_BRIGHTNESSTYPE brightness;
-  OMX_INIT_STRUCTURE(brightness);
-  brightness.nPortIndex = OMX_ALL;
-  brightness.nBrightness = 50; /* 0 to 100 */
-  OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigCommonBrightness, &brightness));
-
   /* Set the sharpness */
   OMX_CONFIG_SHARPNESSTYPE sharpness;
   OMX_INIT_STRUCTURE(sharpness);
@@ -581,12 +574,74 @@ OMX_ERRORTYPE omx_setup_camera_pipeline(struct omx_pipeline_t* pipe)
   contrast.nContrast = -10; /* -100 to 100 */
   OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigCommonContrast, &contrast));
 
+  /* Set the brightness */
+  OMX_CONFIG_BRIGHTNESSTYPE brightness;
+  OMX_INIT_STRUCTURE(brightness);
+  brightness.nPortIndex = OMX_ALL;
+  brightness.nBrightness = 50; /* 0 to 100 */
+  OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigCommonBrightness, &brightness));
+
   /* Set the saturation */
   OMX_CONFIG_SATURATIONTYPE saturation;
   OMX_INIT_STRUCTURE(saturation);
   saturation.nPortIndex = OMX_ALL;
   saturation.nSaturation = 0; /* -100 to 100 */
   OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigCommonSaturation, &saturation));
+
+  /* Video stabilisation */
+  OMX_CONFIG_FRAMESTABTYPE framestab;
+  OMX_INIT_STRUCTURE(framestab);
+  framestab.nPortIndex = OMX_ALL;
+  framestab.bStab = OMX_FALSE;
+  OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigCommonFrameStabilisation, &framestab));
+
+  /* Set EV compensation, ISO and metering mode */
+  OMX_CONFIG_EXPOSUREVALUETYPE exposurevalue;
+  OMX_INIT_STRUCTURE(exposurevalue);
+  exposurevalue.nPortIndex = OMX_ALL;
+  OERR(OMX_GetConfig(pipe->camera.h, OMX_IndexConfigCommonExposureValue, &exposurevalue));
+  fprintf(stderr,"nSensitivity=%d\n",exposurevalue.nSensitivity);
+  exposurevalue.xEVCompensation = 0;  /* Fixed point value stored as Q16 */
+  exposurevalue.nSensitivity = 100;         /**< e.g. nSensitivity = 100 implies "ISO 100" */
+  exposurevalue.bAutoSensitivity = OMX_FALSE;
+  exposurevalue.eMetering = OMX_MeteringModeAverage; 
+  OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigCommonExposureValue, &exposurevalue));
+
+  /* Set exposure mode */
+  OMX_CONFIG_EXPOSURECONTROLTYPE exposure;
+  OMX_INIT_STRUCTURE(exposure);
+  exposure.nPortIndex = OMX_ALL;
+  exposure.eExposureControl = OMX_ExposureControlAuto;
+  OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigCommonExposure, &exposure));
+
+  /* Set AWB mode */
+  OMX_CONFIG_WHITEBALCONTROLTYPE awb;
+  OMX_INIT_STRUCTURE(awb);
+  awb.nPortIndex = OMX_ALL;
+  awb.eWhiteBalControl = OMX_WhiteBalControlAuto;
+  OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigCommonWhiteBalance, &awb));
+  
+  /* Set image effect */
+  OMX_CONFIG_IMAGEFILTERTYPE imagefilter;
+  OMX_INIT_STRUCTURE(imagefilter);
+  imagefilter.nPortIndex = OMX_ALL;
+  imagefilter.eImageFilter = OMX_ImageFilterNone;
+  OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigCommonImageFilter, &imagefilter));
+
+  /* Set colour effect */
+  OMX_CONFIG_COLORENHANCEMENTTYPE colour;
+  OMX_INIT_STRUCTURE(colour);
+  colour.nPortIndex = OMX_ALL;
+  colour.bColorEnhancement = OMX_FALSE;
+  colour.nCustomizedU = 128;
+  colour.nCustomizedV = 128;
+  OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigCommonColorEnhancement, &colour));
+
+  /* Turn off the LED - doesn't work! */
+  OMX_CONFIG_PRIVACYINDICATORTYPE privacy;
+  OMX_INIT_STRUCTURE(privacy);
+  privacy.ePrivacyIndicatorMode = OMX_PrivacyIndicatorOff;
+  OERR(OMX_SetConfig(pipe->camera.h, OMX_IndexConfigPrivacyIndicator, &privacy));
 
   // Wait for the callback that OMX_IndexParamCameraDeviceNumber has
   // changed. At this point, all the drivers have been loaded. Other

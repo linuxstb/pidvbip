@@ -531,7 +531,7 @@ static void osd_show_time(struct osd_t* osd)
 void osd_show_info(struct osd_t* osd, int channel_id, int timeout)
 {
   char str[128];
-  int server;;
+  int server;
   
   channels_geteventid(channel_id,&osd->event,&server);
   channels_getnexteventid(channel_id,&osd->nextEvent,&server);
@@ -638,27 +638,28 @@ void osd_clear(struct osd_t* osd)
   osd->osd_cleartime = 0;
 }
 
-void osd_update(struct osd_t* osd, int channel_id)
+void osd_tabellist_show_info(struct osd_t* osd, int channel_id)
 {
-  if ((osd->osd_cleartime) && (get_time() > osd->osd_cleartime)) {
-    osd_clear(osd);
-    return;
-  }
+  char str[128];
+  int server;
+  
+  channels_geteventid(channel_id,&osd->event,&server);
+  channels_getnexteventid(channel_id,&osd->nextEvent,&server);
 
-  if (osd->osd_state == OSD_INFO) {
-    time_t now = time(NULL);
-    if (now != osd->last_now) {
-      osd_show_time(osd);
-      graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
-    }
+  struct event_t* event = event_copy(osd->event,server);
+  struct event_t* nextEvent = event_copy(osd->nextEvent,server);
+  event_dump(event);
+  event_dump(nextEvent);
+  snprintf(str,sizeof(str),"%03d - %s",channels_getlcn(channel_id),channels_getname(channel_id));
+  char* iso_text = malloc(strlen(str)+1);
+  utf8decode(str,iso_text);
 
-    uint32_t event;
-    int server;
-    channels_geteventid(channel_id,&event, &server);
-    if (osd->event != event) {
-      osd_show_info(osd, channel_id, 0);
-    }
-  }
+  osd_show_time(osd);
+  osd_show_eventinfo(osd,event,nextEvent);
+
+  free(iso_text);
+  event_free(event);
+  event_free(nextEvent);
 }
 
 /*
@@ -674,7 +675,7 @@ void osd_channellist_display_row(struct osd_t* osd, uint32_t x, uint32_t y, uint
     color = COLOR_SELECTED_TEXT;
   }
   
-  int s = graphics_resource_render_text_ext(osd->img, x, y, width, height,
+  (void)graphics_resource_render_text_ext(osd->img, x, y, width, height,
                                             color,            /* fg */
                                             COLOR_BACKGROUND, /* bg */
                                             iso_text, strlen(iso_text), 40);
@@ -693,7 +694,7 @@ void osd_channellist_display(struct osd_t* osd)
   int selected = 0;
   char str[60];
   uint32_t width = 700;
-  uint32_t height = osd->display_height - 2 * OSD_YMARGIN;
+  uint32_t height = 700 - 2 * OSD_YMARGIN;
   uint32_t x = OSD_XMARGIN + 40;
   uint32_t y = OSD_YMARGIN + 35;
   
@@ -702,8 +703,8 @@ void osd_channellist_display(struct osd_t* osd)
   num_channels = channels_getcount();
   
   if (num_channels > 0) {
-    // display max 20 channels
-    num_display = num_channels > 20 ? 20 : num_channels;
+    // display max 12 channels
+    num_display = num_channels > 12 ? 12 : num_channels;
     id = osd->channellist_start_channel;
     
     for (i = 0; i < num_display; i++) {      
@@ -714,9 +715,9 @@ void osd_channellist_display(struct osd_t* osd)
         selected = 0;
       } 
             
-      snprintf(str, sizeof(str), "%d %s", channels_getlcn(id), channels_getname(id));            
+      snprintf(str, sizeof(str), "%d %s", channels_getlcn(id), channels_getname(id));   
       osd_channellist_display_row(osd, x, y, width, height, str, selected);
-      fprintf(stderr, "%d %s %d\n", id, str, selected);  
+      //fprintf(stderr, "%d %s %d\n", id, str, selected);  
       
       // Is selected channel on top, in middle or bottom of list?
       if (id == osd->channellist_selected_channel) {
@@ -737,6 +738,8 @@ void osd_channellist_display(struct osd_t* osd)
     fprintf(stderr, "\n"); 
   }
   
+  osd_tabellist_show_info(osd, osd->channellist_selected_channel);
+
   graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
   pthread_mutex_unlock(&osd->osd_mutex);
   osd->osd_state = OSD_CHANNELLIST;
@@ -744,6 +747,9 @@ void osd_channellist_display(struct osd_t* osd)
 
 
 int osd_process_key(struct osd_t* osd, int c) {
+  int id;
+  int i;
+
   if (osd->osd_state == OSD_NONE) { 
     return c;
   }
@@ -763,7 +769,6 @@ int osd_process_key(struct osd_t* osd, int c) {
         }    
 
         osd_channellist_display(osd);
-        return -1;
         break;
       case 'u':
         switch (osd->channellist_selected_pos) {
@@ -776,15 +781,69 @@ int osd_process_key(struct osd_t* osd, int c) {
             osd->channellist_start_channel = channels_getprev(osd->channellist_start_channel);
             break;
         }
-        
         osd_channellist_display(osd);
-        return -1;
         break;  
+      case 'n':
+        // Quick scroll down
+        id = osd->channellist_start_channel;
+        for (i = 0; i < 12; i++) {
+          id = channels_getnext(id); 
+        }
+        osd->channellist_selected_channel = id;
+        osd->channellist_start_channel = id;
+        osd_channellist_display(osd);        
+        break;
+      case 'p':
+        // Quick scroll up
+        id = osd->channellist_start_channel;
+        for (i = 0; i < 12; i++) {
+          id = channels_getprev(id); 
+        }
+        osd->channellist_selected_channel = id;
+        osd->channellist_start_channel = id;
+        osd_channellist_display(osd);        
+        break;
       default:
         return c;
     }
+    return -1;
   }
   
   return c;
+}
+
+void osd_update(struct osd_t* osd, int channel_id)
+{
+  if ((osd->osd_cleartime) && (get_time() > osd->osd_cleartime)) {
+    osd_clear(osd);
+    return;
+  }
+
+  if (osd->osd_state == OSD_INFO || osd->osd_state == OSD_CHANNELLIST) {
+    time_t now = time(NULL);
+    if (now != osd->last_now) {
+      osd_show_time(osd);
+      graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
+    }
+
+    uint32_t event;
+    int server;
+    if (osd->osd_state == OSD_CHANNELLIST) {
+        // if in channellist use current highlighted channel
+        channel_id = osd->channellist_selected_channel;
+    }
+    
+    channels_geteventid(channel_id,&event, &server);
+    if (osd->event != event) {
+      switch (osd->osd_state) {
+      case OSD_INFO:
+          osd_show_info(osd, channel_id, 0);
+          break;
+      case OSD_CHANNELLIST:
+        osd_tabellist_show_info(osd, channel_id);
+        break;
+      }          
+    }
+  }
 }
 

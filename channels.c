@@ -365,9 +365,9 @@ int channels_getprev(int id)
     if (p->prev == NULL) {
       p = channels;
       while (p->next != NULL) {
-        channels_cache = p;
         p = p->next;
       }
+      channels_cache = p;
     }
     return channels_cache->id;
   }

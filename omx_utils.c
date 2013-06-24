@@ -27,6 +27,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 #include "omx_utils.h"
 #include "configfile.h"
+#include "debug.h"
 
 extern struct configfile_parameters global_settings;
 
@@ -184,7 +185,7 @@ static OMX_ERRORTYPE omx_event_handler(OMX_IN OMX_HANDLETYPE hComponent,
       break;
 
     case OMX_EventCmdComplete:
-      fprintf(stderr,"[EVENT] %s %p has completed the last command (%x).\n", component->name, hComponent, nData1);
+      DEBUGF("[EVENT] %s %p has completed the last command (%x).\n", component->name, hComponent, nData1);
 
 //fprintf(stderr,"[EVENT] Waiting for lock\n");
       pthread_mutex_lock(&component->cmd_queue_mutex);
@@ -199,19 +200,19 @@ static OMX_ERRORTYPE omx_event_handler(OMX_IN OMX_HANDLETYPE hComponent,
       break;
 
     case OMX_EventPortSettingsChanged: 
-      fprintf(stderr,"[EVENT] %s %p port %d settings changed.\n", component->name, hComponent, (unsigned int)nData1);
+      DEBUGF("[EVENT] %s %p port %d settings changed.\n", component->name, hComponent, (unsigned int)nData1);
       if (component->port_settings_changed == 0) { component->port_settings_changed = 1; }
       break;
 
   case OMX_EventBufferFlag:
-    fprintf(stderr,"[EVENT] Got an EOS event on %s %p (port %d, d2 %x)\n", component->name, hComponent, (unsigned int)nData1, (unsigned int)nData2);
+    DEBUGF("[EVENT] Got an EOS event on %s %p (port %d, d2 %x)\n", component->name, hComponent, (unsigned int)nData1, (unsigned int)nData2);
 
     if (nData2 & OMX_BUFFERFLAG_EOS) {
       pthread_mutex_lock(&component->eos_mutex);
       component->eos = 1;
       pthread_cond_signal(&component->eos_cv);
       pthread_mutex_unlock(&component->eos_mutex);
-      fprintf(stderr,"Sent cond signal for EOS event\n");
+      DEBUGF("Sent cond signal for EOS event\n");
     }
 
     break;
@@ -222,12 +223,12 @@ static OMX_ERRORTYPE omx_event_handler(OMX_IN OMX_HANDLETYPE hComponent,
     break;
 
   case OMX_EventParamOrConfigChanged:
-    fprintf(stderr,"[EVENT] OMX_EventParamOrConfigChanged on component \"%s\" - d1=%x, d2=%x\n",component->name,(unsigned int)nData1, (unsigned int)nData2);
+    DEBUGF("[EVENT] OMX_EventParamOrConfigChanged on component \"%s\" - d1=%x, d2=%x\n",component->name,(unsigned int)nData1, (unsigned int)nData2);
     component->config_changed = 1;
     break;
 
     default:
-      fprintf(stderr,"[EVENT] Got an event of type %x on %s %p (d1: %x, d2 %x)\n", eEvent,
+      DEBUGF("[EVENT] Got an event of type %x on %s %p (d1: %x, d2 %x)\n", eEvent,
        component->name, hComponent, (unsigned int)nData1, (unsigned int)nData2);
   }
         
@@ -262,7 +263,7 @@ static OMX_ERRORTYPE omx_fill_buffer_done(OMX_IN OMX_HANDLETYPE hComponent,
                                           OMX_IN OMX_PTR pAppData,
                                           OMX_IN OMX_BUFFERHEADERTYPE* pBuffer)
 {
-  fprintf(stderr,"[omx_fill_buffer_done]\n");
+  DEBUGF("[omx_fill_buffer_done]\n");
   return OMX_ErrorNone;
 }
 
@@ -302,8 +303,8 @@ void omx_alloc_buffers(struct omx_component_t *component, int port)
   OERR(OMX_GetParameter(component->h, OMX_IndexParamPortDefinition, &portdef));
 
   if (component == &component->pipe->audio_render) {
-    fprintf(stderr,"Allocating %d buffers of %d bytes\n",(int)portdef.nBufferCountActual,(int)portdef.nBufferSize);
-    fprintf(stderr,"portdef.bEnabled=%d\n",portdef.bEnabled);
+    DEBUGF("Allocating %d buffers of %d bytes\n",(int)portdef.nBufferCountActual,(int)portdef.nBufferSize);
+    DEBUGF("portdef.bEnabled=%d\n",portdef.bEnabled);
   }
 
   for (i = 0; i < portdef.nBufferCountActual; i++) {
@@ -482,7 +483,7 @@ void omx_set_display_region(struct omx_pipeline_t* pipe, int x, int y, int width
   region.dest_rect.width = width;
   region.dest_rect.height = height;
 
-  fprintf(stderr,"Setting display region\n");
+  DEBUGF("Setting display region\n");
   OERR(OMX_SetParameter(pipe->video_render.h, OMX_IndexConfigDisplayRegion, &region));
 }
 
@@ -710,7 +711,7 @@ OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTY
   pipe->do_deinterlace = 0;
 
   if (((is_hd == 0) && (global_settings.deinterlace_sd)) || ((is_hd == 1) && (global_settings.deinterlace_hd))) {
-    fprintf(stderr,"Enabling de-interlace\n");
+    DEBUGF("Enabling de-interlace\n");
     pipe->do_deinterlace = 1;
   }
 
@@ -718,7 +719,7 @@ OMX_ERRORTYPE omx_setup_pipeline(struct omx_pipeline_t* pipe, OMX_VIDEO_CODINGTY
   omx_init_component(pipe, &pipe->video_render, "OMX.broadcom.video_render");
 
   if (pipe->do_deinterlace) {
-    fprintf(stderr,"Enabling de-interlacer\n");
+    DEBUGF("Enabling de-interlacer\n");
     /* De-interlacer.  Input port 190, Output port 191.  Insert between decoder and scheduler */
     omx_init_component(pipe, &pipe->image_fx, "OMX.broadcom.image_fx");
 
@@ -835,10 +836,10 @@ void omx_teardown_pipeline(struct omx_pipeline_t* pipe)
    OMX_BUFFERHEADERTYPE *buf;
    int i=1;
 
-   fprintf(stderr,"[vcodec] omx_teardown pipeline:\n");
-   fprintf(stderr,"pipe->video_decode.port_settings_changed = %d\n",pipe->video_decode.port_settings_changed);
-   fprintf(stderr,"pipe->image_fx.port_settings_changed = %d\n",pipe->image_fx.port_settings_changed);
-   fprintf(stderr,"pipe->video_scheduler.port_settings_changed = %d\n",pipe->video_scheduler.port_settings_changed);
+   DEBUGF("[vcodec] omx_teardown pipeline:\n");
+   DEBUGF("pipe->video_decode.port_settings_changed = %d\n",pipe->video_decode.port_settings_changed);
+   DEBUGF("pipe->image_fx.port_settings_changed = %d\n",pipe->image_fx.port_settings_changed);
+   DEBUGF("pipe->video_scheduler.port_settings_changed = %d\n",pipe->video_scheduler.port_settings_changed);
    //dumpport(pipe->video_decode.h,130);
 
    /* Indicate end of video stream */
@@ -857,12 +858,12 @@ void omx_teardown_pipeline(struct omx_pipeline_t* pipe)
    */
 
          
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 1\n");
+   DEBUGF("[vcodec] omx_teardown pipeline 1\n");
 
    /* Transition all components to Idle, if they have been initialised */
    omx_send_command_and_wait(&pipe->video_decode, OMX_CommandStateSet, OMX_StateIdle, NULL); 
    omx_send_command_and_wait(&pipe->clock, OMX_CommandStateSet, OMX_StateIdle, NULL);
-   fprintf(stderr,"pipe->do_deinterlace=%d, pipe->image_fx=%d\n",pipe->do_deinterlace,(int)pipe->image_fx.h);
+   DEBUGF("pipe->do_deinterlace=%d, pipe->image_fx=%d\n",pipe->do_deinterlace,(int)pipe->image_fx.h);
    if (pipe->video_decode.port_settings_changed == 2) {
       if (pipe->do_deinterlace) { 
         omx_send_command_and_wait(&pipe->image_fx, OMX_CommandStateSet, OMX_StateIdle, NULL); 
@@ -883,7 +884,7 @@ void omx_teardown_pipeline(struct omx_pipeline_t* pipe)
 
 
 #if 0
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 2\n");
+   DEBUGF("[vcodec] omx_teardown pipeline 2\n");
    /* Wait for video_render to shutdown */
    pthread_mutex_lock(&pipe->video_render.eos_mutex);
    while (!pipe->video_render.eos)
@@ -891,24 +892,24 @@ void omx_teardown_pipeline(struct omx_pipeline_t* pipe)
    pthread_mutex_unlock(&pipe->video_render.eos_mutex);
 #endif
    /* Flush all tunnels */
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 3\n");
+   DEBUGF("[vcodec] omx_teardown pipeline 3\n");
    if (pipe->do_deinterlace) {
      omx_flush_tunnel(&pipe->video_decode, 131, &pipe->image_fx, 190);
      omx_flush_tunnel(&pipe->image_fx, 191, &pipe->video_scheduler, 10);
    } else {
      omx_flush_tunnel(&pipe->video_decode, 131, &pipe->video_scheduler, 10);
    }
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 4\n");
+   DEBUGF("[vcodec] omx_teardown pipeline 4\n");
    omx_flush_tunnel(&pipe->video_scheduler, 11, &pipe->video_render, 90);
    omx_flush_tunnel(&pipe->clock, 80, &pipe->video_scheduler, 12);
 
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 2b\n");
+   DEBUGF("[vcodec] omx_teardown pipeline 2b\n");
    /* Flush entrance to pipeline */
    omx_send_command_and_wait(&pipe->video_decode,OMX_CommandFlush,130,NULL);
    omx_send_command_and_wait(&pipe->video_decode,OMX_CommandFlush,131,NULL);
 
    omx_send_command_and_wait(&pipe->video_scheduler,OMX_CommandFlush,10,NULL);
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 5\n");
+   DEBUGF("[vcodec] omx_teardown pipeline 5\n");
 
    /* Scheduler -> render tunnel */
    if (pipe->video_scheduler.port_settings_changed == 2) {
@@ -922,14 +923,14 @@ void omx_teardown_pipeline(struct omx_pipeline_t* pipe)
      omx_send_command_and_wait(&pipe->image_fx, OMX_CommandPortDisable, 190, NULL);
      omx_send_command_and_wait(&pipe->image_fx, OMX_CommandPortDisable, 191, NULL);
    }
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 11\n");
+   DEBUGF("[vcodec] omx_teardown pipeline 11\n");
 
    /* Disable video_decode input port and buffers */
    //dumpport(pipe->video_decode.h,130);
    omx_send_command_and_wait0(&pipe->video_decode, OMX_CommandPortDisable, 130, NULL);
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 6\n");
+   DEBUGF("[vcodec] omx_teardown pipeline 6\n");
    omx_free_buffers(&pipe->video_decode, 130);
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 7\n");
+   DEBUGF("[vcodec] omx_teardown pipeline 7\n");
 
    //dumpport(pipe->video_decode.h,130);
    if (is_port_enabled(pipe->video_decode.h, 130)) {
@@ -937,25 +938,25 @@ void omx_teardown_pipeline(struct omx_pipeline_t* pipe)
      exit(1);
    }
    //omx_send_command_and_wait1(&pipe->video_decode, OMX_CommandPortDisable, 130, NULL);
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 8a\n");
+   DEBUGF("[vcodec] omx_teardown pipeline 8a\n");
 
    //dumpport(pipe->video_scheduler.h,10);
 
    OERR(OMX_SetupTunnel(pipe->video_scheduler.h, 10, NULL, 0));
 
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 8b\n");
+   DEBUGF("[vcodec] omx_teardown pipeline 8b\n");
   
    if (pipe->video_decode.port_settings_changed == 2) {
      //dumpport(pipe->video_decode.h,131);
      omx_send_command_and_wait(&pipe->video_decode, OMX_CommandPortDisable, 131, NULL);
    }
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 10\n");
+   DEBUGF("[vcodec] omx_teardown pipeline 10\n");
 
    /* Disable audio_render input port and buffers */
    omx_send_command_and_wait0(&pipe->audio_render, OMX_CommandPortDisable, 100, NULL);
    omx_free_buffers(&pipe->audio_render, 100);
    omx_send_command_and_wait1(&pipe->audio_render, OMX_CommandPortDisable, 100, NULL);
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 9\n");
+   DEBUGF("[vcodec] omx_teardown pipeline 9\n");
 
    /* NOTE: The clock disable doesn't complete until after the video scheduler port is 
       disabled (but it completes before the video scheduler port disabling completes). */
@@ -963,7 +964,7 @@ void omx_teardown_pipeline(struct omx_pipeline_t* pipe)
    omx_send_command_and_wait(&pipe->audio_render, OMX_CommandPortDisable, 101, NULL);
    OERR(OMX_SendCommand(pipe->clock.h, OMX_CommandPortDisable, 81, NULL));
    omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandPortDisable, 12, NULL);
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 12\n");
+   DEBUGF("[vcodec] omx_teardown pipeline 12\n");
 
    /* Teardown tunnels */
    //dumpport(pipe->video_decode.h,131);
@@ -973,7 +974,7 @@ void omx_teardown_pipeline(struct omx_pipeline_t* pipe)
      OERR(OMX_SetupTunnel(pipe->image_fx.h, 191, NULL, 0));
    }
    OERR(OMX_SetupTunnel(pipe->video_scheduler.h, 10, NULL, 0));
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 13\n");
+   DEBUGF("[vcodec] omx_teardown pipeline 13\n");
 
    OERR(OMX_SetupTunnel(pipe->video_scheduler.h, 11, NULL, 0));
    OERR(OMX_SetupTunnel(pipe->video_render.h, 90, NULL, 0));
@@ -984,7 +985,7 @@ void omx_teardown_pipeline(struct omx_pipeline_t* pipe)
    OERR(OMX_SetupTunnel(pipe->clock.h, 80, NULL, 0));
    OERR(OMX_SetupTunnel(pipe->audio_render.h, 101, NULL, 0));
 
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 15\n");
+   DEBUGF("[vcodec] omx_teardown pipeline 15\n");
 
    /* Transition all components to Loaded */
    omx_send_command_and_wait(&pipe->video_decode, OMX_CommandStateSet, OMX_StateLoaded, NULL);
@@ -997,7 +998,7 @@ void omx_teardown_pipeline(struct omx_pipeline_t* pipe)
    if (pipe->do_deinterlace) { omx_send_command_and_wait(&pipe->image_fx, OMX_CommandStateSet, OMX_StateLoaded, NULL); }
 
 
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 16\n");
+   DEBUGF("[vcodec] omx_teardown pipeline 16\n");
    /* Finally free the component handles */
    OERR(OMX_FreeHandle(pipe->video_decode.h));
    OERR(OMX_FreeHandle(pipe->video_scheduler.h));
@@ -1005,6 +1006,5 @@ void omx_teardown_pipeline(struct omx_pipeline_t* pipe)
    OERR(OMX_FreeHandle(pipe->audio_render.h));
    OERR(OMX_FreeHandle(pipe->clock.h));
    if (pipe->do_deinterlace) { OERR(OMX_FreeHandle(pipe->image_fx.h)); }
-   fprintf(stderr,"[vcodec] omx_teardown pipeline 17\n");
-
+   DEBUGF("[vcodec] omx_teardown pipeline 17\n");
 }

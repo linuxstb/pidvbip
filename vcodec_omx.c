@@ -210,7 +210,7 @@ next_packet:
 
        if (pipe->video_decode.port_settings_changed == 1)
        {
-         pipe->video_decode.port_settings_changed = 0;
+         pipe->video_decode.port_settings_changed = 2;
 	 fprintf(stderr,"video_decode port_settings_changed = 1\n");
 
          if (pipe->do_deinterlace) {
@@ -231,7 +231,7 @@ next_packet:
 
        if (pipe->image_fx.port_settings_changed == 1)
        {
-         pipe->image_fx.port_settings_changed = 0;
+         pipe->image_fx.port_settings_changed = 2;
          fprintf(stderr,"image_fx port_settings_changed = 1\n");
 
          OERR(OMX_SetupTunnel(pipe->image_fx.h, 191, pipe->video_scheduler.h, 10));
@@ -244,7 +244,7 @@ next_packet:
 
        if (pipe->video_scheduler.port_settings_changed == 1)
        {
-         pipe->video_scheduler.port_settings_changed = 0;
+         pipe->video_scheduler.port_settings_changed = 2;
 	 fprintf(stderr,"video_scheduler port_settings_changed = 1\n");
 
          OERR(OMX_SetupTunnel(pipe->video_scheduler.h, 11, pipe->video_render.h, 90));  

@@ -107,24 +107,24 @@ if (frequency index == 15)
 
 */
 
-#define NCHANNELS 2
+#if 0
+  Common format:
 
-static void* create_aac_codecdata(struct codec_t* codec)
-{
   int object_type = 2;        /* 2 = LC, see http://wiki.multimedia.cx/index.php?title=MPEG-4_Audio */
   int frequency_index = 3;    /* 3 = 48000, see http://wiki.multimedia.cx/index.php?title=MPEG-4_Audio */
-  int channel_config = NCHANNELS;     /* 2 = Stereo, see http://wiki.multimedia.cx/index.php?title=MPEG-4_Audio */
+  int channel_config = 2;     /* 2 = Stereo, see http://wiki.multimedia.cx/index.php?title=MPEG-4_Audio */
+#endif
+
+static void create_aac_codecdata(unsigned char* codecdata, int object_type, int channel_config, int frequency_index)
+{
   int frame_length = 0;       /* 0 = 1024 samples, 1 = 960 samples */
   int dependsOnCoreCoder = 0;
   int extensionFlag = 0;
 
-  codec->codecdata = malloc(2);
-  codec->codecdatasize = 2;
+  codecdata[0] = (object_type << 3) | ((frequency_index & 0xe) >> 1);
+  codecdata[1] = ((frequency_index & 0x01) << 7) | (channel_config << 3) | (frame_length << 2) | (dependsOnCoreCoder << 1) | extensionFlag;
 
-  codec->codecdata[0] = (object_type << 3) | ((frequency_index & 0xe) >> 1);
-  codec->codecdata[1] = ((frequency_index & 0x01) << 7) | (channel_config << 3) | (frame_length << 2) | (dependsOnCoreCoder << 1) | extensionFlag;
-
-  fprintf(stderr,"Codecdata created = 0x%02x 0x%02x\n",codec->codecdata[0],codec->codecdata[1]);
+  fprintf(stderr,"Codecdata created = 0x%02x 0x%02x\n",codecdata[0],codecdata[1]);
 }
 
 
@@ -132,18 +132,19 @@ static void* acodec_omx_thread(struct codec_init_args_t* args)
 {
   struct codec_t* codec = args->codec;
   struct omx_pipeline_t* pipe = args->pipe;
-  OMX_PARAM_PORTDEFINITIONTYPE param;
   struct codec_queue_t* current = NULL;
-  size_t size;
   int res;
   a52_state_t *state;
   mpg123_handle *m;
-  unsigned long samplesdone;
-  unsigned long frequency;
   int is_paused = 0;
   OMX_BUFFERHEADERTYPE *buf;
-  long unsigned int aac_samplerate = 48000;  // audio sample rate in Hz
-  unsigned char aac_channels = NCHANNELS;        // numnber of audio channels
+  long unsigned int aac_samplerate = 48000;
+  unsigned char aac_channels = 2;
+  int aac_object_type = -1;
+  int aac_channel_config = -1;
+  int aac_frequency_index = -1;
+  NeAACDecHandle hAac = NULL;
+  unsigned char aac_codecdata[2];
 
   free(args);
 
@@ -166,29 +167,6 @@ static void* acodec_omx_thread(struct codec_init_args_t* args)
   /* Now mpg123 is being prepared for feeding. The main loop will read chunks from stdin and feed them to mpg123;
      then take decoded data as available to write to stdout. */
   mpg123_open_feed(m);
-
-
-
-  /***** Initialise AAC decoder *****/
-  // Open the library
-  NeAACDecHandle hAac = NeAACDecOpen();
-  if (!hAac) {
-    fprintf(stderr,"Could not open FAAD decoder\n");
-    exit(1);
-  }
-
-  // Get the current config
-  NeAACDecConfigurationPtr conf =  NeAACDecGetCurrentConfiguration(hAac);
-
-  conf->outputFormat = FAAD_FMT_16BIT;
-  conf->downMatrix = 1;
-
-  // Set the new configuration
-  NeAACDecSetConfiguration(hAac, conf);
-
-  // Initialise the library using one of the initialization functions
-  create_aac_codecdata(codec);
-  int done_init = 0;
 
 new_channel:
   while(1)
@@ -225,6 +203,17 @@ next_packet:
       codec_queue_free_item(codec,current);
       pthread_mutex_unlock(&pipe->omx_active_mutex);
       goto new_channel;;
+    } else if (current->msgtype == MSG_CODECDATA) {
+      fprintf(stderr,"[AAC codec]: Received MSG_CODECDATA: length=%d, 0x%02x 0x%02x\n",current->data->packetlength, current->data->packet[0], current->data->packet[1]);
+      memcpy(aac_codecdata, current->data->packet, 2);
+      if (hAac) {
+        fprintf(stderr,"[AAC audio]: Closing decoder\n");
+        NeAACDecClose(hAac);
+        hAac = NULL;
+      }
+      codec_queue_free_item(codec,current);
+      pthread_mutex_unlock(&pipe->omx_active_mutex);
+      goto next_packet;
     } else if (current->msgtype == MSG_PAUSE) {
       //fprintf(stderr,"acodec: Paused\n");
       codec_queue_free_item(codec,current);
@@ -244,25 +233,74 @@ next_packet:
       res = mpg123_decode(m,current->data->packet,current->data->packetlength,buf->pBuffer,buf->nAllocLen,&buf->nFilledLen);
       res = (res == MPG123_ERR);
     } else if (codec->acodectype == HMF_AUDIO_CODEC_AAC) {
-      if (!done_init) {
-        int err = NeAACDecInit2(hAac, codec->codecdata, codec->codecdatasize, &aac_samplerate, &aac_channels);
-        //err = NeAACDecInit(hAac, current->data->packet, 7, &samplerate, &nchannels);
-        if (err) {
-          fprintf(stderr,"NeAACDecInit2 - error %d\n",err);
-          exit(1);
-        }
-  
-        done_init = 1;
-      }
-      int header_length = 0;
       unsigned char* s = current->data->packet;
+      int header_length = 0;
       if ((s[0] == 0xff) && ((s[0] & 0xf0) == 0xf0)) { /* ADTS 7 or 9 byte header */
         if (s[1] & 1) { // CRC absent
           header_length = 7;
         } else {
           header_length = 9;
         }
+	int object_type = ((s[2] & 0xc0) >> 6);
+        int channel_config = ((s[2] & 1) << 2) | ((s[3] & 0xc0) >> 6);
+        int frequency_index = ((s[2] & 0x3c) >> 2);
+        int changed = 0;
+
+        if (aac_object_type != object_type) {
+	  fprintf(stderr,"[AAC audio] : object_type changed from %d to %d\n",aac_object_type,object_type);
+	  aac_object_type = object_type;
+          changed = 1;
+        }
+        if (aac_channel_config != channel_config) {
+	  fprintf(stderr,"[AAC audio] : channel_config changed from %d to %d\n",aac_channel_config,channel_config);
+	  aac_channel_config = channel_config;
+          changed = 1;
+        }
+        if (aac_frequency_index != frequency_index) {
+	  fprintf(stderr,"[AAC audio] : frequency_index changed from %d to %d\n",aac_frequency_index,frequency_index);
+	  aac_frequency_index = frequency_index;
+          changed = 1;
+        }
+
+        if (changed) {
+          changed = 0;
+          create_aac_codecdata(aac_codecdata, aac_object_type, aac_channel_config, aac_frequency_index);
+          if (hAac) {
+            fprintf(stderr,"[AAC audio]: Closing decoder\n");
+            NeAACDecClose(hAac);
+            hAac = NULL;
+          }
+        }
       }
+
+      if (!hAac) {
+        /* Note: libfaad API documentation at http://bmp-mp4.sourceforge.net/Ahead%20AAC%20Decoder%20library%20documentation.pdf */
+
+        fprintf(stderr,"[AAC audio]: Opening decoder\n");
+        hAac = NeAACDecOpen();
+        if (!hAac) {
+          fprintf(stderr,"Could not open FAAD decoder\n");
+          exit(1);
+        }
+
+        // Get the current config
+        NeAACDecConfigurationPtr conf =  NeAACDecGetCurrentConfiguration(hAac);
+
+        conf->outputFormat = FAAD_FMT_16BIT;
+        conf->downMatrix = 1;
+
+        // Set the new configuration
+        NeAACDecSetConfiguration(hAac, conf);
+
+        fprintf(stderr,"[AAC audio]: Initialising decoder with codecdata %02x %02x\n",aac_codecdata[0],aac_codecdata[1]);
+        int err = NeAACDecInit2(hAac, aac_codecdata, 2, &aac_samplerate, &aac_channels);
+        if (err) {
+          fprintf(stderr,"NeAACDecInit2 - error %d\n",err);
+          exit(1);
+        }
+        fprintf(stderr,"[AAC audio]: Decoder initialised, samplerate=%d, channels=%d\n",aac_samplerate,aac_channels);
+      }
+
       NeAACDecFrameInfo hInfo;
       unsigned char* ret = NeAACDecDecode(hAac, &hInfo, current->data->packet + header_length, current->data->packetlength-header_length);
   

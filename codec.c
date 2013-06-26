@@ -146,7 +146,7 @@ void codec_resume(struct codec_t* codec)
   pthread_cond_signal(&codec->resume_cv);
 }
 
-void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet)
+void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet, int msgtype)
 {
   if (packet == NULL) {
     fprintf(stderr,"ERROR: Adding NULL packet to queue, skipping\n");
@@ -160,7 +160,7 @@ void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet)
     exit(1);
   }
 
-  new->msgtype = MSG_PACKET;
+  new->msgtype = msgtype;
   new->data = packet;
 
   pthread_mutex_lock(&codec->queue_mutex);

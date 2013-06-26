@@ -415,7 +415,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
                   write(fd,packet->packet,packet->packetlength);
 #endif
 		  //fprintf(stderr,"Adding video packet\n");
-                  codec_queue_add_item(&codecs->vcodec,packet);
+                  codec_queue_add_item(&codecs->vcodec,packet,MSG_PACKET);
 
                   free_msg = 0;   // Don't free this message
                 }
@@ -433,7 +433,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
                 htsp_get_bin(&msg,"payload",&packet->packet,&packet->packetlength);
  
                 //fprintf(stderr,"Adding audio packet\n");
-                codec_queue_add_item(&codecs->acodec,packet);
+                codec_queue_add_item(&codecs->acodec,packet,MSG_PACKET);
 		//fprintf(stderr,"Queuing acodec packet - PTS=%lld, size=%d\n",packet->PTS, packet->packetlength);
                 free_msg = 0;   // Don't free this message
               }

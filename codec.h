@@ -34,6 +34,7 @@ struct packet_t
 #define MSG_SET_ASPECT_4_3   7
 #define MSG_SET_ASPECT_16_9  8
 #define MSG_HTSP_STARTED 9
+#define MSG_CODECDATA 10
 
 struct codec_queue_t
 {
@@ -57,8 +58,6 @@ struct codec_t
   int64_t PTS;
   pthread_mutex_t PTS_mutex;
   pthread_mutex_t isrunning_mutex;
-  unsigned char* codecdata;
-  int codecdatasize;
   struct codec_t* acodec;
   OMX_VIDEO_CODINGTYPE vcodectype;
   int width;
@@ -83,7 +82,7 @@ void codec_stop(struct codec_t* codec);
 void codec_send_message(struct codec_t* codec, int m, void* data);
 void codec_pause(struct codec_t* codec);
 void codec_resume(struct codec_t* codec);
-void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet);
+void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet, int msgtype);
 void codec_queue_free_item(struct codec_t* codec,struct codec_queue_t* item);
 struct codec_queue_t* codec_queue_get_next_item(struct codec_t* codec);
 void codec_set_pts(struct codec_t* codec, int64_t PTS);

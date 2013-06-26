@@ -44,6 +44,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #define OSD_XMARGIN 32
 #define OSD_YMARGIN 18
 
+/* constans for channellist */
+#define CHANNELLIST_MIDDLE 0
+#define CHANNELLIST_TOP 1
+#define CHANNELLIST_BOTTOM 2
+#define CHANNELLIST_TEXTSIZE 40
+#define COLOR_TEXT GRAPHICS_RGBA32(0xff,0xff,0xff,0xff)
+#define COLOR_SELECTED_TEXT GRAPHICS_RGBA32(0x00,0xff,0xff,0xff)
+#define COLOR_BACKGROUND GRAPHICS_RGBA32(0,0,0,0x80)
+
 double get_time(void)
 {
   struct timeval tv;
@@ -522,7 +531,7 @@ static void osd_show_time(struct osd_t* osd)
 void osd_show_info(struct osd_t* osd, int channel_id, int timeout)
 {
   char str[128];
-  int server;;
+  int server;
   
   channels_geteventid(channel_id,&osd->event,&server);
   channels_getnexteventid(channel_id,&osd->nextEvent,&server);
@@ -629,6 +638,180 @@ void osd_clear(struct osd_t* osd)
   osd->osd_cleartime = 0;
 }
 
+void osd_tabellist_show_info(struct osd_t* osd, int channel_id)
+{
+  char str[128];
+  int server;
+  
+  channels_geteventid(channel_id,&osd->event,&server);
+  channels_getnexteventid(channel_id,&osd->nextEvent,&server);
+
+  struct event_t* event = event_copy(osd->event,server);
+  struct event_t* nextEvent = event_copy(osd->nextEvent,server);
+  event_dump(event);
+  event_dump(nextEvent);
+  snprintf(str,sizeof(str),"%03d - %s",channels_getlcn(channel_id),channels_getname(channel_id));
+  char* iso_text = malloc(strlen(str)+1);
+  utf8decode(str,iso_text);
+
+  osd_show_time(osd);
+  osd_show_eventinfo(osd,event,nextEvent);
+
+  free(iso_text);
+  event_free(event);
+  event_free(nextEvent);
+}
+
+/*
+ *  Displays a channel in the channellist window
+ */
+void osd_channellist_display_row(struct osd_t* osd, uint32_t x, uint32_t y, uint32_t width, uint32_t height, char *str, int selected) 
+{
+  uint32_t color = COLOR_TEXT;
+  char* iso_text = malloc(strlen(str) + 1);
+  utf8decode(str, iso_text);  
+  
+  if (selected == 1) {
+    color = COLOR_SELECTED_TEXT;
+  }
+  
+  (void)graphics_resource_render_text_ext(osd->img, x, y, width, height,
+                                            color,            /* fg */
+                                            COLOR_BACKGROUND, /* bg */
+                                            iso_text, strlen(iso_text), 40);
+  free(iso_text);
+}
+
+/*
+ * Displays the channellist window
+ */
+void osd_channellist_display(struct osd_t* osd)
+{   
+  int num_channels;
+  int num_display;
+  int i;
+  int id;
+  int selected = 0;
+  char str[60];
+  uint32_t width = 700;
+  uint32_t height = 700 - 2 * OSD_YMARGIN;
+  uint32_t x = OSD_XMARGIN + 40;
+  uint32_t y = OSD_YMARGIN + 35;
+  
+  pthread_mutex_lock(&osd->osd_mutex);
+  osd_draw_window(osd, OSD_XMARGIN, OSD_YMARGIN, width, height);
+  num_channels = channels_getcount();
+  
+  if (num_channels > 0) {
+    // display max 12 channels
+    num_display = num_channels > 12 ? 12 : num_channels;
+    id = osd->channellist_start_channel;
+    
+    for (i = 0; i < num_display; i++) {      
+      if (id == osd->channellist_selected_channel) {
+        selected = 1;
+      }
+      else {
+        selected = 0;
+      } 
+            
+      snprintf(str, sizeof(str), "%d %s", channels_getlcn(id), channels_getname(id));   
+      osd_channellist_display_row(osd, x, y, width, height, str, selected);
+      //fprintf(stderr, "%d %s %d\n", id, str, selected);  
+      
+      // Is selected channel on top, in middle or bottom of list?
+      if (id == osd->channellist_selected_channel) {
+        if (i == 0) {
+            osd->channellist_selected_pos = CHANNELLIST_TOP; 
+        }
+        else if (i == num_display - 1) {
+            osd->channellist_selected_pos = CHANNELLIST_BOTTOM; 
+        }
+        else {
+          osd->channellist_selected_pos = CHANNELLIST_MIDDLE;
+        }  
+      }
+      
+      id = channels_getnext(id);   
+      y += 50;
+    }
+    fprintf(stderr, "\n"); 
+  }
+  
+  osd_tabellist_show_info(osd, osd->channellist_selected_channel);
+
+  graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
+  pthread_mutex_unlock(&osd->osd_mutex);
+  osd->osd_state = OSD_CHANNELLIST;
+}
+
+
+int osd_process_key(struct osd_t* osd, int c) {
+  int id;
+  int i;
+
+  if (osd->osd_state == OSD_NONE) { 
+    return c;
+  }
+  
+  if (osd->osd_state == OSD_CHANNELLIST) {
+    switch (c) {
+      case 'd':
+        switch (osd->channellist_selected_pos) {
+          case CHANNELLIST_MIDDLE:
+          case CHANNELLIST_TOP:
+            osd->channellist_selected_channel = channels_getnext(osd->channellist_selected_channel);
+            break;
+          case CHANNELLIST_BOTTOM:
+            osd->channellist_selected_channel = channels_getnext(osd->channellist_selected_channel);
+            osd->channellist_start_channel = channels_getnext(osd->channellist_start_channel);
+            break;
+        }    
+
+        osd_channellist_display(osd);
+        break;
+      case 'u':
+        switch (osd->channellist_selected_pos) {
+          case CHANNELLIST_MIDDLE:
+          case CHANNELLIST_BOTTOM:
+            osd->channellist_selected_channel = channels_getprev(osd->channellist_selected_channel);
+            break;
+          case CHANNELLIST_TOP:
+            osd->channellist_selected_channel = channels_getprev(osd->channellist_selected_channel);
+            osd->channellist_start_channel = channels_getprev(osd->channellist_start_channel);
+            break;
+        }
+        osd_channellist_display(osd);
+        break;  
+      case 'n':
+        // Quick scroll down
+        id = osd->channellist_start_channel;
+        for (i = 0; i < 12; i++) {
+          id = channels_getnext(id); 
+        }
+        osd->channellist_selected_channel = id;
+        osd->channellist_start_channel = id;
+        osd_channellist_display(osd);        
+        break;
+      case 'p':
+        // Quick scroll up
+        id = osd->channellist_start_channel;
+        for (i = 0; i < 12; i++) {
+          id = channels_getprev(id); 
+        }
+        osd->channellist_selected_channel = id;
+        osd->channellist_start_channel = id;
+        osd_channellist_display(osd);        
+        break;
+      default:
+        return c;
+    }
+    return -1;
+  }
+  
+  return c;
+}
+
 void osd_update(struct osd_t* osd, int channel_id)
 {
   if ((osd->osd_cleartime) && (get_time() > osd->osd_cleartime)) {
@@ -636,7 +819,7 @@ void osd_update(struct osd_t* osd, int channel_id)
     return;
   }
 
-  if (osd->osd_state == OSD_INFO) {
+  if (osd->osd_state == OSD_INFO || osd->osd_state == OSD_CHANNELLIST) {
     time_t now = time(NULL);
     if (now != osd->last_now) {
       osd_show_time(osd);
@@ -645,41 +828,22 @@ void osd_update(struct osd_t* osd, int channel_id)
 
     uint32_t event;
     int server;
+    if (osd->osd_state == OSD_CHANNELLIST) {
+        // if in channellist use current highlighted channel
+        channel_id = osd->channellist_selected_channel;
+    }
+    
     channels_geteventid(channel_id,&event, &server);
     if (osd->event != event) {
-      osd_show_info(osd, channel_id, 0);
+      switch (osd->osd_state) {
+      case OSD_INFO:
+          osd_show_info(osd, channel_id, 0);
+          break;
+      case OSD_CHANNELLIST:
+        osd_tabellist_show_info(osd, channel_id);
+        break;
+      }          
     }
   }
-}
-
-int osd_process_key(struct osd_t* osd, int c) {
-/* process and check keypresses whilst osd shown */
-
-  if (osd->osd_state == OSD_NONE) return c;
-
-  if (osd->osd_state == OSD_CHANNELLIST) {
-    switch (c) {
-      case 'd':
-        fprintf(stderr,"OSD key: d pressed -- next page (%d)\n",channellist_offset);
-        channellist_offset += 3;
-        if (channels_getcount() <= channellist_offset) {
-          channellist_offset = 0;
-        };
-        osd_show_channellist(osd);
-        return -1;
-        break;
-      case 'u':
-        fprintf(stderr,"OSD key: u pressed -- previous page\n");
-        if (channellist_offset > 3) {
-          channellist_offset -= 3;
-        } else {
-          channellist_offset = 0;
-        };
-        osd_show_channellist(osd);
-        return -1;
-        break;
-    };
-  };
-return c;
 }
 

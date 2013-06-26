@@ -901,7 +901,7 @@ int osd_process_key(struct osd_t* osd, int c) {
         }      
         break;  
       case 'n':
-        // Quick scroll down
+        // Next page
         id = osd->channellist_start_channel;
         for (i = 0; i < 12; i++) {
           id = channels_getnext(id); 
@@ -914,7 +914,7 @@ int osd_process_key(struct osd_t* osd, int c) {
         osd_channellist_display(osd);
         break;
       case 'p':
-        // Quick scroll up
+        // Prev page
         if (osd->channellist_start_channel == channels_getfirst() ) {
           num_ch_dsp = channels_getcount() % CHANNELLIST_NUM_CHANNELS;
         }

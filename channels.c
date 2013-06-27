@@ -379,9 +379,13 @@ int channels_getfirst(void)
   return channels->id;
 }
 
+int channels_getlast(void)
+{
+  return channels_getprev( channels_getfirst() );
+}
+
 int channels_getcount(void)
 {
   /* TODO: Doesn't include deleted channels */
   return next_id;
 }
-

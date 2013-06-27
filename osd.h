@@ -49,6 +49,12 @@ struct osd_t {
   time_t last_now;
   uint32_t event;
   uint32_t  nextEvent;
+  /* state of channel list */
+  int channellist_start_channel;
+  int channellist_selected_channel;
+  int channellist_selected_pos; 
+  int channellist_prev_selected_pos;
+  int channellist_prev_selected_channel;  
 };
 
 void osd_init(struct osd_t* osd);
@@ -63,6 +69,7 @@ void osd_show_audio_menu(struct osd_t* osd, struct codecs_t* codecs, int audio_s
 void osd_blank_video(struct osd_t* osd, int on_off);
 void osd_update(struct osd_t* osd, int channel_id);
 int osd_process_key(struct osd_t* osd, int c);
+void osd_channellist_display(struct osd_t* osd);
 
 extern int *channellist_offset;
 

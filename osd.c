@@ -598,7 +598,7 @@ void osd_channellist_show_info(struct osd_t* osd, int channel_id)
   event_free(nextEvent);
 }
 
-void osd_channellist_show_esp(struct osd_t* osd, int channel_id)
+void osd_channellist_show_epg(struct osd_t* osd, int channel_id)
 {
   int server;
   char str[128];
@@ -713,7 +713,7 @@ void osd_channellist_update_channels(struct osd_t* osd, int direction)
     free(iso_text);                                        
   }                                            
   
-  osd_channellist_show_esp(osd, id);                                                                                      
+  osd_channellist_show_epg(osd, id);                                                                                      
   graphics_update_displayed_resource(osd->img, 0, 0, 1920,1080);                                        
 }
 
@@ -763,7 +763,7 @@ void osd_channellist_display_channels(struct osd_t* osd)
                                             bg_color,      /* bg */
                                             iso_text, strlen(iso_text), 40);
                                             
-      fprintf(stderr, "%d %s %d\n", id, str, selected);  
+      //fprintf(stderr, "%d %s %d\n", id, str, selected);  
       y += 50;
       free(iso_text);     
       id = channels_getnext(id);   
@@ -774,9 +774,9 @@ void osd_channellist_display_channels(struct osd_t* osd)
         break;
       }
     }
-    osd_channellist_show_esp(osd, osd->channellist_selected_channel);    
+    osd_channellist_show_epg(osd, osd->channellist_selected_channel);    
   }
-  fprintf(stderr, "\n"); 
+  //fprintf(stderr, "\n"); 
 }
 
 /*
@@ -822,34 +822,29 @@ void osd_update(struct osd_t* osd, int channel_id)
     return;
   }
 
-  if (osd->osd_state == OSD_INFO /*|| osd->osd_state == OSD_CHANNELLIST*/) {
-    time_t now = time(NULL);
-    if (now >= osd->last_now + 60) {
-      osd_show_time(osd);
-      osd_update = 1;
-    }
-
-    uint32_t event;
-    int server;
-    if (osd->osd_state == OSD_CHANNELLIST) {
-        // if in channellist use current highlighted channel
-        channel_id = osd->channellist_selected_channel;
-    }
-    
-    channels_geteventid(channel_id, &event, &server);
-    if (osd->event != event) {
-      switch (osd->osd_state) {
-      case OSD_INFO:
-          osd_show_info(osd, channel_id, 0);
-          osd_update = 1;
-          break;
-      case OSD_CHANNELLIST:
-        fprintf(stderr, "Update channellist %d %d\n", osd->event, event);
-        osd_channellist_show_info(osd, channel_id);
+  uint32_t event;
+  int server;
+  time_t now;
+  
+  channels_geteventid(channel_id, &event, &server);
+  switch (osd->osd_state) {
+    case OSD_INFO:
+      now = time(NULL);
+      if (now >= osd->last_now + 1) {
+        osd_show_time(osd);
         osd_update = 1;
-        break;
-      }          
-    }
+      }
+      if (osd->event != event) {      
+        osd_show_info(osd, channel_id, 0);
+        osd_update = 1;
+      }  
+      break;
+    case OSD_CHANNELLIST:
+      if (osd->event != event) {      
+        osd_channellist_show_epg(osd, osd->channellist_selected_channel);    
+        osd_update = 1;
+      }  
+      break;          
   }
   
   if (osd_update) {

@@ -642,15 +642,15 @@ int main(int argc, char* argv[])
 
     int new_channel;
     double new_channel_timeout;
+    int current_channel_id;
 
     new_channel = -1;
     new_channel_timeout = 0;
+    current_channel_id = channels_getid(1);
     while (1) {
       int c;
-
       c = msgqueue_get(&msgqueue, 100);
-
-      c = osd_process_key(&osd,c);
+      c = osd_process_key(&osd, c);
 
       if (c != -1) {
         DEBUGF("char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
@@ -686,16 +686,44 @@ int main(int argc, char* argv[])
             if (osd.osd_state == OSD_INFO) {
               /* Hide info if currently shown */
               osd_clear(&osd);
-	    } else {
+            } else {
               osd_show_info(&osd,user_channel_id, 60000); /* 60 second timeout */
             }
-
             break;
 
           case 'c':
-            channels_dump();
-            channellist_offset=0;
-            osd_show_channellist(&osd);
+            if (osd.osd_state == OSD_CHANNELLIST) {
+              osd_clear(&osd);    
+              user_channel_id = osd.channellist_selected_channel;  
+              int new_actual_channel_id = get_actual_channel(auto_hdtv, user_channel_id);
+              if (new_actual_channel_id != actual_channel_id) {
+                actual_channel_id = new_actual_channel_id;
+                msgqueue_add(&htsp.msgqueue, HTMSG_NEW_CHANNEL | actual_channel_id);
+                osd_show_info(&osd, user_channel_id, 7000); /* 7 second timeout */
+              }
+            } else {
+              if (osd.osd_state != OSD_NONE) {
+                osd_clear(&osd); 
+              }
+          
+              osd.channellist_selected_channel = user_channel_id;
+              
+              i = 0;
+              int channel_tmp;
+              for (channel_tmp = channels_getfirst(); channel_tmp != user_channel_id; channel_tmp = channels_getnext(channel_tmp) )
+              {                
+                if (i % 12 == 0) {
+                  osd.channellist_start_channel = channel_tmp;
+                }  
+                i++;
+              }                
+              
+              osd.channellist_selected_pos = 0;
+              osd_channellist_display(&osd);
+            }                  
+            //channels_dump();
+            //channellist_offset=0;
+            //osd_show_channellist(&osd);
             break;
 
           case 'h':

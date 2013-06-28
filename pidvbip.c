@@ -707,7 +707,7 @@ int main(int argc, char* argv[])
               }
           
               osd.channellist_selected_channel = user_channel_id;
-              
+              osd.channellist_start_channel = user_channel_id;
               i = 0;
               int channel_tmp;
               for (channel_tmp = channels_getfirst(); channel_tmp != user_channel_id; channel_tmp = channels_getnext(channel_tmp) )

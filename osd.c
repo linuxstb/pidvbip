@@ -826,9 +826,9 @@ void osd_update(struct osd_t* osd, int channel_id)
   int server;
   time_t now;
   
-  channels_geteventid(channel_id, &event, &server);
   switch (osd->osd_state) {
     case OSD_INFO:
+      channels_geteventid(channel_id, &event, &server);
       now = time(NULL);
       if (now >= osd->last_now + 1) {
         osd_show_time(osd);
@@ -840,6 +840,7 @@ void osd_update(struct osd_t* osd, int channel_id)
       }  
       break;
     case OSD_CHANNELLIST:
+      channels_geteventid(osd->channellist_selected_channel, &event, &server);
       if (osd->event != event) {      
         osd_channellist_show_epg(osd, osd->channellist_selected_channel);    
         osd_update = 1;

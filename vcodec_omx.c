@@ -44,6 +44,10 @@ static void* vcodec_omx_thread(struct codec_init_args_t* args)
    OMX_BUFFERHEADERTYPE *buf;
    int current_aspect;
    int aspect;
+   int gopbytes,totalbytes;
+   uint64_t gopfirstdts;
+   uint64_t firstdts = -1;
+   double avg_bitrate, min_bitrate, max_bitrate;
 
    free(args);
 
@@ -61,6 +65,11 @@ next_channel:
    current_aspect = 0;
    pipe->video_render.aspect = 0;
    aspect = 0;
+   firstdts = -1;
+   totalbytes = 0;
+   gopbytes = -1;
+   min_bitrate = 0;
+   max_bitrate = 0;
 
    while (1)
    {
@@ -126,6 +135,25 @@ next_packet:
        fprintf(stderr,"ERROR: data is NULL (expect segfault!)");
      }
 
+     if (current->data->frametype == 'I') {
+       if (firstdts == -1) { firstdts = current->data->DTS; }
+       if (gopbytes != -1) {
+         double duration = current->data->DTS-gopfirstdts;
+         double total_duration = current->data->DTS-firstdts;
+         double bitrate = (1000000.0/duration) * gopbytes * 8.0;
+         double total_bitrate = (1000000.0/total_duration) * totalbytes * 8.0;
+         if ((min_bitrate == 0) || (bitrate < min_bitrate)) { min_bitrate = bitrate; }
+         if ((max_bitrate == 0) || (bitrate > max_bitrate)) { max_bitrate = bitrate; }
+         fprintf(stderr,"GOP: %d bytes (%dms) - %.3fMbps  (avg: %.3fMbps, min: %.3fMbps, max: %.3fMbps                    \r",gopbytes,(int)(current->data->DTS-gopfirstdts),bitrate/1000000,total_bitrate/1000000,min_bitrate/1000000,max_bitrate/1000000);
+       }
+       gopbytes = current->data->packetlength;
+       gopfirstdts = current->data->DTS;
+       totalbytes += current->data->packetlength;
+     } else {
+       if (gopbytes >= 0)
+         gopbytes += current->data->packetlength;
+       totalbytes += current->data->packetlength;
+     }
      if ((current->data->frametype == 'I') && (codec->vcodectype == OMX_VIDEO_CodingMPEG2)) {
        unsigned char* p = current->data->packet;
        /* Parse the MPEG stream to extract the aspect ratio.

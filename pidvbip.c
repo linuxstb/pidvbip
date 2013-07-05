@@ -51,6 +51,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "omx_utils.h"
 #include "input.h"
 #include "omx_utils.h"
+#include "utils.h"
 
 struct omx_pipeline_t omxpipe;
 extern struct configfile_parameters global_settings;
@@ -210,6 +211,8 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
   int ok = 1;
   int current_subscriptionId = -1;
   int i;
+  int first_muxpkt = 1;
+  int first_video_muxpkt = 1;
 #ifdef DUMP_VIDEO
   int fd;
   static int track = 0;
@@ -296,6 +299,8 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
 
         case HTMSG_STOP:
         case HTMSG_NEW_CHANNEL:
+          omxpipe.channel_switch_starttime = get_time();
+	  fprintf(stderr,"Channel change starttime=%f\n",omxpipe.channel_switch_starttime);
           if (htsp.subscriptionServer >= 0) { /* If we have a current subscription */
             res = htsp_create_message(&msg,HMF_STR,"method","unsubscribe",HMF_S64,"subscriptionId",htsp.subscriptionId,HMF_NULL);
             res = htsp_send_message(&htsp,htsp.subscriptionServer,&msg);
@@ -356,6 +361,9 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
 
       if (method != NULL) {
         if (strcmp(method,"subscriptionStart")==0) {
+          first_muxpkt = 1;
+          first_video_muxpkt = 1;
+          fprintf(stderr,"Received subscriptionStart message: %.3fs\n",(get_time()-omxpipe.channel_switch_starttime)/1000.0);
           if (htsp_parse_subscriptionStart(&msg,&codecs->subscription) > 0) {
             fprintf(stderr,"FATAL ERROR: Cannot parse subscriptionStart\n");
             exit(1);
@@ -396,8 +404,16 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
 
           if (subscriptionId == current_subscriptionId) {
 	    //fprintf(stderr,"muxpkt: stream=%d, audio_stream=%d, video_stream=%d\n",stream,codecs->subscription.streams[codecs->subscription.audiostream].index,codecs->subscription.streams[codecs->subscription.videostream].index);
+            if (first_muxpkt) {
+              first_muxpkt = 0;
+              fprintf(stderr,"Received first muxpkt: %.3fs\n",(get_time()-omxpipe.channel_switch_starttime)/1000.0);
+            }
 
             if (stream==codecs->subscription.streams[codecs->subscription.videostream].index) {
+              if (first_video_muxpkt) {
+                first_video_muxpkt = 0;
+                fprintf(stderr,"Received first video_muxpkt: %.3fs\n",(get_time()-omxpipe.channel_switch_starttime)/1000.0);
+              }
               packet = malloc(sizeof(*packet));
               packet->buf = msg.msg;
               htsp_get_int(&msg,"frametype",&packet->frametype);

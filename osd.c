@@ -35,6 +35,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "channels.h"
 #include "events.h"
 #include "codec.h"
+#include "utils.h"
 
 #define SCREEN 0
 #define BG_LAYER 0
@@ -56,19 +57,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #define CHANNELLIST_NUM_CHANNELS 12
 #define CHANNELLIST_UP 1
 #define CHANNELLIST_DOWN 2
-
-double get_time(void)
-{
-  struct timeval tv;
-
-  gettimeofday(&tv,NULL);
-
-  double x = tv.tv_sec;
-  x *= 1000;
-  x += tv.tv_usec / 1000;
-
-  return x;
-}
 
 static void utf8decode(char* str, char* r)
 {

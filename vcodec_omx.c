@@ -301,6 +301,7 @@ stop:
    omx_teardown_pipeline(pipe);
    //fprintf(stderr,"[vcodec] - End of omx thread, pipeline torn down.\n");
    pipe->omx_active = 0;
+   fprintf(stderr,"OMX teardown complete: %.3fs\n",(get_time()-pipe->channel_switch_starttime)/1000.0);
 
    goto next_channel;
 

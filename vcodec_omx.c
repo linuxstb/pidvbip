@@ -30,6 +30,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "vcodec_omx.h"
 #include "codec.h"
 #include "debug.h"
+#include "utils.h"
 
 static void* vcodec_omx_thread(struct codec_init_args_t* args)
 {
@@ -279,6 +280,8 @@ next_packet:
          omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandPortEnable, 11, NULL);
          omx_send_command_and_wait(&pipe->video_render, OMX_CommandPortEnable, 90, NULL);
          omx_send_command_and_wait(&pipe->video_render, OMX_CommandStateSet, OMX_StateExecuting, NULL);
+
+         fprintf(stderr,"TOTAL CHANNEL CHANGE TIME: %.3fs\n",(get_time()-pipe->channel_switch_starttime)/1000.0);
        }
 
        OERR(OMX_EmptyThisBuffer(pipe->video_decode.h, buf));
@@ -298,6 +301,7 @@ stop:
    omx_teardown_pipeline(pipe);
    //fprintf(stderr,"[vcodec] - End of omx thread, pipeline torn down.\n");
    pipe->omx_active = 0;
+   fprintf(stderr,"OMX teardown complete: %.3fs\n",(get_time()-pipe->channel_switch_starttime)/1000.0);
 
    goto next_channel;
 

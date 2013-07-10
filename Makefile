@@ -48,6 +48,7 @@ SRCS = \
 	omx_utils.c \
 	osd.c \
 	tiresias_pcfont.c \
+	utils.c \
 	vcodec_omx.c \
 	vo_pi.c \
   osd_model.c

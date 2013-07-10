@@ -66,6 +66,9 @@ const static int btn_to_action[256] = {
   [CEC_User_Control_Number7]            = '7',
   [CEC_User_Control_Number8]            = '8',
   [CEC_User_Control_Number9]            = '9',
+  
+  [CEC_User_Control_Exit]               = 'e',
+  [CEC_User_Control_EPG]                = 'c',
 };
 
 

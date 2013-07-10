@@ -49,7 +49,8 @@ SRCS = \
 	osd.c \
 	tiresias_pcfont.c \
 	vcodec_omx.c \
-	vo_pi.c
+	vo_pi.c \
+  osd_model.c
 
 BIN 		= $(ROOTDIR)/pidvbip
 FLVTOH264	= $(ROOTDIR)/flvtoh264

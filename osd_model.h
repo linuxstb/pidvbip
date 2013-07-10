@@ -1,0 +1,26 @@
+#ifndef _OSD_MODEL_H
+#define _OSD_MODEL_H
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct {
+  int id;
+  int lcn;
+  char name[30];
+} model_channels_t;
+
+typedef struct {
+  int selectedIndex;
+  int numUsed;
+  model_channels_t channel[12];
+} model_channellist_t;
+
+void clearModelChannelList(model_channellist_t*);
+void setModelChannelList(model_channellist_t*, int, int id, int, char*, int);
+void copyModelChannelList(model_channellist_t*, const model_channellist_t*);
+int compareIndexModelChannelList(model_channellist_t*, model_channellist_t*, int);
+
+#endif
+

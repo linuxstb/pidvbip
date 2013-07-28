@@ -61,8 +61,6 @@ struct htsp_t htsp;
 
 static struct termios orig;
 
-int * channellist_offset=0;
-
 /* Messages to the HTSP receiver thread - low 16 bits are a parameter */
 #define HTMSG_CHANGE_AUDIO_STREAM 0x10000
 #define HTMSG_NEW_CHANNEL         0x20000

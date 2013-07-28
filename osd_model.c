@@ -1,6 +1,5 @@
 #include "osd_model.h"
-
-#define NUM_OF_CHANNELS 12
+#include "events.h"
 
 void setModelChannelList(model_channellist_t *model, int index, int id, int lcn, char *name, int selected)
 {
@@ -18,7 +17,7 @@ void clearModelChannelList(model_channellist_t *model)
   int i;
   memset(model, 0, sizeof(model_channellist_t));
   
-  for (i = 0; i < NUM_OF_CHANNELS; i++) {
+  for (i = 0; i < CHANNELLIST_NUM_CHANNELS; i++) {
     model->channel[i].id = -1;
   }  
 }
@@ -46,26 +45,24 @@ void compareModelChannelList(model_channellist_t *newModel, model_channellist_t 
 {
 }
 
-#if 0
-void main()
-{
-  model_channellist_t model_channellist;
-  model_channellist_t model_channellist_new;
-  clearModelChannelList(&model_channellist);
-  clearModelChannelList(&model_channellist_new);
+void setModelNowNext(model_now_next_t *model, uint32_t nowEvent, uint32_t nextEvent, int server)
+{  
+  if (model->nowEvent != NULL) {
+    event_free(model->nowEvent);
+  }
+
+  if (model->nextEvent != NULL) {
+    event_free(model->nextEvent);
+  }
   
-  setModelChannelList(&model_channellist, 0, 0, 0, "kanal 0", 1);
-  setModelChannelList(&model_channellist, 1, 1, 1, "kanal 1", 0);
-  setModelChannelList(&model_channellist, 2, 2, 2, "kanal 2", 0);
-  
-  copyModelChannelList(&model_channellist_new, &model_channellist);
-  
-  int i;
-  for (i = 0; i < NUM_OF_CHANNELS; i++) {
-    if (model_channellist_new.channel[i].id != -1) {
-      printf("%d %d %s\n", model_channellist.channel[i].id, model_channellist.channel[i].lcn, model_channellist.channel[i].name);
-    }  
-  }  
+  model->nowEvent = event_copy(nowEvent, server);
+  model->nextEvent = event_copy(nextEvent, server);
 }
 
-#endif
+void clearModelNowNext(model_now_next_t *model) 
+{
+  model->nowEvent = NULL;
+  model->nextEvent = NULL;
+}
+
+

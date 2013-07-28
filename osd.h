@@ -27,6 +27,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "libs/vgfont/vgfont.h"
 
 #include "codec.h"
+#include "osd_model.h"
 
 /* The various OSD screens */
 #define OSD_NONE 0
@@ -50,12 +51,11 @@ struct osd_t {
   uint32_t event;
   uint32_t nextEvent;
   int channel_id;
-  /* state of channel list */
-//  int channellist_start_channel;
-//  int channellist_selected_channel;
-//  int channellist_selected_pos; 
-//  int channellist_prev_selected_pos;
-//  int channellist_prev_selected_channel;  
+  /* channel list */
+  model_channellist_t model_channellist;
+  model_channellist_t model_channellist_new;
+  model_now_next_t model_now_next;
+  model_now_next_t model_now_next_new;
 };
 
 void osd_init(struct osd_t* osd);
@@ -71,9 +71,9 @@ void osd_blank_video(struct osd_t* osd, int on_off);
 void osd_update(struct osd_t* osd, int channel_id);
 int osd_process_key(struct osd_t* osd, int c, int channel_id);
 void osd_channellist_display(struct osd_t* osd);
-
-extern int *channellist_offset;
-
+void osd_draw_window(struct osd_t* osd, int x, int y, int width, int height);
+void osd_text(struct osd_t* osd, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t fg_color, uint32_t bg_color, char *str);
+void utf8decode(char* str, char* r);
 double get_time(void);
 
 #endif

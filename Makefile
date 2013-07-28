@@ -46,6 +46,7 @@ SRCS = \
 	msgqueue.c \
 	pidvbip.c \
 	omx_utils.c \
+  osd_view.c \
 	osd.c \
 	tiresias_pcfont.c \
 	utils.c \

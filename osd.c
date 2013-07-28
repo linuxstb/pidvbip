@@ -37,6 +37,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "codec.h"
 #include "utils.h"
 #include "osd_model.h"
+#include "osd_view.h"
 
 #define SCREEN 0
 #define BG_LAYER 0
@@ -45,32 +46,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 #define OSD_XMARGIN 32
 #define OSD_YMARGIN 18
-
-#define PADDING_X 15;
-#define PADDING_Y 20;
-
-/* constans for channellist */
-#define CHANNELLIST_MIDDLE 0
-#define CHANNELLIST_TOP 1
-#define CHANNELLIST_BOTTOM 2
-#define CHANNELLIST_TEXTSIZE 40
-#define COLOR_TEXT GRAPHICS_RGBA32(0xff,0xff,0xff,0xff)
-#define COLOR_SELECTED_TEXT GRAPHICS_RGBA32(0x00,0xff,0xff,0xff)
-#define COLOR_BACKGROUND GRAPHICS_RGBA32(0,0,0,0x80)
-#define COLOR_SELECTED_BACKGROUND GRAPHICS_RGBA32(0xff,0,0,0x80)
-#define CHANNELLIST_NUM_CHANNELS 12
-#define CHANNELLIST_UP 1
-#define CHANNELLIST_DOWN 2
-
-static uint32_t channellist_window_x; 
-static uint32_t channellist_window_y;
-static uint32_t channellist_window_w;
-static uint32_t channellist_window_h;
-
-static model_channellist_t model_channellist;
-static model_channellist_t model_channellist_new;
-  
-static void utf8decode(char* str, char* r)
+    
+void utf8decode(char* str, char* r)
 {
   int x,y,z,ud;
   char* p = str;
@@ -258,7 +235,7 @@ void osd_done(struct osd_t* osd)
 }
 
 
-static void osd_draw_window(struct osd_t* osd, int x, int y, int width, int height)
+void osd_draw_window(struct osd_t* osd, int x, int y, int width, int height)
 {
    graphics_resource_fill(osd->img, x, y, width, height, GRAPHICS_RGBA32(0,0,0,0x80));
 
@@ -283,7 +260,7 @@ static void osd_show_channelname(struct osd_t* osd, const char *text)
 
    osd_draw_window(osd,x_offset,y_offset,width,height);
 
-   (void)graphics_resource_render_text_ext(osd->img, x_offset+50, y_offset+25,
+   graphics_resource_render_text_ext(osd->img, x_offset+50, y_offset+25,
                                      width,
                                      height,
                                      GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
@@ -308,14 +285,14 @@ void osd_alert(struct osd_t* osd, char* text)
   if (text) {
     fprintf(stderr,"[OSD ALERT]: %s\n",text);
     text_length = strlen(text);
-    (void)graphics_resource_text_dimensions_ext(osd->img, text, text_length, &width, &height, text_size);
+    graphics_resource_text_dimensions_ext(osd->img, text, text_length, &width, &height, text_size);
 
     x_offset = ((1920 - width) / 2);
     y_offset = (1080 - height) / 2;
 
     osd_draw_window(osd,x_offset,y_offset,width+100,height+50);
 
-    (void)graphics_resource_render_text_ext(osd->img, x_offset+50, y_offset+25,
+    graphics_resource_render_text_ext(osd->img, x_offset+50, y_offset+25,
                                           width,
                                           height,
                                           GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
@@ -348,7 +325,7 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event, struct 
   duration = event->stop - event->start;
 
   snprintf(str,sizeof(str),"%02d:%02d - %02d:%02d",start_time.tm_hour,start_time.tm_min,stop_time.tm_hour,stop_time.tm_min);
-  (void)graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 720,
+  graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 720,
                                      width,
                                      height,
                                      GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
@@ -359,7 +336,7 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event, struct 
   if (event->title) {
     char* iso_text = malloc(strlen(event->title)+1);
     utf8decode(event->title,iso_text);
-    (void)graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+350, 720,
+    graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+350, 720,
                                        width,
                                        height,
                                        GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
@@ -369,7 +346,7 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event, struct 
   }
 
   snprintf(str,sizeof(str),"%dh %02dm",duration/3600,(duration%3600)/60);
-  (void)graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 800,
+  graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 800,
                                      width,
                                      height,
                                      GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
@@ -384,7 +361,7 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event, struct 
     } else {
       snprintf(str,sizeof(str),"Season %d, Ep. %d",event->seasonNumber,event->episodeNumber);
     }
-    (void)graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 838,
+    graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 838,
                                      width,
                                      height,
                                      GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
@@ -407,7 +384,7 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event, struct 
     localtime_r((time_t*)&nextEvent->stop,&stop_time);
 
     snprintf(str,sizeof(str),"%02d:%02d - %02d:%02d",start_time.tm_hour,start_time.tm_min,stop_time.tm_hour,stop_time.tm_min);
-    (void)graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 1020,
+    graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 1020,
                                        width,
                                        height,
                                        GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
@@ -418,7 +395,7 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event, struct 
     if (nextEvent->title) {
       char* iso_text = malloc(strlen(nextEvent->title)+1);
       utf8decode(nextEvent->title,iso_text);
-      (void)graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+350, 1020,
+      graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+350, 1020,
                                          width,
                                          height,
                                          GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
@@ -453,7 +430,7 @@ static void osd_show_time(struct osd_t* osd)
 
   osd->last_now = now;
 
-  (void)graphics_resource_render_text_ext(osd->img, 1700, OSD_YMARGIN+25,
+  graphics_resource_render_text_ext(osd->img, 1700, OSD_YMARGIN+25,
                                      width,
                                      height,
                                      GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
@@ -464,7 +441,7 @@ static void osd_show_time(struct osd_t* osd)
 void osd_show_info(struct osd_t* osd, int channel_id, int timeout)
 {
   char str[128];
-  int server;;
+  int server;
   
   channels_geteventid(channel_id,&osd->event,&server);
   channels_getnexteventid(channel_id,&osd->nextEvent,&server);
@@ -571,178 +548,29 @@ void osd_clear(struct osd_t* osd)
   osd->osd_cleartime = 0;
 }
 
-void osd_channellist_show_info(struct osd_t* osd, int channel_id)
+void osd_text(struct osd_t* osd, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t fg_color, uint32_t bg_color, char *str)
 {
-  char str[128];
-  int server;
-  
-  channels_geteventid(channel_id,&osd->event,&server);
-  channels_getnexteventid(channel_id,&osd->nextEvent,&server);
-
-  struct event_t* event = event_copy(osd->event,server);
-  struct event_t* nextEvent = event_copy(osd->nextEvent,server);
-  //event_dump(event);
-  //event_dump(nextEvent);
-  snprintf(str,sizeof(str),"%03d - %s",channels_getlcn(channel_id),channels_getname(channel_id));
-  char* iso_text = malloc(strlen(str)+1);
-  utf8decode(str,iso_text);
-
-  osd_show_time(osd);
-  osd_show_eventinfo(osd,event,nextEvent);
-
-  free(iso_text);
-  event_free(event);
-  event_free(nextEvent);
-}
-
-void osd_channellist_show_eventinfo(struct osd_t* osd, int channelId)
-{
-  int server;
-  char str[128];
-  struct tm start_time;
-  struct tm stop_time;
-  char* iso_text;
-  uint32_t x = channellist_window_x + channellist_window_w + OSD_XMARGIN;
-  uint32_t y = osd->display_height - OSD_YMARGIN - 120 - OSD_YMARGIN - 290;
-  uint32_t w = osd->display_width - x - OSD_XMARGIN;
-  uint32_t h = 290;
-  
-  channels_geteventid(channelId, &osd->event, &server);
-  channels_getnexteventid(channelId, &osd->nextEvent, &server);
-
-  struct event_t* event = event_copy(osd->event, server);
-  struct event_t* nextEvent = event_copy(osd->nextEvent, server);
-
-  snprintf(str, sizeof(str),"%s", "Hejsan skriver lite text har! \n Byter rad och testar!");  
-  osd_draw_window(osd, x, y, w, h);
-    (void)graphics_resource_render_text_ext(osd->img, x + 10, y + 120, w, 120,
-                                     GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
-                                     GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
-                                     str, strlen(str), 40); 
-}
-
-void osd_channellist_show_events(struct osd_t* osd, int channelId)
-{
-  int server;
-  char str[128];
-  struct tm start_time;
-  struct tm stop_time;
-  char* iso_text;
-  uint32_t x = channellist_window_x + channellist_window_w + OSD_XMARGIN;
-  uint32_t y = osd->display_height - OSD_YMARGIN - 120;
-  uint32_t w = osd->display_width - x - OSD_XMARGIN;
-  uint32_t h = 120;
-  
-  channels_geteventid(channelId, &osd->event, &server);
-  channels_getnexteventid(channelId, &osd->nextEvent, &server);
-
-  struct event_t* event = event_copy(osd->event, server);
-  struct event_t* nextEvent = event_copy(osd->nextEvent, server);
-
-  osd_draw_window(osd, x, y, w, h);
-
-  if (event == NULL) {
-    return;
-  }
-  
-  /* Start/stop time - current event */
-  localtime_r((time_t*)&event->start, &start_time);
-  localtime_r((time_t*)&event->stop, &stop_time);
-  if (event->title) {
-    iso_text = malloc(strlen(event->title)+1);
-    utf8decode(event->title, iso_text);
-  }
-  else {
-    iso_text = malloc(1);
-    iso_text = "";
-  }
-  
-  snprintf(str, sizeof(str),"%02d:%02d - %02d:%02d %s",start_time.tm_hour,start_time.tm_min,stop_time.tm_hour,stop_time.tm_min, iso_text);
-                                     
-  (void)graphics_resource_render_text_ext(osd->img, x + 10, y + 20, w, 50,
-                                     GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
-                                     GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
-                                     str, strlen(str), 40);                                     
-  free(iso_text);
-  
-  if (nextEvent == NULL)
-    return;
-
-  /* Start/stop time - next event */
-  localtime_r((time_t*)&nextEvent->start, &start_time);
-  localtime_r((time_t*)&nextEvent->stop, &stop_time);
-  if (nextEvent->title) {
-    iso_text = malloc(strlen(nextEvent->title)+1);
-    utf8decode(nextEvent->title, iso_text);
-  }
-  
-  snprintf(str, sizeof(str),"%02d:%02d - %02d:%02d %s",start_time.tm_hour,start_time.tm_min,stop_time.tm_hour,stop_time.tm_min, iso_text);
-  (void)graphics_resource_render_text_ext(osd->img, x + 10, y + 70, w, 50,
-                                     GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
-                                     GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
-                                     str, strlen(str), 40);
-  free(iso_text);
-  osd_channellist_show_eventinfo(osd, channelId);
-  event_free(event);
-  event_free(nextEvent);
-}
-
-void osd_channellist_channels(struct osd_t* osd)
-{
-  int i;
-  char str[60];
   char* iso_text = NULL;
-  uint32_t row_space_y = 50;
-  uint32_t x = channellist_window_x + PADDING_X;
-  uint32_t y = channellist_window_y + PADDING_Y;
-  uint32_t color;
-  uint32_t bg_color;
   
-  for (i = 0; i < model_channellist_new.numUsed; i++) {
-    if ( compareIndexModelChannelList(&model_channellist_new, &model_channellist, i) == 1 ) {
-      printf("osd_channellist_channels: Update index %d - lcn %d\n", i, model_channellist_new.channel[i].lcn);
-      if (model_channellist_new.selectedIndex == i) {
-        color = COLOR_SELECTED_TEXT;
-        bg_color = COLOR_SELECTED_BACKGROUND;
-      }
-      else {
-        color = COLOR_TEXT;
-        bg_color = COLOR_BACKGROUND;
-      }
-      snprintf(str, sizeof(str), "%d %s", model_channellist_new.channel[i].lcn, model_channellist_new.channel[i].name); 
-      iso_text = malloc(strlen(str) + 1);
-      utf8decode(str, iso_text);        
-      (void)graphics_resource_render_text_ext(osd->img, x, y, channellist_window_w, row_space_y,
-                                            color,         /* fg */
-                                            bg_color,      /* bg */
-                                            iso_text, strlen(iso_text), 40);
-      free(iso_text);                                          
-    }                                        
-    y += row_space_y;     
-  }
-}
+  iso_text = malloc(strlen(str) + 1);
+  utf8decode(str, iso_text);        
+  graphics_resource_render_text_ext(osd->img, x, y, w, h, fg_color, bg_color, iso_text, strlen(iso_text), 40);
+  free(iso_text);
+}     
 
-void osd_channellist_view(struct osd_t* osd)
+// fix!!! maybe add event for every channel in the list? 
+void osd_channellist_event(struct osd_t* osd, int channel)
 {
-  pthread_mutex_lock(&osd->osd_mutex);
-  
-  if (model_channellist.channel[0].id == -1) {
-    // not currently displayed, draw everything
-    channellist_window_x = OSD_XMARGIN;
-    channellist_window_y = osd->display_height - OSD_YMARGIN - 620;
-    channellist_window_w = 500;
-    channellist_window_h = 620;
-    osd_draw_window(osd, channellist_window_x, channellist_window_y, channellist_window_w, channellist_window_h);
-  }
-  
-  osd_channellist_channels(osd);  
-  // make the new model the current
-  copyModelChannelList(&model_channellist, &model_channellist_new);
-  graphics_update_displayed_resource(osd->img, 0, 0, 0, 0);
-  osd->osd_state = OSD_CHANNELLIST;  
-  pthread_mutex_unlock(&osd->osd_mutex);
-}
+  int server;
 
+  channels_geteventid(channel, &osd->event, &server);
+  channels_getnexteventid(channel, &osd->nextEvent, &server);
+  setModelNowNext(&osd->model_now_next_new, osd->event, osd->nextEvent, server);
+}                                   
+
+/*
+ * Init the channellist and now and next modules.
+ */
 void osd_channellist_init(struct osd_t* osd, int startChannel, int selectedChannel)
 {
   int num_channels;
@@ -751,15 +579,16 @@ void osd_channellist_init(struct osd_t* osd, int startChannel, int selectedChann
   int id;
   int i;
   int selected;
+  int server;
   
-  clearModelChannelList(&model_channellist);
-  clearModelChannelList(&model_channellist_new);  
+  clearModelChannelList(&osd->model_channellist);
+  clearModelChannelList(&osd->model_channellist_new);  
 
   num_channels = channels_getcount();
   first_channel = channels_getfirst();
   
   if (num_channels > 0) {
-    // display max CHANNELLIST_NUM_CHANNELS channels
+    // max CHANNELLIST_NUM_CHANNELS channels
     num_display = num_channels > CHANNELLIST_NUM_CHANNELS ? CHANNELLIST_NUM_CHANNELS : num_channels;
     id = startChannel;
     
@@ -771,14 +600,22 @@ void osd_channellist_init(struct osd_t* osd, int startChannel, int selectedChann
         selected = 0;
       }
       
-      setModelChannelList(&model_channellist_new, i, id, channels_getlcn(id), channels_getname(id), selected);
+      setModelChannelList(&osd->model_channellist_new, i, id, channels_getlcn(id), channels_getname(id), selected);
       id = channels_getnext(id);   
       if (id == first_channel) {
         i++;
         break;
       }
     }
-    model_channellist_new.numUsed = i;
+    osd->model_channellist_new.numUsed = i;
+    
+    // Now and Next model
+    clearModelNowNext(&osd->model_now_next);
+    clearModelNowNext(&osd->model_now_next_new);
+    channels_geteventid(selectedChannel, &osd->event, &server);
+    channels_getnexteventid(selectedChannel, &osd->nextEvent, &server);
+    setModelNowNext(&osd->model_now_next_new, osd->event, osd->nextEvent, server);
+    printf("----> %d %d %d\n", selectedChannel, osd->event, osd->nextEvent);
   }
 }
 
@@ -834,7 +671,7 @@ int osd_process_key(struct osd_t* osd, int c, int channel_id) {
     // select a channel
     if (osd->osd_state == OSD_CHANNELLIST) {
       osd_clear(osd); 
-      osd->channel_id = model_channellist.channel[model_channellist.selectedIndex].id;
+      osd->channel_id = osd->model_channellist.channel[osd->model_channellist.selectedIndex].id;
       return 'c';
     } 
 
@@ -854,59 +691,70 @@ int osd_process_key(struct osd_t* osd, int c, int channel_id) {
     }                
     
     osd_channellist_init(osd, startChannel, selectedChannel);
-    osd_channellist_view(osd);
+    osd_view(osd, OSD_CHANNELLIST);
+    // make the new model the current
+    copyModelChannelList(&osd->model_channellist, &osd->model_channellist_new);
     return -1;
   }
   
   if (osd->osd_state == OSD_CHANNELLIST) {
     switch (c) {
       case 'd':
-        if (model_channellist.selectedIndex == model_channellist_new.numUsed - 1) {
+        if (osd->model_channellist.selectedIndex == osd->model_channellist_new.numUsed - 1) {
           // On bottom
-          startChannel = channels_getnext(model_channellist.channel[11].id);
+          startChannel = channels_getnext(osd->model_channellist.channel[11].id);
           osd_channellist_init(osd, startChannel, startChannel);
         }
         else {
-          model_channellist_new.selectedIndex++;
+          osd->model_channellist_new.selectedIndex++;
+          osd_channellist_event(osd, osd->model_channellist_new.channel[osd->model_channellist_new.selectedIndex].id);
         }     
-        osd_channellist_view(osd);
+        osd_view(osd, OSD_CHANNELLIST);
+        // make the new model the current
+        copyModelChannelList(&osd->model_channellist, &osd->model_channellist_new);
         break;
       case 'u':
-        if (model_channellist.selectedIndex == 0) {
+        if (osd->model_channellist.selectedIndex == 0) {
           // On top
           num_ch_dsp = CHANNELLIST_NUM_CHANNELS; 
-          if (model_channellist.channel[model_channellist.selectedIndex].id == channels_getfirst() ) {
+          if (osd->model_channellist.channel[osd->model_channellist.selectedIndex].id == channels_getfirst() ) {
             num_ch_dsp = channels_getcount() % CHANNELLIST_NUM_CHANNELS;
           }  
-          selectedChannel = channels_getprev(model_channellist.channel[0].id);
-          startChannel = model_channellist.channel[0].id;
+          selectedChannel = channels_getprev(osd->model_channellist.channel[0].id);
+          startChannel = osd->model_channellist.channel[0].id;
           for (i = 0; i < num_ch_dsp; i++) {
             startChannel = channels_getprev(startChannel);
           }  
           osd_channellist_init(osd, startChannel, selectedChannel);
         }
         else {
-          model_channellist_new.selectedIndex--;
+          osd->model_channellist_new.selectedIndex--;
         }      
-        osd_channellist_view(osd);
+        osd_view(osd, OSD_CHANNELLIST);
+        // make the new model the current
+        copyModelChannelList(&osd->model_channellist, &osd->model_channellist_new);
         break;  
       case 'n':
         // Next page
-        startChannel = channels_getnext(model_channellist.channel[11].id);
+        startChannel = channels_getnext(osd->model_channellist.channel[11].id);
         osd_channellist_init(osd, startChannel, startChannel);   
-        osd_channellist_view(osd);
+        osd_view(osd, OSD_CHANNELLIST);
+        // make the new model the current
+        copyModelChannelList(&osd->model_channellist, &osd->model_channellist_new);
         break;
       case 'p':
         // Prev page
-        if (model_channellist.channel[0].id == channels_getfirst() ) {
+        if (osd->model_channellist.channel[0].id == channels_getfirst() ) {
           num_ch_dsp = channels_getcount() % CHANNELLIST_NUM_CHANNELS;
         }
-        startChannel = model_channellist.channel[0].id;        
+        startChannel = osd->model_channellist.channel[0].id;        
         for (i = 0; i < num_ch_dsp; i++) {
           startChannel = channels_getprev(startChannel); 
         }
         osd_channellist_init(osd, startChannel, startChannel);
-        osd_channellist_view(osd);
+        osd_view(osd, OSD_CHANNELLIST);
+        // make the new model the current
+        copyModelChannelList(&osd->model_channellist, &osd->model_channellist_new);
         break;
       case 'i':
         return 'c';

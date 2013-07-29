@@ -22,7 +22,7 @@ typedef struct {
 typedef struct {
   int selectedIndex;
   int numUsed;
-  model_channels_t channel[12];
+  model_channels_t channel[CHANNELLIST_NUM_CHANNELS];
 } model_channellist_t;
 
 void clearModelChannelList(model_channellist_t*);

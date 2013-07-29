@@ -5,6 +5,16 @@ static uint32_t channellist_window_y;
 static uint32_t channellist_window_w;
 static uint32_t channellist_window_h;
 
+static uint32_t nowandnext_window_x;
+static uint32_t nowandnext_window_y;
+static uint32_t nowandnext_window_w;
+static uint32_t nowandnext_window_h;
+
+static uint32_t eventinfo_window_x;
+static uint32_t eventinfo_window_y;
+static uint32_t eventinfo_window_w;
+static uint32_t eventinfo_window_h;
+
 #if 0
 void osd_channellist_show_info(struct osd_t* osd, int channel_id)
 {
@@ -137,10 +147,10 @@ static void osd_channellist_channels(struct osd_t* osd)
   uint32_t color;
   uint32_t bg_color;
   
-  for (i = 0; i < osd->model_channellist_new.numUsed; i++) {
-    if ( compareIndexModelChannelList(&osd->model_channellist_new, &osd->model_channellist, i) == 1 ) {
-      printf("osd_channellist_channels: Update index %d - lcn %d\n", i, osd->model_channellist_new.channel[i].lcn);
-      if (osd->model_channellist_new.selectedIndex == i) {
+  for (i = 0; i < osd->model_channellist.numUsed; i++) {
+    if ( compareIndexModelChannelList(&osd->model_channellist, &osd->model_channellist_current, i) == 1 ) {
+      printf("osd_channellist_channels: Update index %d - lcn %d\n", i, osd->model_channellist.channel[i].lcn);
+      if (osd->model_channellist.selectedIndex == i) {
         color = COLOR_SELECTED_TEXT;
         bg_color = COLOR_SELECTED_BACKGROUND;
       }
@@ -148,7 +158,7 @@ static void osd_channellist_channels(struct osd_t* osd)
         color = COLOR_TEXT;
         bg_color = COLOR_BACKGROUND;
       }
-      snprintf(str, sizeof(str), "%d %s", osd->model_channellist_new.channel[i].lcn, osd->model_channellist_new.channel[i].name); 
+      snprintf(str, sizeof(str), "%d %s", osd->model_channellist.channel[i].lcn, osd->model_channellist.channel[i].name); 
       iso_text = malloc(strlen(str) + 1);
       utf8decode(str, iso_text);        
       graphics_resource_render_text_ext(osd->img, x, y, channellist_window_w, row_space_y,
@@ -167,14 +177,13 @@ static void osd_channellist_channels(struct osd_t* osd)
  */
 static void osd_channellist_view(struct osd_t* osd)
 {
-  int x, y, w, h;
   uint32_t color = COLOR_TEXT;
   uint32_t bg_color = COLOR_BACKGROUND;
   char str[128];
   struct tm start_time;
   struct tm stop_time;
   
-  if (osd->model_channellist.channel[0].id == -1) {
+  if (osd->model_channellist_current.channel[0].id == -1) {
     // not currently displayed, draw everything
     
     // Channellist window
@@ -185,37 +194,46 @@ static void osd_channellist_view(struct osd_t* osd)
     osd_draw_window(osd, channellist_window_x, channellist_window_y, channellist_window_w, channellist_window_h);
 
     // Now and Next window
-    x = channellist_window_x + channellist_window_w + OSD_XMARGIN;
-    y = osd->display_height - OSD_YMARGIN - 120;
-    w = osd->display_width - x - OSD_XMARGIN;  
-    h = 120;
-    osd_draw_window(osd, x, y, w, h);
-  }
+    nowandnext_window_x = channellist_window_x + channellist_window_w + OSD_XMARGIN;
+    nowandnext_window_y = osd->display_height - OSD_YMARGIN - 120;
+    nowandnext_window_w = osd->display_width - nowandnext_window_x - OSD_XMARGIN;  
+    nowandnext_window_h = 120;   
+    osd_draw_window(osd, nowandnext_window_x, nowandnext_window_y, nowandnext_window_w, nowandnext_window_h);
     
-  if (osd->model_now_next_new.nowEvent != NULL) {
-    localtime_r((time_t*)&osd->model_now_next_new.nowEvent->start, &start_time);
-    localtime_r((time_t*)&osd->model_now_next_new.nowEvent->stop, &stop_time);
-    snprintf(str, sizeof(str),"%02d:%02d - %02d:%02d %s",start_time.tm_hour,start_time.tm_min,stop_time.tm_hour,stop_time.tm_min, osd->model_now_next_new.nowEvent->title);
-    osd_text(osd, x + PADDING_X, y + PADDING_Y, w, 50, COLOR_SELECTED_TEXT, bg_color, str);  
+    // Event info window
+    eventinfo_window_x = channellist_window_x + channellist_window_w + OSD_XMARGIN;
+    eventinfo_window_y = osd->display_height - OSD_YMARGIN - 120 - 220 - PADDING_Y;
+    eventinfo_window_w = osd->display_width - eventinfo_window_x - OSD_XMARGIN;  
+    eventinfo_window_h = 220;
+    osd_draw_window(osd, eventinfo_window_x, eventinfo_window_y, eventinfo_window_w, eventinfo_window_h);  
   }
-  if (osd->model_now_next_new.nextEvent != NULL) {
-    localtime_r((time_t*)&osd->model_now_next_new.nextEvent->start, &start_time);
-    localtime_r((time_t*)&osd->model_now_next_new.nextEvent->stop, &stop_time);    
-    snprintf(str, sizeof(str),"%02d:%02d - %02d:%02d %s",start_time.tm_hour,start_time.tm_min,stop_time.tm_hour,stop_time.tm_min, osd->model_now_next_new.nextEvent->title);
-    osd_text(osd, x + PADDING_X, y + PADDING_Y + 50, w, 50, color, bg_color, str);
+  else {
+    // clear now and next and event info area
+    graphics_resource_fill(osd->img, nowandnext_window_x + 10, nowandnext_window_y + 10, nowandnext_window_w - 20, nowandnext_window_h - 20, COLOR_BACKGROUND);
+    graphics_resource_fill(osd->img, eventinfo_window_x + 10, eventinfo_window_y + 10, eventinfo_window_w - 20, eventinfo_window_h - 20, COLOR_BACKGROUND);
   }
   
-  // Event info window
-  x = channellist_window_x + channellist_window_w + OSD_XMARGIN;
-  y = osd->display_height - OSD_YMARGIN - 120 - 220 - PADDING_Y;
-  w = osd->display_width - x - OSD_XMARGIN;  
-  h = 220;
-  osd_draw_window(osd, x, y, w, h);    
-
-  if (osd->model_now_next_new.nowEvent != NULL) {
-    osd_text(osd, x + PADDING_X, y + PADDING_Y, w, 50, color, bg_color, osd->model_now_next_new.nextEvent->description);    
+  // now
+  if (osd->model_now_next.nowEvent != NULL) {
+    localtime_r((time_t*)&osd->model_now_next.nowEvent->start, &start_time);
+    localtime_r((time_t*)&osd->model_now_next.nowEvent->stop, &stop_time);
+    snprintf(str, sizeof(str),"%02d:%02d - %02d:%02d %s",start_time.tm_hour,start_time.tm_min,stop_time.tm_hour,stop_time.tm_min, osd->model_now_next.nowEvent->title);
+    osd_text(osd, nowandnext_window_x + PADDING_X, nowandnext_window_y + PADDING_Y, nowandnext_window_w, 50, COLOR_SELECTED_TEXT, bg_color, str);  
+  }
+  
+  // next
+  if (osd->model_now_next.nextEvent != NULL) {
+    localtime_r((time_t*)&osd->model_now_next.nextEvent->start, &start_time);
+    localtime_r((time_t*)&osd->model_now_next.nextEvent->stop, &stop_time);    
+    snprintf(str, sizeof(str),"%02d:%02d - %02d:%02d %s",start_time.tm_hour,start_time.tm_min,stop_time.tm_hour,stop_time.tm_min, osd->model_now_next.nextEvent->title);
+    osd_text(osd, nowandnext_window_x + PADDING_X, nowandnext_window_y + PADDING_Y + 50, nowandnext_window_w, 50, color, bg_color, str);    
   }
     
+  // event info
+  if (osd->model_now_next.nowEvent != NULL) {
+    osd_text(osd, eventinfo_window_x + PADDING_X, eventinfo_window_y + PADDING_Y, eventinfo_window_w, 50, color, bg_color, osd->model_now_next.nowEvent->description);    
+  }
+
   osd_channellist_channels(osd);
 }
 

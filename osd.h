@@ -52,10 +52,9 @@ struct osd_t {
   uint32_t nextEvent;
   int channel_id;
   /* channel list */
+  model_channellist_t model_channellist_current;
   model_channellist_t model_channellist;
-  model_channellist_t model_channellist_new;
   model_now_next_t model_now_next;
-  model_now_next_t model_now_next_new;
 };
 
 void osd_init(struct osd_t* osd);

@@ -202,9 +202,9 @@ static void osd_channellist_view(struct osd_t* osd)
     
     // Event info window
     eventinfo_window_x = channellist_window_x + channellist_window_w + OSD_XMARGIN;
-    eventinfo_window_y = osd->display_height - OSD_YMARGIN - 120 - 220 - PADDING_Y;
+    eventinfo_window_y = osd->display_height - OSD_YMARGIN - 120 - 477 - PADDING_Y;
     eventinfo_window_w = osd->display_width - eventinfo_window_x - OSD_XMARGIN;  
-    eventinfo_window_h = 220;
+    eventinfo_window_h = 477;
     osd_draw_window(osd, eventinfo_window_x, eventinfo_window_y, eventinfo_window_w, eventinfo_window_h);  
   }
   else {
@@ -231,7 +231,9 @@ static void osd_channellist_view(struct osd_t* osd)
     
   // event info
   if (osd->model_now_next.nowEvent != NULL) {
-    osd_text(osd, eventinfo_window_x + PADDING_X, eventinfo_window_y + PADDING_Y, eventinfo_window_w, 50, color, bg_color, osd->model_now_next.nowEvent->description);    
+//    osd_text(osd, eventinfo_window_x + PADDING_X, eventinfo_window_y + PADDING_Y, eventinfo_window_w, 50, color, bg_color, osd->model_now_next.nowEvent->description);    
+    osd_text(osd, eventinfo_window_x + PADDING_X, eventinfo_window_y + PADDING_Y, eventinfo_window_w, 50, COLOR_SELECTED_TEXT, bg_color, osd->model_now_next.nowEvent->title);
+    osd_paragraph(osd, osd->model_now_next.nowEvent->description, 40, eventinfo_window_x + PADDING_X, eventinfo_window_y + PADDING_Y + 50, eventinfo_window_w - 2 * PADDING_X, eventinfo_window_h - 2 * PADDING_Y - 50);
   }
 
   osd_channellist_channels(osd);

@@ -59,10 +59,5 @@ void setModelNowNext(model_now_next_t *model, uint32_t nowEvent, uint32_t nextEv
   model->nextEvent = event_copy(nextEvent, server);
 }
 
-void clearModelNowNext(model_now_next_t *model) 
-{
-  model->nowEvent = NULL;
-  model->nextEvent = NULL;
-}
 
 

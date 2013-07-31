@@ -563,14 +563,87 @@ void osd_text(struct osd_t* osd, uint32_t x, uint32_t y, uint32_t w, uint32_t h,
   free(iso_text);
 }     
 
+uint32_t osd_strLength(struct osd_t* osd, char *str, uint32_t len)
+{
+  int i;
+  uint32_t l = 0;
+  
+  for (i = 0; i < len; i++) {
+    l += osd->charLengt[str[i]];
+  }
+  //printf("osd_strLength %s = %d\n", str, l);
+
+  return l;
+}
+
+int32_t osd_paragraph(struct osd_t* osd, char *text, uint32_t text_size, uint32_t x, uint32_t y, uint32_t w, uint32_t h)
+{
+  uint32_t width=0, height=0;
+  char* iso_text = NULL;
+  char* tmp;
+  char* space;
+  int text_y = y;
+  
+  if ((!text) || (strlen(text) == 0)) {
+    return 0;
+  }
+  
+  iso_text = malloc(strlen(text) + 1);
+  utf8decode(text, iso_text);  
+
+  int done = 0;
+  
+  do {
+/*    s = graphics_resource_text_dimensions_ext(osd->img, iso_text, text_length, &width, &height, text_size);
+    if (s != 0) {
+      return -1;
+    }  
+*/
+    width = osd_strLength(osd, iso_text, strlen(iso_text));
+    
+    if (width <= w) {
+      /* We can display the whole line */
+      printf("whole line\n");
+      graphics_resource_render_text_ext(osd->img, x, text_y,
+                                   GRAPHICS_RESOURCE_WIDTH,
+                                   GRAPHICS_RESOURCE_HEIGHT,
+                                   GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
+                                   GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
+                                   iso_text, strlen(iso_text), 40);
+                                   
+      done = 1;                             
+    } else {
+      tmp = malloc(strlen(iso_text) + 1);
+      strcpy(tmp, iso_text);
+      while (width > w) {
+        space = strrchr(tmp, ' ');  
+        tmp[space-tmp] = NULL;
+//        graphics_resource_text_dimensions_ext(osd->img, tmp, space - tmp, &width, &height, text_size);
+        width = osd_strLength(osd, tmp, space - tmp);
+      }
+      graphics_resource_render_text_ext(osd->img, x, text_y,
+                                       GRAPHICS_RESOURCE_WIDTH,
+                                       GRAPHICS_RESOURCE_HEIGHT,
+                                       GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
+                                       GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
+                                       tmp, strlen(tmp), 40);
+      text_y += 50;  
+      if (text_y > (y + h)) {
+        done = 1;
+      }  
+      iso_text += strlen(tmp) + 1;
+      free(tmp);
+    }
+  } while(!done);
+}
+
 /*
  * Init the now and next module. 
  */
 void osd_channellist_event_init(struct osd_t* osd, int channel)
 {
   int server;
-
-  clearModelNowNext(&osd->model_now_next);  
+ 
   channels_geteventid(channel, &osd->event, &server);
   channels_getnexteventid(channel, &osd->nextEvent, &server);
   setModelNowNext(&osd->model_now_next, osd->event, osd->nextEvent, server);

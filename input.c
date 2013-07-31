@@ -121,12 +121,21 @@ static int get_input_key(int fd)
   return -1;
 }
 
+static long long current_timestamp() {
+    struct timeval te;
+    gettimeofday(&te, NULL); // get current time
+    long long milliseconds = te.tv_sec*1000LL + te.tv_usec/1000; // caculate milliseconds
+    // printf("milliseconds: %lld\n", milliseconds);
+    return milliseconds;
+}
+
 static void input_thread(struct msgqueue_t* msgqueue)
 {
   int inputfd;
   char inputname[256] = "Unknown";
   char *inputdevice = "/dev/input/event0";
-  int c;
+  int c, last_c;
+  long lastTime, now;
 
   if ((inputfd = open(inputdevice, O_RDONLY)) >= 0) {
     ioctl (inputfd, EVIOCGNAME (sizeof (inputname)), inputname);
@@ -137,6 +146,9 @@ static void input_thread(struct msgqueue_t* msgqueue)
     ioctl(inputfd,EVIOCSREP,ioctl_params);
   }
 
+  lastTime = current_timestamp();
+  last_c = -1;
+  
   while(1) {
     struct timeval tv = { 0L, 100000L };  /* 100ms */
     fd_set fds;
@@ -159,7 +171,13 @@ static void input_thread(struct msgqueue_t* msgqueue)
       }
     }
     if (c != -1) {
-      msgqueue_add(msgqueue,c);
+      now = current_timestamp();
+      //printf("time %u %u %u\n", lastTime, now, now-lastTime);
+      if ( c != last_c || (now - lastTime) > 200) {
+        msgqueue_add(msgqueue,c);
+        lastTime = now;
+        last_c = c;
+      }
     }
   }
 }

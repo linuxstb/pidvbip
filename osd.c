@@ -603,7 +603,6 @@ int32_t osd_paragraph(struct osd_t* osd, char *text, uint32_t text_size, uint32_
     
     if (width <= w) {
       /* We can display the whole line */
-      printf("whole line\n");
       graphics_resource_render_text_ext(osd->img, x, text_y,
                                    GRAPHICS_RESOURCE_WIDTH,
                                    GRAPHICS_RESOURCE_HEIGHT,

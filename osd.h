@@ -44,7 +44,7 @@ struct osd_t {
   int video_blanked;
 
   int osd_state;  /* Which OSD screen we are displaying (or OSD_NONE) */
-
+  
   /* State of various screens */
   double osd_cleartime;
   time_t last_now;
@@ -74,5 +74,6 @@ void osd_draw_window(struct osd_t* osd, int x, int y, int width, int height);
 void osd_text(struct osd_t* osd, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t fg_color, uint32_t bg_color, char *str);
 void utf8decode(char* str, char* r);
 double get_time(void);
+int32_t osd_paragraph(struct osd_t* osd, char *text, uint32_t text_size, uint32_t x, uint32_t y, uint32_t w, uint32_t h);
 
 #endif

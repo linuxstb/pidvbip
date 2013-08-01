@@ -35,7 +35,8 @@ int compareIndexModelChannelList(model_channellist_t *newModel, model_channellis
 {
   if ((newModel->selectedIndex == index || oldModel->selectedIndex == index) ||
       newModel->channel[index].id != oldModel->channel[index].id ||
-      (oldModel->channel[index].id == -1 && newModel->channel[index].id != -1)) {
+      (oldModel->channel[index].id == -1 && newModel->channel[index].id != -1) ||
+      (oldModel->selectedIndex == index && oldModel->active != newModel->active )) {
           return 1;
   }
   return 0;
@@ -57,6 +58,7 @@ void setModelNowNext(model_now_next_t *model, uint32_t nowEvent, uint32_t nextEv
   
   model->nowEvent = event_copy(nowEvent, server);
   model->nextEvent = event_copy(nextEvent, server);
+  model->selectedIndex = 0;
 }
 
 

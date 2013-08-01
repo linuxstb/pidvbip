@@ -9,6 +9,7 @@
 #define CHANNELLIST_NUM_CHANNELS 12
 
 typedef struct {
+  int selectedIndex;  
   struct event_t* nowEvent;
   struct event_t* nextEvent;
 } model_now_next_t;
@@ -20,6 +21,7 @@ typedef struct {
 } model_channels_t;
 
 typedef struct {
+  int active;
   int selectedIndex;
   int numUsed;
   model_channels_t channel[CHANNELLIST_NUM_CHANNELS];

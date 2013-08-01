@@ -31,10 +31,15 @@ static void osd_channellist_channels(struct osd_t* osd)
   
   for (i = 0; i < osd->model_channellist.numUsed; i++) {
     if ( compareIndexModelChannelList(&osd->model_channellist, &osd->model_channellist_current, i) == 1 ) {
-      //printf("osd_channellist_channels: Update index %d - lcn %d\n", i, osd->model_channellist.channel[i].lcn);
+      printf("osd_channellist_channels: Update index %d - lcn %d\n", i, osd->model_channellist.channel[i].lcn);
       if (osd->model_channellist.selectedIndex == i) {
         color = COLOR_SELECTED_TEXT;
-        bg_color = COLOR_SELECTED_BACKGROUND;
+        if (osd->model_channellist.active) {
+          bg_color = COLOR_SELECTED_BACKGROUND;
+        }
+        else {
+          bg_color = COLOR_BACKGROUND;
+        }
       }
       else {
         color = COLOR_TEXT;
@@ -100,7 +105,17 @@ static void osd_channellist_view(struct osd_t* osd)
     localtime_r((time_t*)&osd->model_now_next.nowEvent->start, &start_time);
     localtime_r((time_t*)&osd->model_now_next.nowEvent->stop, &stop_time);
     snprintf(str, sizeof(str),"%02d:%02d - %02d:%02d %s",start_time.tm_hour,start_time.tm_min,stop_time.tm_hour,stop_time.tm_min, osd->model_now_next.nowEvent->title);
-    osd_text(osd, nowandnext_window_x + PADDING_X, nowandnext_window_y + PADDING_Y, nowandnext_window_w, 50, COLOR_SELECTED_TEXT, bg_color, str);  
+    bg_color = COLOR_BACKGROUND;
+    if (osd->model_now_next.selectedIndex == 0) {
+      color = COLOR_SELECTED_TEXT;
+      if (osd->model_channellist.active == 0) {
+        bg_color = COLOR_SELECTED_BACKGROUND;
+      }
+    }
+    else {
+      color = COLOR_TEXT;
+    }
+    osd_text(osd, nowandnext_window_x + PADDING_X, nowandnext_window_y + PADDING_Y, nowandnext_window_w, 50, color, bg_color, str);  
   }
   
   // next
@@ -108,14 +123,27 @@ static void osd_channellist_view(struct osd_t* osd)
     localtime_r((time_t*)&osd->model_now_next.nextEvent->start, &start_time);
     localtime_r((time_t*)&osd->model_now_next.nextEvent->stop, &stop_time);    
     snprintf(str, sizeof(str),"%02d:%02d - %02d:%02d %s",start_time.tm_hour,start_time.tm_min,stop_time.tm_hour,stop_time.tm_min, osd->model_now_next.nextEvent->title);
+    bg_color = COLOR_BACKGROUND;
+    if (osd->model_now_next.selectedIndex == 1) {
+      color = COLOR_SELECTED_TEXT;
+      if (osd->model_channellist.active == 0) {
+        bg_color = COLOR_SELECTED_BACKGROUND;
+      }
+    }
+    else {
+      color = COLOR_TEXT;
+    }
     osd_text(osd, nowandnext_window_x + PADDING_X, nowandnext_window_y + PADDING_Y + 50, nowandnext_window_w, 50, color, bg_color, str);    
   }
     
   // event info
-  if (osd->model_now_next.nowEvent != NULL) {
-//    osd_text(osd, eventinfo_window_x + PADDING_X, eventinfo_window_y + PADDING_Y, eventinfo_window_w, 50, color, bg_color, osd->model_now_next.nowEvent->description);    
-    osd_text(osd, eventinfo_window_x + PADDING_X, eventinfo_window_y + PADDING_Y, eventinfo_window_w, 50, COLOR_SELECTED_TEXT, bg_color, osd->model_now_next.nowEvent->title);
+  if (osd->model_now_next.selectedIndex == 0 && osd->model_now_next.nowEvent != NULL) {
+    osd_text(osd, eventinfo_window_x + PADDING_X, eventinfo_window_y + PADDING_Y, eventinfo_window_w, 50, COLOR_SELECTED_TEXT, COLOR_BACKGROUND, osd->model_now_next.nowEvent->title);
     osd_paragraph(osd, osd->model_now_next.nowEvent->description, 40, eventinfo_window_x + PADDING_X, eventinfo_window_y + PADDING_Y + 50, eventinfo_window_w - 2 * PADDING_X, eventinfo_window_h - 2 * PADDING_Y - 50);
+  }
+  if (osd->model_now_next.selectedIndex == 1 && osd->model_now_next.nextEvent != NULL) {
+    osd_text(osd, eventinfo_window_x + PADDING_X, eventinfo_window_y + PADDING_Y, eventinfo_window_w, 50, COLOR_SELECTED_TEXT, COLOR_BACKGROUND, osd->model_now_next.nextEvent->title);
+    osd_paragraph(osd, osd->model_now_next.nextEvent->description, 40, eventinfo_window_x + PADDING_X, eventinfo_window_y + PADDING_Y + 50, eventinfo_window_w - 2 * PADDING_X, eventinfo_window_h - 2 * PADDING_Y - 50);
   }
 
   osd_channellist_channels(osd);

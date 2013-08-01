@@ -696,9 +696,10 @@ void osd_channellist_init(struct osd_t* osd, int startChannel, int selectedChann
       }
     }
     osd->model_channellist.numUsed = i;
+    osd->model_channellist.active = 1;
     
     // Now and Next model
-    osd_channellist_event_init(osd, selectedChannel);    
+    osd_channellist_event_init(osd, selectedChannel);  
   }
 }
 
@@ -763,6 +764,7 @@ int osd_process_key(struct osd_t* osd, int c, int channel_id) {
     }
 
     // display the channellist
+    osd->osd_state = OSD_CHANNELLIST;
     selectedChannel = channel_id;
     startChannel = channel_id;
     i = 0;
@@ -783,37 +785,50 @@ int osd_process_key(struct osd_t* osd, int c, int channel_id) {
   if (osd->osd_state == OSD_CHANNELLIST) {
     switch (c) {
       case 'd':
-        if (osd->model_channellist_current.selectedIndex == osd->model_channellist.numUsed - 1) {
-          // On bottom
-          startChannel = channels_getnext(osd->model_channellist_current.channel[CHANNELLIST_NUM_CHANNELS - 1].id);
-          osd_channellist_init(osd, startChannel, startChannel);
-        }
+        if (osd->model_channellist.active == 1) {
+          // channellist window
+          if (osd->model_channellist_current.selectedIndex == osd->model_channellist.numUsed - 1) {
+            // On bottom
+            startChannel = channels_getnext(osd->model_channellist_current.channel[CHANNELLIST_NUM_CHANNELS - 1].id);
+            osd_channellist_init(osd, startChannel, startChannel);
+          }
+          else {
+            osd->model_channellist.selectedIndex++;
+            osd_channellist_event_init(osd, osd->model_channellist.channel[osd->model_channellist.selectedIndex].id);
+          }     
+        }  
         else {
-          osd->model_channellist.selectedIndex++;
-          osd_channellist_event_init(osd, osd->model_channellist.channel[osd->model_channellist.selectedIndex].id);
-        }     
+          // now and next window
+          osd->model_now_next.selectedIndex = 1;
+        }
         osd_view(osd, OSD_CHANNELLIST);
         // make the new model the current
         copyModelChannelList(&osd->model_channellist_current, &osd->model_channellist);
         break;
       case 'u':
-        if (osd->model_channellist_current.selectedIndex == 0) {
-          // On top
-          num_ch_dsp = CHANNELLIST_NUM_CHANNELS; 
-          if (osd->model_channellist_current.channel[osd->model_channellist_current.selectedIndex].id == channels_getfirst() ) {
-            num_ch_dsp = channels_getcount() % CHANNELLIST_NUM_CHANNELS;
-          }  
-          selectedChannel = channels_getprev(osd->model_channellist_current.channel[0].id);
-          startChannel = osd->model_channellist_current.channel[0].id;
-          for (i = 0; i < num_ch_dsp; i++) {
-            startChannel = channels_getprev(startChannel);
-          }  
-          osd_channellist_init(osd, startChannel, selectedChannel);
+        if (osd->model_channellist.active == 1) {
+          if (osd->model_channellist_current.selectedIndex == 0) {
+            // On top
+            num_ch_dsp = CHANNELLIST_NUM_CHANNELS; 
+            if (osd->model_channellist_current.channel[osd->model_channellist_current.selectedIndex].id == channels_getfirst() ) {
+              num_ch_dsp = channels_getcount() % CHANNELLIST_NUM_CHANNELS;
+            }  
+            selectedChannel = channels_getprev(osd->model_channellist_current.channel[0].id);
+            startChannel = osd->model_channellist_current.channel[0].id;
+            for (i = 0; i < num_ch_dsp; i++) {
+              startChannel = channels_getprev(startChannel);
+            }  
+            osd_channellist_init(osd, startChannel, selectedChannel);
+          }
+          else {
+            // now and next window
+            osd->model_channellist.selectedIndex--;
+            osd_channellist_event_init(osd, osd->model_channellist.channel[osd->model_channellist.selectedIndex].id);
+          }      
         }
         else {
-          osd->model_channellist.selectedIndex--;
-          osd_channellist_event_init(osd, osd->model_channellist.channel[osd->model_channellist.selectedIndex].id);
-        }      
+          osd->model_now_next.selectedIndex = 0;
+        }
         osd_view(osd, OSD_CHANNELLIST);
         // make the new model the current
         copyModelChannelList(&osd->model_channellist_current, &osd->model_channellist);
@@ -842,6 +857,20 @@ int osd_process_key(struct osd_t* osd, int c, int channel_id) {
         break;
       case 'i':
         return 'c';
+        break;
+      case 'l':
+        if (osd->model_channellist.active == 0) {
+          // change to channellist window
+          osd->model_channellist.active = 1;
+          osd_view(osd, OSD_CHANNELLIST);
+        }      
+        break;
+      case 'r':
+        if (osd->model_channellist.active == 1) {
+          // change to now and next window
+          osd->model_channellist.active = 0;
+          osd_view(osd, OSD_CHANNELLIST);
+        }
         break;
       default:
         return c;

@@ -46,7 +46,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 #define OSD_XMARGIN 32
 #define OSD_YMARGIN 18
-    
+
+static uint8_t fontWidth[256];  
+
 void utf8decode(char* str, char* r)
 {
   int x,y,z,ud;
@@ -177,39 +179,49 @@ int32_t render_paragraph(GRAPHICS_RESOURCE_HANDLE img, const char *text, const u
 
 void osd_init(struct osd_t* osd)
 {
-   uint32_t display_width, display_height;
-   int s;
+  uint32_t display_width, display_height;
+  char str[2] = { 0, 0 };
+  uint32_t width, height;
+  int n;
+  int s;
+
+  s = gx_graphics_init(tiresias_pcfont, sizeof(tiresias_pcfont));
+  assert(s == 0);
+
+  s = graphics_get_display_size(0, &display_width, &display_height);
+  osd->display_width = display_width;
+  osd->display_height = display_height;
+
+  assert(s == 0);
+  //fprintf(stderr,"Display width=%d, height=%d\n",display_width,display_height);
+
+  /* The main OSD image */
+  s = gx_create_window(SCREEN, display_width, display_height, GRAPHICS_RESOURCE_RGBA32, &osd->img);
+  assert(s == 0);
+  graphics_resource_fill(osd->img, 0, 0, display_width, display_height, GRAPHICS_RGBA32(0,0,0,0));
+
+  graphics_display_resource(osd->img, 0, OSD_LAYER, 0, 0, GRAPHICS_RESOURCE_WIDTH, GRAPHICS_RESOURCE_HEIGHT, VC_DISPMAN_ROT0, 1);
+
+  /* A full-screen black image to either remove any left-over console text (BG_LAYER) or to hide the video (FG_LAYER) */
+  s = gx_create_window(SCREEN, display_width, display_height, GRAPHICS_RESOURCE_RGBA32, &osd->img_blank);
+  assert(s == 0);
+  graphics_resource_fill(osd->img_blank, 0, 0, display_width, display_height, GRAPHICS_RGBA32(0,0,0,255));
+
+  graphics_display_resource(osd->img_blank, 0, BG_LAYER, 0, 0, GRAPHICS_RESOURCE_WIDTH, GRAPHICS_RESOURCE_HEIGHT, VC_DISPMAN_ROT0, 1);
+
+  osd->video_blanked = 0;
+  osd->osd_cleartime = 0.0;
+
+  pthread_mutex_init(&osd->osd_mutex,NULL);
    
-   s = gx_graphics_init(tiresias_pcfont, sizeof(tiresias_pcfont));
-   assert(s == 0);
-
-   s = graphics_get_display_size(0, &display_width, &display_height);
-   osd->display_width = display_width;
-   osd->display_height = display_height;
-
-   assert(s == 0);
-   //fprintf(stderr,"Display width=%d, height=%d\n",display_width,display_height);
-
-   /* The main OSD image */
-   s = gx_create_window(SCREEN, display_width, display_height, GRAPHICS_RESOURCE_RGBA32, &osd->img);
-   assert(s == 0);
-   graphics_resource_fill(osd->img, 0, 0, display_width, display_height, GRAPHICS_RGBA32(0,0,0,0));
-
-   graphics_display_resource(osd->img, 0, OSD_LAYER, 0, 0, GRAPHICS_RESOURCE_WIDTH, GRAPHICS_RESOURCE_HEIGHT, VC_DISPMAN_ROT0, 1);
-
-   /* A full-screen black image to either remove any left-over console text (BG_LAYER) or to hide the video (FG_LAYER) */
-   s = gx_create_window(SCREEN, display_width, display_height, GRAPHICS_RESOURCE_RGBA32, &osd->img_blank);
-   assert(s == 0);
-   graphics_resource_fill(osd->img_blank, 0, 0, display_width, display_height, GRAPHICS_RGBA32(0,0,0,255));
-
-   graphics_display_resource(osd->img_blank, 0, BG_LAYER, 0, 0, GRAPHICS_RESOURCE_WIDTH, GRAPHICS_RESOURCE_HEIGHT, VC_DISPMAN_ROT0, 1);
-
-   osd->video_blanked = 0;
-   osd->osd_cleartime = 0.0;
-
-   pthread_mutex_init(&osd->osd_mutex,NULL);
-   
-   (void)s; // remove compiler warning
+  // cache font widths since graphics_resource_text_dimensions_ext is kind of slow
+  for (n = 32; n < 256; n++) {
+    str[0] = n;
+    graphics_resource_text_dimensions_ext(osd->img, str, 1, &width, &height, 40); 
+    fontWidth[n] = (uint8_t)width;
+  }
+    
+  (void)s; // remove compiler warning
 }
 
 void osd_blank_video(struct osd_t* osd, int on_off)
@@ -563,26 +575,27 @@ void osd_text(struct osd_t* osd, uint32_t x, uint32_t y, uint32_t w, uint32_t h,
   free(iso_text);
 }     
 
-uint32_t osd_strLength(struct osd_t* osd, char *str, uint32_t len)
+uint32_t osd_fontWidth(struct osd_t* osd, char *str, uint32_t len)
 {
   int i;
   uint32_t l = 0;
   
   for (i = 0; i < len; i++) {
-    l += osd->charLengt[str[i]];
+    l += (uint32_t)fontWidth[(int)str[i]];
   }
-  //printf("osd_strLength %s = %d\n", str, l);
 
   return l;
 }
 
 int32_t osd_paragraph(struct osd_t* osd, char *text, uint32_t text_size, uint32_t x, uint32_t y, uint32_t w, uint32_t h)
 {
-  uint32_t width=0, height=0;
+  uint32_t width;
   char* iso_text = NULL;
+  char* str;
   char* tmp;
   char* space;
   int text_y = y;
+  int done = 0;
   
   if ((!text) || (strlen(text) == 0)) {
     return 0;
@@ -590,16 +603,10 @@ int32_t osd_paragraph(struct osd_t* osd, char *text, uint32_t text_size, uint32_
   
   iso_text = malloc(strlen(text) + 1);
   utf8decode(text, iso_text);  
-
-  int done = 0;
+  str = iso_text;
   
   do {
-/*    s = graphics_resource_text_dimensions_ext(osd->img, iso_text, text_length, &width, &height, text_size);
-    if (s != 0) {
-      return -1;
-    }  
-*/
-    width = osd_strLength(osd, iso_text, strlen(iso_text));
+    width = osd_fontWidth(osd, str, strlen(str));
     
     if (width <= w) {
       /* We can display the whole line */
@@ -608,17 +615,16 @@ int32_t osd_paragraph(struct osd_t* osd, char *text, uint32_t text_size, uint32_
                                    GRAPHICS_RESOURCE_HEIGHT,
                                    GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
                                    GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
-                                   iso_text, strlen(iso_text), 40);
+                                   str, strlen(str), 40);
                                    
       done = 1;                             
     } else {
-      tmp = malloc(strlen(iso_text) + 1);
-      strcpy(tmp, iso_text);
+      tmp = malloc(strlen(str) + 1);
+      strcpy(tmp, str);
       while (width > w) {
         space = strrchr(tmp, ' ');  
-        tmp[space-tmp] = NULL;
-//        graphics_resource_text_dimensions_ext(osd->img, tmp, space - tmp, &width, &height, text_size);
-        width = osd_strLength(osd, tmp, space - tmp);
+        tmp[space-tmp] = '\0';
+        width = osd_fontWidth(osd, tmp, space - tmp);
       }
       graphics_resource_render_text_ext(osd->img, x, text_y,
                                        GRAPHICS_RESOURCE_WIDTH,
@@ -630,10 +636,13 @@ int32_t osd_paragraph(struct osd_t* osd, char *text, uint32_t text_size, uint32_
       if (text_y > (y + h)) {
         done = 1;
       }  
-      iso_text += strlen(tmp) + 1;
+      str += strlen(tmp) + 1;
       free(tmp);
     }
   } while(!done);
+  
+  free(iso_text);
+  return 0;
 }
 
 /*

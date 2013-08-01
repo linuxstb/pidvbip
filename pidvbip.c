@@ -592,21 +592,7 @@ int main(int argc, char* argv[])
     input_init(&msgqueue);
 
     osd_init(&osd);
-//Daniel
 
-    char str[2];
-    uint32_t width=0, height=0;
-    int n;
-    osd.charLengt = malloc(256);
-    for (n = 32; n < 256; n++) {
-      str[0] = n;
-      str[1] = NULL;
-      graphics_resource_text_dimensions_ext(osd.img, str, 1, &width, &height, 40); 
-      printf("%s = %d\n", str, width);
-      osd.charLengt[n] = width;
-    }
-    
-//Daniel    
     if (global_settings.camtest) {
       struct omx_pipeline_t camerapipe;    
       omx_setup_camera_pipeline(&camerapipe);

@@ -730,12 +730,11 @@ void osd_update(struct osd_t* osd, int channel_id)
       }  
       break;
     case OSD_CHANNELLIST:
-/*      channels_geteventid(osd->channellist_selected_channel, &event, &server);
-      if (osd->event != event) {      
-        osd_channellist_show_events(osd, osd->channellist_selected_channel);    
-        osd_update = 1;
-      }  
-*/
+      channels_geteventid(osd->model_channellist.channel[osd->model_channellist_current.selectedIndex].id, &event, &server);
+      if (osd->event != event) { 
+        osd_channellist_event_init(osd, osd->model_channellist.channel[osd->model_channellist_current.selectedIndex].id);
+        osd_view(osd, OSD_CHANNELLIST);
+      }
       break;          
   }
   

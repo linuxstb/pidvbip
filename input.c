@@ -171,8 +171,8 @@ static void input_thread(struct msgqueue_t* msgqueue)
       }
     }
     if (c != -1) {
+      // remove key repeat within 200 ms (todo: fix a better solution)
       now = current_timestamp();
-      //printf("time %u %u %u\n", lastTime, now, now-lastTime);
       if ( c != last_c || (now - lastTime) > 200) {
         msgqueue_add(msgqueue,c);
         lastTime = now;

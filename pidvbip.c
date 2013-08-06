@@ -301,10 +301,6 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
         case HTMSG_NEW_CHANNEL:
           omxpipe.channel_switch_starttime = get_time();
 
-          codec_new_channel(&codecs->vcodec);
-          codec_new_channel(&codecs->acodec);
-          codecs->acodec.first_packet = 1;
-
 	  fprintf(stderr,"Channel change starttime=%f\n",omxpipe.channel_switch_starttime);
           if (htsp.subscriptionServer >= 0) { /* If we have a current subscription */
             res = htsp_create_message(&msg,HMF_STR,"method","unsubscribe",HMF_S64,"subscriptionId",htsp.subscriptionId,HMF_NULL);
@@ -383,6 +379,10 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
           codecs->vcodec.height = codecs->subscription.streams[codecs->subscription.videostream].height;
 
           codecs->acodec.acodectype = codecs->subscription.streams[codecs->subscription.audiostream].codec;
+
+          codec_new_channel(&codecs->vcodec);
+          codec_new_channel(&codecs->acodec);
+          codecs->acodec.first_packet = 1;
 
           /* Resume sending packets to codecs */
           codecs->vcodec.is_running = 1;

@@ -32,6 +32,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "debug.h"
 #include "utils.h"
 
+double vcodec_bitrate;
+
 static void* vcodec_omx_thread(struct codec_init_args_t* args)
 {
    struct codec_t* codec = args->codec;
@@ -146,6 +148,7 @@ next_packet:
          if ((min_bitrate == 0) || (bitrate < min_bitrate)) { min_bitrate = bitrate; }
          if ((max_bitrate == 0) || (bitrate > max_bitrate)) { max_bitrate = bitrate; }
          fprintf(stderr,"GOP: %d bytes (%dms) - %.3fMbps  (avg: %.3fMbps, min: %.3fMbps, max: %.3fMbps                    \r",gopbytes,(int)(current->data->DTS-gopfirstdts),bitrate/1000000,total_bitrate/1000000,min_bitrate/1000000,max_bitrate/1000000);
+         vcodec_bitrate = bitrate;         
        }
        gopbytes = current->data->packetlength;
        gopfirstdts = current->data->DTS;

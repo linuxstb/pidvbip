@@ -9,6 +9,12 @@
 #define CHANNELLIST_NUM_CHANNELS 12
 
 typedef struct {
+  int id;
+  char info[30];
+  char bitrate[30];
+} model_menu_t;
+
+typedef struct {
   int selectedIndex;  
   struct event_t* nowEvent;
   struct event_t* nextEvent;

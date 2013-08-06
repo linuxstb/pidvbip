@@ -34,6 +34,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #define OSD_INFO 1
 #define OSD_NEWCHANNEL 2
 #define OSD_CHANNELLIST 3
+#define OSD_MENU 4
 
 struct osd_t {
   GRAPHICS_RESOURCE_HANDLE img_blank;
@@ -55,6 +56,7 @@ struct osd_t {
   model_channellist_t model_channellist_current;
   model_channellist_t model_channellist;
   model_now_next_t model_now_next;  
+  model_menu_t model_menu;
 };
 
 void osd_init(struct osd_t* osd);

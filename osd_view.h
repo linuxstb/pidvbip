@@ -17,7 +17,6 @@
 #define PADDING_X 15
 #define PADDING_Y 20
 
-/* constans for channellist */
 #define CHANNELLIST_TEXTSIZE 40
 #define COLOR_TEXT GRAPHICS_RGBA32(0xff,0xff,0xff,0xff)
 #define COLOR_SELECTED_TEXT GRAPHICS_RGBA32(0x00,0xff,0xff,0xff)

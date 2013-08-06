@@ -703,6 +703,7 @@ int main(int argc, char* argv[])
               /* Hide info if currently shown */
               osd_clear(&osd);
             } else {
+              osd_clear(&osd);
               osd_show_info(&osd,user_channel_id, 60000); /* 60 second timeout */
             }
             break;

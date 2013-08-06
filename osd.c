@@ -3,6 +3,7 @@
 pidvbip - tvheadend client for the Raspberry Pi
 
 (C) Dave Chapman 2012-2013
+(C) Daniel Nordqvist 2013
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -48,6 +49,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #define OSD_YMARGIN 18
 
 static uint8_t fontWidth[256];  
+extern double vcodec_bitrate;
 
 void utf8decode(char* str, char* r)
 {
@@ -211,7 +213,8 @@ void osd_init(struct osd_t* osd)
 
   osd->video_blanked = 0;
   osd->osd_cleartime = 0.0;
-
+  osd->last_now = time(NULL);
+  
   pthread_mutex_init(&osd->osd_mutex,NULL);
    
   // cache font widths since graphics_resource_text_dimensions_ext is kind of slow
@@ -440,8 +443,6 @@ static void osd_show_time(struct osd_t* osd)
 
   snprintf(str,sizeof(str),"%02d:%02d.%02d",now_tm.tm_hour,now_tm.tm_min,now_tm.tm_sec);
 
-  osd->last_now = now;
-
   graphics_resource_render_text_ext(osd->img, 1700, OSD_YMARGIN+25,
                                      width,
                                      height,
@@ -471,6 +472,7 @@ void osd_show_info(struct osd_t* osd, int channel_id, int timeout)
   utf8decode(str,iso_text);
 
   pthread_mutex_lock(&osd->osd_mutex);
+  
   osd_show_channelname(osd,iso_text);
 
   osd_show_time(osd);
@@ -560,6 +562,9 @@ void osd_clear(struct osd_t* osd)
   osd->osd_cleartime = 0;
 }
 
+/*
+ * UTF8 decode and render text
+ */
 void osd_text(struct osd_t* osd, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t fg_color, uint32_t bg_color, char *str)
 {
   char* iso_text = NULL;
@@ -575,6 +580,9 @@ void osd_text(struct osd_t* osd, uint32_t x, uint32_t y, uint32_t w, uint32_t h,
   free(iso_text);
 }     
 
+/*
+ * Return width of str (font size 40). 
+ */
 uint32_t osd_fontWidth(struct osd_t* osd, char *str, uint32_t len)
 {
   int i;
@@ -587,6 +595,9 @@ uint32_t osd_fontWidth(struct osd_t* osd, char *str, uint32_t len)
   return l;
 }
 
+/*
+ * Render paragraph. TODO: fix line break in long text without spaces.
+ */
 int32_t osd_paragraph(struct osd_t* osd, char *text, uint32_t text_size, uint32_t x, uint32_t y, uint32_t w, uint32_t h)
 {
   uint32_t width;
@@ -609,14 +620,13 @@ int32_t osd_paragraph(struct osd_t* osd, char *text, uint32_t text_size, uint32_
     width = osd_fontWidth(osd, str, strlen(str));
     
     if (width <= w) {
-      /* We can display the whole line */
+      /* We can display the whole line */      
       graphics_resource_render_text_ext(osd->img, x, text_y,
                                    GRAPHICS_RESOURCE_WIDTH,
                                    GRAPHICS_RESOURCE_HEIGHT,
                                    GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
                                    GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
-                                   str, strlen(str), 40);
-                                   
+                                   str, strlen(str), 40);                                 
       done = 1;                             
     } else {
       tmp = malloc(strlen(str) + 1);
@@ -626,12 +636,13 @@ int32_t osd_paragraph(struct osd_t* osd, char *text, uint32_t text_size, uint32_
         tmp[space-tmp] = '\0';
         width = osd_fontWidth(osd, tmp, space - tmp);
       }
+      
       graphics_resource_render_text_ext(osd->img, x, text_y,
                                        GRAPHICS_RESOURCE_WIDTH,
                                        GRAPHICS_RESOURCE_HEIGHT,
                                        GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
                                        GRAPHICS_RGBA32(0,0,0,0x80), /* bg */
-                                       tmp, strlen(tmp), 40);
+                                       tmp, strlen(tmp), 40);                                       
       text_y += 50;  
       if (text_y > (y + h)) {
         done = 1;
@@ -641,7 +652,7 @@ int32_t osd_paragraph(struct osd_t* osd, char *text, uint32_t text_size, uint32_
     }
   } while(!done);
   
-  free(iso_text);
+  free(iso_text);  
   return 0;
 }
 
@@ -703,18 +714,27 @@ void osd_channellist_init(struct osd_t* osd, int startChannel, int selectedChann
   }
 }
 
+/*
+ * Periodic updates of OSD
+ */
 void osd_update(struct osd_t* osd, int channel_id)
 {
   int osd_update = 0;
+  uint32_t event;
+  int server;
+  time_t now;
   
   if ((osd->osd_cleartime) && (get_time() > osd->osd_cleartime)) {
     osd_clear(osd);
     return;
   }
-
-  uint32_t event;
-  int server;
-  time_t now;
+  
+  now = time(NULL);
+  if (now < osd->last_now + 1) {    
+    // Update every second
+    return;
+  }  
+  osd->last_now = now;
   
   switch (osd->osd_state) {
     case OSD_INFO:
@@ -735,7 +755,11 @@ void osd_update(struct osd_t* osd, int channel_id)
         osd_channellist_event_init(osd, osd->model_channellist.channel[osd->model_channellist_current.selectedIndex].id);
         osd_view(osd, OSD_CHANNELLIST);
       }
-      break;          
+      break;  
+    case OSD_MENU:
+      snprintf(osd->model_menu.bitrate, sizeof(osd->model_menu.bitrate), "Bitrate = %.3fMbps", vcodec_bitrate / 1000000);
+      osd_view(osd, OSD_MENU);
+      break;
   }
   
   if (osd_update) {
@@ -743,13 +767,119 @@ void osd_update(struct osd_t* osd, int channel_id)
   }  
 }
 
-int osd_process_key(struct osd_t* osd, int c, int channel_id) {
-  int i;
+/*
+ * Process key for channellist view
+ */
+static int osd_process_channellist_key(struct osd_t* osd, int c, int startChannel)
+{
   int num_ch_dsp = CHANNELLIST_NUM_CHANNELS;
+  int selectedChannel;
+  int i;
+  
+  switch (c) {
+    case 'd':
+      if (osd->model_channellist.active == 1) {
+        // channellist window
+        if (osd->model_channellist_current.selectedIndex == osd->model_channellist.numUsed - 1) {
+          // On bottom
+          startChannel = channels_getnext(osd->model_channellist_current.channel[CHANNELLIST_NUM_CHANNELS - 1].id);
+          osd_channellist_init(osd, startChannel, startChannel);
+        }
+        else {
+          osd->model_channellist.selectedIndex++;
+          osd_channellist_event_init(osd, osd->model_channellist.channel[osd->model_channellist.selectedIndex].id);
+        }     
+      }  
+      else {
+        // now and next window
+        osd->model_now_next.selectedIndex = 1;
+      }
+      osd_view(osd, OSD_CHANNELLIST);
+      // make the new model the current
+      copyModelChannelList(&osd->model_channellist_current, &osd->model_channellist);
+      break;
+    case 'u':
+      if (osd->model_channellist.active == 1) {
+        if (osd->model_channellist_current.selectedIndex == 0) {
+          // On top
+          num_ch_dsp = CHANNELLIST_NUM_CHANNELS; 
+          if (osd->model_channellist_current.channel[osd->model_channellist_current.selectedIndex].id == channels_getfirst() ) {
+            num_ch_dsp = channels_getcount() % CHANNELLIST_NUM_CHANNELS;
+          }  
+          selectedChannel = channels_getprev(osd->model_channellist_current.channel[0].id);
+          startChannel = osd->model_channellist_current.channel[0].id;
+          for (i = 0; i < num_ch_dsp; i++) {
+            startChannel = channels_getprev(startChannel);
+          }  
+          osd_channellist_init(osd, startChannel, selectedChannel);
+        }
+        else {
+          // now and next window
+          osd->model_channellist.selectedIndex--;
+          osd_channellist_event_init(osd, osd->model_channellist.channel[osd->model_channellist.selectedIndex].id);
+        }      
+      }
+      else {
+        osd->model_now_next.selectedIndex = 0;
+      }
+      osd_view(osd, OSD_CHANNELLIST);
+      // make the new model the current
+      copyModelChannelList(&osd->model_channellist_current, &osd->model_channellist);
+      break;  
+    case 'n':
+      // Next page
+      if (osd->model_channellist.active == 1) {
+        startChannel = channels_getnext(osd->model_channellist_current.channel[11].id);
+        osd_channellist_init(osd, startChannel, startChannel);   
+        osd_view(osd, OSD_CHANNELLIST);
+        // make the new model the current
+        copyModelChannelList(&osd->model_channellist_current, &osd->model_channellist);
+      }  
+      break;
+    case 'p':
+      // Prev page
+      if (osd->model_channellist.active == 1) {
+        if (osd->model_channellist_current.channel[0].id == channels_getfirst() ) {
+          num_ch_dsp = channels_getcount() % CHANNELLIST_NUM_CHANNELS;
+        }
+        startChannel = osd->model_channellist_current.channel[0].id;        
+        for (i = 0; i < num_ch_dsp; i++) {
+          startChannel = channels_getprev(startChannel); 
+        }
+        osd_channellist_init(osd, startChannel, startChannel);
+        osd_view(osd, OSD_CHANNELLIST);
+        // make the new model the current
+        copyModelChannelList(&osd->model_channellist_current, &osd->model_channellist);
+      }  
+      break;
+    case 'l':
+      if (osd->model_channellist.active == 0) {
+        // change to channellist window
+        osd->model_channellist.active = 1;
+        osd_view(osd, OSD_CHANNELLIST);
+      }      
+      break;
+    case 'r':
+      if (osd->model_channellist.active == 1) {
+        // change to now and next window
+        osd->model_channellist.active = 0;
+        osd_view(osd, OSD_CHANNELLIST);
+      }
+      break;
+    default:
+      return c;
+  }
+  return -1;
+}
+
+int osd_process_key(struct osd_t* osd, int c, int channel_id) 
+{
+  int i;
   int startChannel;
   int selectedChannel;
   int channel_tmp;
 
+  // display channellist or change to current selected channel
   if (c == 'c') { 
     // select a channel
     if (osd->osd_state == OSD_CHANNELLIST) {
@@ -781,100 +911,22 @@ int osd_process_key(struct osd_t* osd, int c, int channel_id) {
     return -1;
   }
   
-  if (osd->osd_state == OSD_CHANNELLIST) {
-    switch (c) {
-      case 'd':
-        if (osd->model_channellist.active == 1) {
-          // channellist window
-          if (osd->model_channellist_current.selectedIndex == osd->model_channellist.numUsed - 1) {
-            // On bottom
-            startChannel = channels_getnext(osd->model_channellist_current.channel[CHANNELLIST_NUM_CHANNELS - 1].id);
-            osd_channellist_init(osd, startChannel, startChannel);
-          }
-          else {
-            osd->model_channellist.selectedIndex++;
-            osd_channellist_event_init(osd, osd->model_channellist.channel[osd->model_channellist.selectedIndex].id);
-          }     
-        }  
-        else {
-          // now and next window
-          osd->model_now_next.selectedIndex = 1;
-        }
-        osd_view(osd, OSD_CHANNELLIST);
-        // make the new model the current
-        copyModelChannelList(&osd->model_channellist_current, &osd->model_channellist);
-        break;
-      case 'u':
-        if (osd->model_channellist.active == 1) {
-          if (osd->model_channellist_current.selectedIndex == 0) {
-            // On top
-            num_ch_dsp = CHANNELLIST_NUM_CHANNELS; 
-            if (osd->model_channellist_current.channel[osd->model_channellist_current.selectedIndex].id == channels_getfirst() ) {
-              num_ch_dsp = channels_getcount() % CHANNELLIST_NUM_CHANNELS;
-            }  
-            selectedChannel = channels_getprev(osd->model_channellist_current.channel[0].id);
-            startChannel = osd->model_channellist_current.channel[0].id;
-            for (i = 0; i < num_ch_dsp; i++) {
-              startChannel = channels_getprev(startChannel);
-            }  
-            osd_channellist_init(osd, startChannel, selectedChannel);
-          }
-          else {
-            // now and next window
-            osd->model_channellist.selectedIndex--;
-            osd_channellist_event_init(osd, osd->model_channellist.channel[osd->model_channellist.selectedIndex].id);
-          }      
-        }
-        else {
-          osd->model_now_next.selectedIndex = 0;
-        }
-        osd_view(osd, OSD_CHANNELLIST);
-        // make the new model the current
-        copyModelChannelList(&osd->model_channellist_current, &osd->model_channellist);
-        break;  
-      case 'n':
-        // Next page
-        startChannel = channels_getnext(osd->model_channellist_current.channel[11].id);
-        osd_channellist_init(osd, startChannel, startChannel);   
-        osd_view(osd, OSD_CHANNELLIST);
-        // make the new model the current
-        copyModelChannelList(&osd->model_channellist_current, &osd->model_channellist);
-        break;
-      case 'p':
-        // Prev page
-        if (osd->model_channellist_current.channel[0].id == channels_getfirst() ) {
-          num_ch_dsp = channels_getcount() % CHANNELLIST_NUM_CHANNELS;
-        }
-        startChannel = osd->model_channellist_current.channel[0].id;        
-        for (i = 0; i < num_ch_dsp; i++) {
-          startChannel = channels_getprev(startChannel); 
-        }
-        osd_channellist_init(osd, startChannel, startChannel);
-        osd_view(osd, OSD_CHANNELLIST);
-        // make the new model the current
-        copyModelChannelList(&osd->model_channellist_current, &osd->model_channellist);
-        break;
-      case 'i':
-        return 'c';
-        break;
-      case 'l':
-        if (osd->model_channellist.active == 0) {
-          // change to channellist window
-          osd->model_channellist.active = 1;
-          osd_view(osd, OSD_CHANNELLIST);
-        }      
-        break;
-      case 'r':
-        if (osd->model_channellist.active == 1) {
-          // change to now and next window
-          osd->model_channellist.active = 0;
-          osd_view(osd, OSD_CHANNELLIST);
-        }
-        break;
-      default:
-        return c;
+  // enter menu (TODO)
+  if (c == 'm') {
+    if (osd->osd_state != OSD_NONE) {
+      osd_clear(osd); 
     }
+
+    osd->model_menu.id = 1;
+    snprintf(osd->model_menu.bitrate, sizeof(osd->model_menu.bitrate), "Bitrate = %.3fMbps", vcodec_bitrate / 1000000);
+    snprintf(osd->model_menu.info, sizeof(osd->model_menu.info), "PiDvbIp");    
+    osd_view(osd, OSD_MENU);
     return -1;
+  }
+  
+  // if channellist view is displayed, process key
+  if (osd->osd_state == OSD_CHANNELLIST) {
+    c = osd_process_channellist_key(osd, c, startChannel); 
   }
   
   return c;

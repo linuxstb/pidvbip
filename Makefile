@@ -35,7 +35,6 @@ endif
 SRCS = \
 	sha1.c \
 	acodec_omx.c \
-	avl.c \
 	cec.c \
 	channels.c \
 	codec.c \

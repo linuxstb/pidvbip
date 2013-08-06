@@ -3,55 +3,27 @@
 #include <stdlib.h>
 #include <time.h>
 #include <pthread.h>
-#include "avl.h"
 #include "htsp.h"
 #include "events.h"
 #include "channels.h"
 
 //#define DEBUG_EVENTS
 
-//#define USE_AVL
-
-#ifdef USE_AVL
-static struct avl_tree events;
-static struct event_t* searched_event;
-#else
 #define MAX_EVENT_ID 12000000
 static struct event_t* events[MAX_EVENT_ID+1];
-#endif
 
 static pthread_mutex_t events_mutex;
 
-
-#ifdef USE_AVL
-static int iter(struct avl* a)
-{
-  searched_event = (struct event_t*)a;
-  //fprintf(stderr,"searched_event->eventId=%d\n",searched_event->eventId);
-
-  return 0;
-}
-#endif
 
 static struct event_t* event_get_nolock(uint32_t eventId, int server)
 {
   eventId = eventId * MAX_HTSP_SERVERS + server;
 
-#ifdef USE_AVL
-  struct event_t event;
-  event.eventId = eventId;
-
-  //fprintf(stderr,"Searching for %d\n",eventId);
-  searched_event = NULL;
-  avl_range(&events,(struct avl*)&event,(struct avl*)&event,iter);
-  return searched_event;
-#else
   if (eventId <= MAX_EVENT_ID) {
     return events[eventId];
   } else {
     return NULL;
   }
-#endif
 }
 
 struct event_t* event_get(uint32_t eventId, int server)
@@ -62,16 +34,6 @@ struct event_t* event_get(uint32_t eventId, int server)
 
   return event;
 }
-
-#ifdef USE_AVL
-static int cmp_event(void* a, void* b)
-{
-  int aa, bb;
-  aa = ((struct event_t*)a)->eventId;
-  bb = ((struct event_t*)b)->eventId;
-  return aa - bb;
-}
-#endif
 
 static void event_free_items(struct event_t* event)
 {
@@ -152,12 +114,8 @@ void process_event_message(char* method, struct htsp_message_t* msg)
   eventId = eventId * MAX_HTSP_SERVERS + msg->server;
 
   if (do_insert) {
-#ifdef USE_AVL
-    avl_insert(&events,(struct avl*)event);
-#else
     if (eventId < MAX_EVENT_ID)
       events[eventId] = event;
-#endif
 
 #ifdef DEBUG_EVENTS
     struct event_t* event2 = event_get_nolock(eventId);
@@ -174,25 +132,12 @@ void event_delete(uint32_t eventId, int server)
   eventId = eventId * MAX_HTSP_SERVERS + server;
 
   pthread_mutex_lock(&events_mutex);
-#ifdef USE_AVL
-  struct event_t* event = event_get_nolock(eventId);
-
-  //fprintf(stderr,"DELETING EVENT:\n");
-  //event_dump(event);
-
-  if (event) {
-    avl_remove(&events,(struct avl*)event);
-    event_free_items(event);
-    free(event);
-  }
-#else
   if (eventId < MAX_EVENT_ID) {
     if (events[eventId]) {
       event_free(events[eventId]);
       events[eventId] = NULL;
     }
   }
-#endif
   pthread_mutex_unlock(&events_mutex);
 }
 
@@ -259,33 +204,6 @@ void event_dump(struct event_t* event)
   pthread_mutex_unlock(&events_mutex);
 }
 
-#ifdef USE_AVL
-static int find_hd_version(struct avl* a,struct event_t* sd_event){
-  int res = -1;
-  struct event_t* events = (struct event_t*)a;
-
-  if (a==NULL) return -1;
-
-  if ((events->episodeId == sd_event->episodeId) && 
-      (events->start == sd_event->start) && 
-      (channels_gettype(events->channelId)==CTYPE_HDTV)) {
-    return events->channelId;
-  }
-
-  if (a->right) {
-    res = find_hd_version(a->right,sd_event);
-  }
-
-  if (res == -1) {
-    if (a->left) {
-      res = find_hd_version(a->left,sd_event);
-    }
-  }
-
-  return res;
-}
-#endif
-
 int event_find_hd_version(int eventId, int server)
 {
   eventId = eventId * MAX_HTSP_SERVERS + server;
@@ -295,9 +213,6 @@ int event_find_hd_version(int eventId, int server)
   struct event_t* current_event = event_get_nolock(eventId,server);
 
   fprintf(stderr,"Searching for episode %d\n",current_event->episodeId);
-#if USE_AVL
-  int res = find_hd_version(events.root,current_event);
-#else
   int i;
   int res = -1;
   for (i=0;i<=MAX_EVENT_ID && res==-1;i++) {
@@ -309,7 +224,6 @@ int event_find_hd_version(int eventId, int server)
       }
     }
   }
-#endif
   fprintf(stderr,"HERE - res=%d\n",res);
   
   pthread_mutex_unlock(&events_mutex);
@@ -319,11 +233,6 @@ int event_find_hd_version(int eventId, int server)
 
 void events_init(void)
 {
-#ifdef USE_AVL
-  events.root = NULL;
-  events.compar = cmp_event;
-#else
   memset(events,0,sizeof(events));
-#endif
   pthread_mutex_init(&events_mutex,NULL);
 }

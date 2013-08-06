@@ -3,10 +3,8 @@
 
 #include <stdint.h>
 #include "htsp.h"
-#include "avl.h"
 
 struct event_t {
-  struct avl avl;
   uint32_t eventId;
   uint32_t channelId;
   int64_t start;

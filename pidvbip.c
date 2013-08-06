@@ -50,6 +50,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "avplay.h"
 #include "omx_utils.h"
 #include "input.h"
+#include "omx_utils.h"
+#include "utils.h"
 
 struct omx_pipeline_t omxpipe;
 extern struct configfile_parameters global_settings;
@@ -58,8 +60,6 @@ extern struct configfile_parameters global_settings;
 struct htsp_t htsp;
 
 static struct termios orig;
-
-int * channellist_offset=0;
 
 /* Messages to the HTSP receiver thread - low 16 bits are a parameter */
 #define HTMSG_CHANGE_AUDIO_STREAM 0x10000
@@ -209,6 +209,8 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
   int ok = 1;
   int current_subscriptionId = -1;
   int i;
+  int first_muxpkt = 1;
+  int first_video_muxpkt = 1;
 #ifdef DUMP_VIDEO
   int fd;
   static int track = 0;
@@ -295,6 +297,13 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
 
         case HTMSG_STOP:
         case HTMSG_NEW_CHANNEL:
+          omxpipe.channel_switch_starttime = get_time();
+
+          codec_new_channel(&codecs->vcodec);
+          codec_new_channel(&codecs->acodec);
+          codecs->acodec.first_packet = 1;
+
+	  fprintf(stderr,"Channel change starttime=%f\n",omxpipe.channel_switch_starttime);
           if (htsp.subscriptionServer >= 0) { /* If we have a current subscription */
             res = htsp_create_message(&msg,HMF_STR,"method","unsubscribe",HMF_S64,"subscriptionId",htsp.subscriptionId,HMF_NULL);
             res = htsp_send_message(&htsp,htsp.subscriptionServer,&msg);
@@ -355,6 +364,9 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
 
       if (method != NULL) {
         if (strcmp(method,"subscriptionStart")==0) {
+          first_muxpkt = 1;
+          first_video_muxpkt = 1;
+          fprintf(stderr,"Received subscriptionStart message: %.3fs\n",(get_time()-omxpipe.channel_switch_starttime)/1000.0);
           if (htsp_parse_subscriptionStart(&msg,&codecs->subscription) > 0) {
             fprintf(stderr,"FATAL ERROR: Cannot parse subscriptionStart\n");
             exit(1);
@@ -369,10 +381,6 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
           codecs->vcodec.height = codecs->subscription.streams[codecs->subscription.videostream].height;
 
           codecs->acodec.acodectype = codecs->subscription.streams[codecs->subscription.audiostream].codec;
-
-          codec_new_channel(&codecs->vcodec);
-          codec_new_channel(&codecs->acodec);
-          codecs->acodec.first_packet = 1;
 
           /* Resume sending packets to codecs */
           codecs->vcodec.is_running = 1;
@@ -395,8 +403,16 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
 
           if (subscriptionId == current_subscriptionId) {
 	    //fprintf(stderr,"muxpkt: stream=%d, audio_stream=%d, video_stream=%d\n",stream,codecs->subscription.streams[codecs->subscription.audiostream].index,codecs->subscription.streams[codecs->subscription.videostream].index);
+            if (first_muxpkt) {
+              first_muxpkt = 0;
+              fprintf(stderr,"Received first muxpkt: %.3fs\n",(get_time()-omxpipe.channel_switch_starttime)/1000.0);
+            }
 
             if (stream==codecs->subscription.streams[codecs->subscription.videostream].index) {
+              if (first_video_muxpkt) {
+                first_video_muxpkt = 0;
+                fprintf(stderr,"Received first video_muxpkt: %.3fs\n",(get_time()-omxpipe.channel_switch_starttime)/1000.0);
+              }
               packet = malloc(sizeof(*packet));
               packet->buf = msg.msg;
               htsp_get_int(&msg,"frametype",&packet->frametype);
@@ -414,7 +430,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
                   write(fd,packet->packet,packet->packetlength);
 #endif
 		  //fprintf(stderr,"Adding video packet\n");
-                  codec_queue_add_item(&codecs->vcodec,packet);
+                  codec_queue_add_item(&codecs->vcodec,packet,MSG_PACKET);
 
                   free_msg = 0;   // Don't free this message
                 }
@@ -432,7 +448,7 @@ void* htsp_receiver_thread(struct codecs_t* codecs)
                 htsp_get_bin(&msg,"payload",&packet->packet,&packet->packetlength);
  
                 //fprintf(stderr,"Adding audio packet\n");
-                codec_queue_add_item(&codecs->acodec,packet);
+                codec_queue_add_item(&codecs->acodec,packet,MSG_PACKET);
 		//fprintf(stderr,"Queuing acodec packet - PTS=%lld, size=%d\n",packet->PTS, packet->packetlength);
                 free_msg = 0;   // Don't free this message
               }
@@ -577,6 +593,11 @@ int main(int argc, char* argv[])
 
     osd_init(&osd);
 
+    if (global_settings.camtest) {
+      struct omx_pipeline_t camerapipe;    
+      omx_setup_camera_pipeline(&camerapipe);
+    }
+
     //osd_alert(&osd, "Connecting to server...");
 
     htsp_init(&htsp);
@@ -637,16 +658,15 @@ int main(int argc, char* argv[])
     int new_channel;
     double new_channel_timeout;
     int current_channel_id;
-    
+    int new_actual_channel_id;
+
     new_channel = -1;
     new_channel_timeout = 0;
     current_channel_id = channels_getid(1);
     while (1) {
       int c;
-
       c = msgqueue_get(&msgqueue, 100);
-      c = osd_process_key(&osd, c);
-
+      c = osd_process_key(&osd, c, user_channel_id);
 
       if (c != -1) {
         DEBUGF("char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
@@ -683,39 +703,24 @@ int main(int argc, char* argv[])
               /* Hide info if currently shown */
               osd_clear(&osd);
             } else {
+              osd_clear(&osd);
               osd_show_info(&osd,user_channel_id, 60000); /* 60 second timeout */
             }
             break;
-
-          case 'c':            
-            if (osd.osd_state == OSD_CHANNELLIST) {
-              osd_clear(&osd);    
-              user_channel_id = osd.channellist_selected_channel;  
-              int new_actual_channel_id = get_actual_channel(auto_hdtv, user_channel_id);
-              if (new_actual_channel_id != actual_channel_id) {
-                actual_channel_id = new_actual_channel_id;
-                msgqueue_add(&htsp.msgqueue, HTMSG_NEW_CHANNEL | actual_channel_id);
-                osd_show_info(&osd, user_channel_id, 7000); /* 7 second timeout */
-              }
-            } else {
-              if (osd.osd_state != OSD_NONE) {
-                osd_clear(&osd); 
-              }
-          
-              osd.channellist_selected_channel = user_channel_id;
-              osd.channellist_start_channel = user_channel_id;
-              osd.channellist_selected_pos = 1;
-              osd_channellist_display(&osd);
-            }                    
-            /* channels_dump();
-             * channellist_offset=0;
-             * osd_show_channellist(&osd); 
-             */
+          case 'c':
+            user_channel_id = osd.channel_id;
+            printf("user_channel_id: %d\n", user_channel_id);
+            new_actual_channel_id = get_actual_channel(auto_hdtv, user_channel_id);
+            if (new_actual_channel_id != actual_channel_id) {
+              actual_channel_id = new_actual_channel_id;
+              msgqueue_add(&htsp.msgqueue, HTMSG_NEW_CHANNEL | actual_channel_id);
+              osd_show_info(&osd, user_channel_id, 7000); /* 7 second timeout */
+            }  
             break;
          
           case 'h':
             auto_hdtv = 1 - auto_hdtv;
-            int new_actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
+            new_actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
             if (new_actual_channel_id != actual_channel_id) {
               actual_channel_id = new_actual_channel_id;
               msgqueue_add(&htsp.msgqueue, HTMSG_NEW_CHANNEL | actual_channel_id);
@@ -833,7 +838,11 @@ int main(int argc, char* argv[])
             zoom = 1 - zoom;
             codec_send_message(&codecs.vcodec,MSG_ZOOM,(void*)zoom);
             break;
-
+            
+          case 'e':
+            osd_clear(&osd);
+            break;
+            
           default:
             break;            
         }

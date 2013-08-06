@@ -119,6 +119,15 @@ restart:
   pthread_mutex_lock(&avplay->codecs->playback_mutex);
   fprintf(stderr,"avplay: gotplayback mutex\n");
 
+  /* Resume sending packets to codecs */
+  codec_new_channel(&avplay->codecs->vcodec);
+  codec_new_channel(&avplay->codecs->acodec);
+  avplay->codecs->acodec.first_packet = 1;
+  avplay->codecs->vcodec.first_packet = 1;
+
+  avplay->codecs->vcodec.is_running = 1;
+  avplay->codecs->acodec.is_running = 1;
+
   avplay->url = strdup(avplay->next_url);
   avplay->next_url = NULL;
 
@@ -163,6 +172,22 @@ restart:
     fprintf(stderr,"Unsupported audio codec\n");
     exit(1);
   }
+
+  if (fmt_ctx->streams[audio_stream_idx]->codec->codec_id == CODEC_ID_AAC) {
+    AVCodecContext* c =  fmt_ctx->streams[audio_stream_idx]->codec;
+    if (c->extradata_size != 2) {
+      fprintf(stderr,"Unexpected AAC extradata size %d, aborting\n",c->extradata_size);
+      exit(1);
+    }
+
+    packet = malloc(sizeof(*packet));
+    packet->packet = malloc(2);
+    packet->packetlength = 2;
+    memcpy(packet->packet, c->extradata, 2);
+
+    codec_queue_add_item(&avplay->codecs->acodec,packet,MSG_CODECDATA);
+  }
+
 
   AVCodecContext* c =  fmt_ctx->streams[video_stream_idx]->codec;
 
@@ -290,11 +315,11 @@ restart:
         //fprintf(stderr,"Adding video packet - PTS=%lld, size=%d\n",packet->PTS, packet->packetlength);
         first_video = 0;
         while (avplay->codecs->vcodec.queue_count > 100) { usleep(100000); }  // FIXME
-        codec_queue_add_item(&avplay->codecs->vcodec,packet);
+        codec_queue_add_item(&avplay->codecs->vcodec,packet,MSG_PACKET);
       } else {
 	  //fprintf(stderr,"Adding audio packet - PTS=%lld, size=%d\n",packet->PTS, packet->packetlength);
         while (avplay->codecs->acodec.queue_count > 1000) { usleep(100000); }  // FIXME
-        codec_queue_add_item(&avplay->codecs->acodec,packet);
+        codec_queue_add_item(&avplay->codecs->acodec,packet,MSG_PACKET);
       }
     }
   

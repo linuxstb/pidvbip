@@ -94,6 +94,7 @@ cmdline_opt_t cmdline_opts[] = {
 #if ENABLE_LIBAVFORMAT
   {   0, NULL,                "Experimental features",                   OPT_NULL, NULL, 0, NULL         },
   {   0, "avplay",            "Filename of video file to play",          OPT_STR,  &global_settings.avplay, -1, NULL },
+  {   0, "camtest",           "Display RPi camera output in a window",   OPT_BOOL, &global_settings.camtest, 0, NULL },
 #endif
 
 };

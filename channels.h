@@ -23,6 +23,7 @@ int channels_gettype(int id);
 int channels_getnext(int id);
 int channels_getprev(int id);
 int channels_getfirst(void);
+int channels_getlast(void);
 int channels_getcount(void);
 
 #endif

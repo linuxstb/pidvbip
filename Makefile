@@ -46,10 +46,13 @@ SRCS = \
 	msgqueue.c \
 	pidvbip.c \
 	omx_utils.c \
+  osd_view.c \
 	osd.c \
 	tiresias_pcfont.c \
+	utils.c \
 	vcodec_omx.c \
-	vo_pi.c
+	vo_pi.c \
+  osd_model.c
 
 BIN 		= $(ROOTDIR)/pidvbip
 FLVTOH264	= $(ROOTDIR)/flvtoh264

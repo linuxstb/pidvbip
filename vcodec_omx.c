@@ -30,6 +30,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "vcodec_omx.h"
 #include "codec.h"
 #include "debug.h"
+#include "utils.h"
+
+double vcodec_bitrate;
 
 static void* vcodec_omx_thread(struct codec_init_args_t* args)
 {
@@ -44,6 +47,10 @@ static void* vcodec_omx_thread(struct codec_init_args_t* args)
    OMX_BUFFERHEADERTYPE *buf;
    int current_aspect;
    int aspect;
+   int gopbytes,totalbytes;
+   uint64_t gopfirstdts;
+   uint64_t firstdts = -1;
+   double avg_bitrate, min_bitrate, max_bitrate;
 
    free(args);
 
@@ -61,6 +68,11 @@ next_channel:
    current_aspect = 0;
    pipe->video_render.aspect = 0;
    aspect = 0;
+   firstdts = -1;
+   totalbytes = 0;
+   gopbytes = -1;
+   min_bitrate = 0;
+   max_bitrate = 0;
 
    while (1)
    {
@@ -126,6 +138,26 @@ next_packet:
        fprintf(stderr,"ERROR: data is NULL (expect segfault!)");
      }
 
+     if (current->data->frametype == 'I') {
+       if (firstdts == -1) { firstdts = current->data->DTS; }
+       if (gopbytes != -1) {
+         double duration = current->data->DTS-gopfirstdts;
+         double total_duration = current->data->DTS-firstdts;
+         double bitrate = (1000000.0/duration) * gopbytes * 8.0;
+         double total_bitrate = (1000000.0/total_duration) * totalbytes * 8.0;
+         if ((min_bitrate == 0) || (bitrate < min_bitrate)) { min_bitrate = bitrate; }
+         if ((max_bitrate == 0) || (bitrate > max_bitrate)) { max_bitrate = bitrate; }
+         fprintf(stderr,"GOP: %d bytes (%dms) - %.3fMbps  (avg: %.3fMbps, min: %.3fMbps, max: %.3fMbps                    \r",gopbytes,(int)(current->data->DTS-gopfirstdts),bitrate/1000000,total_bitrate/1000000,min_bitrate/1000000,max_bitrate/1000000);
+         vcodec_bitrate = bitrate;         
+       }
+       gopbytes = current->data->packetlength;
+       gopfirstdts = current->data->DTS;
+       totalbytes += current->data->packetlength;
+     } else {
+       if (gopbytes >= 0)
+         gopbytes += current->data->packetlength;
+       totalbytes += current->data->packetlength;
+     }
      if ((current->data->frametype == 'I') && (codec->vcodectype == OMX_VIDEO_CodingMPEG2)) {
        unsigned char* p = current->data->packet;
        /* Parse the MPEG stream to extract the aspect ratio.
@@ -210,7 +242,7 @@ next_packet:
 
        if (pipe->video_decode.port_settings_changed == 1)
        {
-         pipe->video_decode.port_settings_changed = 0;
+         pipe->video_decode.port_settings_changed = 2;
 	 fprintf(stderr,"video_decode port_settings_changed = 1\n");
 
          if (pipe->do_deinterlace) {
@@ -231,7 +263,7 @@ next_packet:
 
        if (pipe->image_fx.port_settings_changed == 1)
        {
-         pipe->image_fx.port_settings_changed = 0;
+         pipe->image_fx.port_settings_changed = 2;
          fprintf(stderr,"image_fx port_settings_changed = 1\n");
 
          OERR(OMX_SetupTunnel(pipe->image_fx.h, 191, pipe->video_scheduler.h, 10));
@@ -244,13 +276,15 @@ next_packet:
 
        if (pipe->video_scheduler.port_settings_changed == 1)
        {
-         pipe->video_scheduler.port_settings_changed = 0;
+         pipe->video_scheduler.port_settings_changed = 2;
 	 fprintf(stderr,"video_scheduler port_settings_changed = 1\n");
 
          OERR(OMX_SetupTunnel(pipe->video_scheduler.h, 11, pipe->video_render.h, 90));  
          omx_send_command_and_wait(&pipe->video_scheduler, OMX_CommandPortEnable, 11, NULL);
          omx_send_command_and_wait(&pipe->video_render, OMX_CommandPortEnable, 90, NULL);
          omx_send_command_and_wait(&pipe->video_render, OMX_CommandStateSet, OMX_StateExecuting, NULL);
+
+         fprintf(stderr,"TOTAL CHANNEL CHANGE TIME: %.3fs\n",(get_time()-pipe->channel_switch_starttime)/1000.0);
        }
 
        OERR(OMX_EmptyThisBuffer(pipe->video_decode.h, buf));
@@ -270,6 +304,7 @@ stop:
    omx_teardown_pipeline(pipe);
    //fprintf(stderr,"[vcodec] - End of omx thread, pipeline torn down.\n");
    pipe->omx_active = 0;
+   fprintf(stderr,"OMX teardown complete: %.3fs\n",(get_time()-pipe->channel_switch_starttime)/1000.0);
 
    goto next_channel;
 

@@ -48,16 +48,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #define OSD_XMARGIN 32
 #define OSD_YMARGIN 18
 
-<<<<<<< HEAD
-/* constans for channellist */
-#define CHANNELLIST_MIDDLE 0
-#define CHANNELLIST_TOP 1
-#define CHANNELLIST_BOTTOM 2
-#define CHANNELLIST_TEXTSIZE 40
-#define COLOR_TEXT GRAPHICS_RGBA32(0xff,0xff,0xff,0xff)
-#define COLOR_SELECTED_TEXT GRAPHICS_RGBA32(0x00,0xff,0xff,0xff)
-#define COLOR_BACKGROUND GRAPHICS_RGBA32(0,0,0,0x80)
-
 static uint8_t fontWidth[256];  
 extern double vcodec_bitrate;
 

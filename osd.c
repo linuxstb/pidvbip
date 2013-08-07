@@ -668,9 +668,11 @@ printf("Exit osd_paragraph\n");
 void osd_channellist_event_init(struct osd_t* osd, int channel)
 {
   int server;
- 
+  printf("Enter osd_channellist_event_init\n");
+  
   channels_geteventid(channel, &osd->event, &server);
   channels_getnexteventid(channel, &osd->nextEvent, &server);
+  
   setModelNowNext(&osd->model_now_next, osd->event, osd->nextEvent, server);
 }                                   
 
@@ -689,7 +691,7 @@ void osd_channellist_init(struct osd_t* osd, int startChannel, int selectedChann
 printf("Enter osd_channellist_init\n");    
   clearModelChannelList(&osd->model_channellist);
   clearModelChannelList(&osd->model_channellist_current);  
-
+  
 printf("Enter osd_channellist_init: 2\n");    
   
   num_channels = channels_getcount();

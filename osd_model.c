@@ -72,17 +72,25 @@ void compareModelChannelList(model_channellist_t *newModel, model_channellist_t 
 
 void setModelNowNext(model_now_next_t *model, uint32_t nowEvent, uint32_t nextEvent, int server)
 {  
+  printf("Enter setModelNowNext\n");
+  printf("setModelNowNext: %d %d\n", nowEvent, nextEvent);
+  
   if (model->nowEvent != NULL) {
+    printf("setModelNowNext: nowEvent\n");
     event_free(model->nowEvent);
   }
 
   if (model->nextEvent != NULL) {
+    printf("setModelNowNext: nowEvent\n");
     event_free(model->nextEvent);
   }
   
+  printf("setModelNowNext 2\n");
   model->nowEvent = event_copy(nowEvent, server);
+  printf("setModelNowNext 3\n");
   model->nextEvent = event_copy(nextEvent, server);
   model->selectedIndex = 0;
+  printf("Exit setModelNowNext\n");
 }
 
 

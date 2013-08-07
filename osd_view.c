@@ -50,10 +50,11 @@ static void osd_channellist_channels(struct osd_t* osd)
   uint32_t y = channellist_win_y + PADDING_Y;
   uint32_t color;
   uint32_t bg_color;
-  
+
+printf("Enter osd_channellist_channels\n");   
   for (i = 0; i < osd->model_channellist.numUsed; i++) {
     if ( compareIndexModelChannelList(&osd->model_channellist, &osd->model_channellist_current, i) == 1 ) {
-      printf("osd_channellist_channels: Update index %d - lcn %d\n", i, osd->model_channellist.channel[i].lcn);
+      //printf("osd_channellist_channels: Update index %d - lcn %d\n", i, osd->model_channellist.channel[i].lcn);
       if (osd->model_channellist.selectedIndex == i) {
         color = COLOR_SELECTED_TEXT;
         if (osd->model_channellist.active) {
@@ -72,6 +73,7 @@ static void osd_channellist_channels(struct osd_t* osd)
     }                                        
     y += row_space_y;     
   }
+printf("Exit osd_channellist_channels\n");  
 }
 
 /*
@@ -85,6 +87,7 @@ static void osd_channellist_now_next_title(struct osd_t* osd, struct event_t *ev
   struct tm stop_time;
   char str[128];
     
+printf("Enter osd_channellist_now_next_title\n");     
   if (event != NULL) {
     localtime_r((time_t*)&event->start, &start_time);
     localtime_r((time_t*)&event->stop, &stop_time);
@@ -99,6 +102,7 @@ static void osd_channellist_now_next_title(struct osd_t* osd, struct event_t *ev
     }
     osd_text(osd, nowandnext_win_x + PADDING_X, nowandnext_win_y + PADDING_Y + index * 50, nowandnext_win_w, 50, color, bg_color, str);  
   }
+printf("Exit osd_channellist_now_next_title\n");   
 }
 
 /*  
@@ -106,6 +110,7 @@ static void osd_channellist_now_next_title(struct osd_t* osd, struct event_t *ev
  */
 static void osd_channellist_view(struct osd_t* osd)
 {
+printf("Enter osd_channellist_view\n");
   if (osd->model_channellist_current.channel[0].id == -1) {
     // not currently displayed, draw everything
     
@@ -155,6 +160,7 @@ static void osd_channellist_view(struct osd_t* osd)
   }
 
   osd_channellist_channels(osd);
+printf("Exit osd_channellist_view\n");  
 }
 
 /*  

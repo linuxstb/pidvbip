@@ -716,8 +716,7 @@ int main(int argc, char* argv[])
               msgqueue_add(&htsp.msgqueue, HTMSG_NEW_CHANNEL | actual_channel_id);
               osd_show_info(&osd, user_channel_id, 7000); /* 7 second timeout */
             }  
-            break;
-         
+            break;         
           case 'h':
             auto_hdtv = 1 - auto_hdtv;
             new_actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);

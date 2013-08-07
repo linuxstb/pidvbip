@@ -194,6 +194,8 @@ void osd_init(struct osd_t* osd)
   osd->display_width = display_width;
   osd->display_height = display_height;
 
+  printf("osd_init: %d %d\n", display_width, display_height);
+  
   assert(s == 0);
   //fprintf(stderr,"Display width=%d, height=%d\n",display_width,display_height);
 
@@ -568,16 +570,18 @@ void osd_clear(struct osd_t* osd)
 void osd_text(struct osd_t* osd, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t fg_color, uint32_t bg_color, char *str)
 {
   char* iso_text = NULL;
-    
+        
   if (str == NULL) {
     printf("osd_text: str NULL\n");
     return;
   }
+printf("Enter osd_text: str=%s\n", str);   
   
   iso_text = malloc(strlen(str) + 1);
   utf8decode(str, iso_text);        
   graphics_resource_render_text_ext(osd->img, x, y, w, h, fg_color, bg_color, iso_text, strlen(iso_text), 40);
   free(iso_text);
+printf("Exit osd_text: str=%s\n", str);  
 }     
 
 /*
@@ -607,7 +611,8 @@ int32_t osd_paragraph(struct osd_t* osd, char *text, uint32_t text_size, uint32_
   char* space;
   int text_y = y;
   int done = 0;
-  
+
+printf("Enter osd_paragraph: text=%s\n", text);  
   if ((!text) || (strlen(text) == 0)) {
     return 0;
   }
@@ -653,6 +658,7 @@ int32_t osd_paragraph(struct osd_t* osd, char *text, uint32_t text_size, uint32_
   } while(!done);
   
   free(iso_text);  
+printf("Exit osd_paragraph\n");   
   return 0;
 }
 
@@ -679,7 +685,8 @@ void osd_channellist_init(struct osd_t* osd, int startChannel, int selectedChann
   int id;
   int i;
   int selected;
-  
+
+printf("Enter osd_channellist_init\n");    
   clearModelChannelList(&osd->model_channellist);
   clearModelChannelList(&osd->model_channellist_current);  
 
@@ -712,6 +719,7 @@ void osd_channellist_init(struct osd_t* osd, int startChannel, int selectedChann
     // Now and Next model
     osd_channellist_event_init(osd, selectedChannel);  
   }
+printf("Exit osd_channellist_init\n");  
 }
 
 /*

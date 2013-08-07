@@ -26,6 +26,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 void setModelChannelList(model_channellist_t *model, int index, int id, int lcn, char *name, int selected)
 {
+  printf("Enter setModelChannelList: %d %d %d %s %d\n", index, id, lcn, name, selected);
   if (selected) {
     model->selectedIndex = index;
   }

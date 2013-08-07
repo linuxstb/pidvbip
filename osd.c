@@ -690,9 +690,13 @@ printf("Enter osd_channellist_init\n");
   clearModelChannelList(&osd->model_channellist);
   clearModelChannelList(&osd->model_channellist_current);  
 
+printf("Enter osd_channellist_init: 2\n");    
+  
   num_channels = channels_getcount();
   first_channel = channels_getfirst();
   
+printf("Enter osd_channellist_init: num_channels %d\n", num_channels);
+      
   if (num_channels > 0) {
     // max CHANNELLIST_NUM_CHANNELS channels
     num_display = num_channels > CHANNELLIST_NUM_CHANNELS ? CHANNELLIST_NUM_CHANNELS : num_channels;
@@ -717,6 +721,7 @@ printf("Enter osd_channellist_init\n");
     osd->model_channellist.active = 1;
     
     // Now and Next model
+printf("Enter osd_channellist_init: osd_channellist_event_init\n");      
     osd_channellist_event_init(osd, selectedChannel);  
   }
 printf("Exit osd_channellist_init\n");  

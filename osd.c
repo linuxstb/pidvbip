@@ -226,6 +226,10 @@ void osd_init(struct osd_t* osd)
     fontWidth[n] = (uint8_t)width;
   }
     
+  // set events in now_next model to NULL
+  osd->model_now_next.nowEvent = NULL;
+  osd->model_now_next.nextEvent = NULL;
+  
   (void)s; // remove compiler warning
 }
 
@@ -572,16 +576,13 @@ void osd_text(struct osd_t* osd, uint32_t x, uint32_t y, uint32_t w, uint32_t h,
   char* iso_text = NULL;
         
   if (str == NULL) {
-    printf("osd_text: str NULL\n");
     return;
   }
-printf("Enter osd_text: str=%s\n", str);   
   
   iso_text = malloc(strlen(str) + 1);
   utf8decode(str, iso_text);        
   graphics_resource_render_text_ext(osd->img, x, y, w, h, fg_color, bg_color, iso_text, strlen(iso_text), 40);
   free(iso_text);
-printf("Exit osd_text: str=%s\n", str);  
 }     
 
 /*
@@ -612,7 +613,6 @@ int32_t osd_paragraph(struct osd_t* osd, char *text, uint32_t text_size, uint32_
   int text_y = y;
   int done = 0;
 
-printf("Enter osd_paragraph: text=%s\n", text);  
   if ((!text) || (strlen(text) == 0)) {
     return 0;
   }
@@ -658,7 +658,6 @@ printf("Enter osd_paragraph: text=%s\n", text);
   } while(!done);
   
   free(iso_text);  
-printf("Exit osd_paragraph\n");   
   return 0;
 }
 
@@ -668,7 +667,6 @@ printf("Exit osd_paragraph\n");
 void osd_channellist_event_init(struct osd_t* osd, int channel)
 {
   int server;
-  printf("Enter osd_channellist_event_init\n");
   
   channels_geteventid(channel, &osd->event, &server);
   channels_getnexteventid(channel, &osd->nextEvent, &server);
@@ -688,17 +686,12 @@ void osd_channellist_init(struct osd_t* osd, int startChannel, int selectedChann
   int i;
   int selected;
 
-printf("Enter osd_channellist_init\n");    
   clearModelChannelList(&osd->model_channellist);
   clearModelChannelList(&osd->model_channellist_current);  
-  
-printf("Enter osd_channellist_init: 2\n");    
   
   num_channels = channels_getcount();
   first_channel = channels_getfirst();
   
-printf("Enter osd_channellist_init: num_channels %d\n", num_channels);
-      
   if (num_channels > 0) {
     // max CHANNELLIST_NUM_CHANNELS channels
     num_display = num_channels > CHANNELLIST_NUM_CHANNELS ? CHANNELLIST_NUM_CHANNELS : num_channels;
@@ -723,10 +716,8 @@ printf("Enter osd_channellist_init: num_channels %d\n", num_channels);
     osd->model_channellist.active = 1;
     
     // Now and Next model
-printf("Enter osd_channellist_init: osd_channellist_event_init\n");      
     osd_channellist_event_init(osd, selectedChannel);  
   }
-printf("Exit osd_channellist_init\n");  
 }
 
 /*

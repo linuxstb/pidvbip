@@ -26,7 +26,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 void setModelChannelList(model_channellist_t *model, int index, int id, int lcn, char *name, int selected)
 {
-  printf("Enter setModelChannelList: %d %d %d %s %d\n", index, id, lcn, name, selected);
   if (selected) {
     model->selectedIndex = index;
   }
@@ -72,25 +71,23 @@ void compareModelChannelList(model_channellist_t *newModel, model_channellist_t 
 
 void setModelNowNext(model_now_next_t *model, uint32_t nowEvent, uint32_t nextEvent, int server)
 {  
-  printf("Enter setModelNowNext\n");
-  printf("setModelNowNext: %d %d\n", nowEvent, nextEvent);
-  
+  clearModelNowNext(model);
+  model->nowEvent = event_copy(nowEvent, server);
+  model->nextEvent = event_copy(nextEvent, server);
+  model->selectedIndex = 0;
+}
+
+void clearModelNowNext(model_now_next_t *model) {
   if (model->nowEvent != NULL) {
-    printf("setModelNowNext: nowEvent\n");
     event_free(model->nowEvent);
   }
 
   if (model->nextEvent != NULL) {
-    printf("setModelNowNext: nowEvent\n");
     event_free(model->nextEvent);
   }
   
-  printf("setModelNowNext 2\n");
-  model->nowEvent = event_copy(nowEvent, server);
-  printf("setModelNowNext 3\n");
-  model->nextEvent = event_copy(nextEvent, server);
-  model->selectedIndex = 0;
-  printf("Exit setModelNowNext\n");
+  model->nowEvent = NULL;
+  model->nextEvent = NULL;
 }
 
 

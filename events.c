@@ -213,6 +213,7 @@ void event_dump(struct event_t* event)
   fprintf(stderr,"Season:      %d\n",event->seasonNumber);
   fprintf(stderr,"Episode:     %d\n",event->episodeNumber);
   fprintf(stderr,"Description: %s\n",event->description);
+  fprintf(stderr,"Episode ID:  %d\n",event->episodeId);
   if (event->episodeUri) fprintf(stderr,"EpisodeUri:  %s\n",event->episodeUri);
   if (event->serieslinkUri) fprintf(stderr,"SerieslinkUri:  %s\n",event->serieslinkUri);
 
@@ -231,19 +232,19 @@ int event_find_hd_version(int eventId, int server)
   for (i=0;i<=EVENT_HASH_MASK && res==-1;i++) {
     if (events[i]) {
       struct list_head* tmp;
-      list_for_each(tmp, head) {
+      list_for_each(tmp, events[i]) {
         struct event_t* event = list_entry(tmp, struct event_t, list);
         if (((event->eventId != eventId) || (event->server != server)) &&
             (event->episodeId == current_event->episodeId) && 
             (event->start == current_event->start) && 
-            (channels_gettype(event->channelId)==CTYPE_HDTV)) {
-          res = event->channelId;;
+            (channels_gettype(event->channelId)==CTYPE_HDTV)) {   /* FIXME: This is broken since the change to multiple servers */
+          res = event->channelId;
+        }
       }
     }
   }
   fprintf(stderr,"HERE - res=%d\n",res);
   
-#endif  
   pthread_mutex_unlock(&events_mutex);
 
   return res;

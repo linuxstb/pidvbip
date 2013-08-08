@@ -6,24 +6,33 @@
 #include "htsp.h"
 #include "events.h"
 #include "channels.h"
+#include "list.h"
 
 //#define DEBUG_EVENTS
 
-#define MAX_EVENT_ID 12000000
-static struct event_t* events[MAX_EVENT_ID+1];
+/* Events are stored in an array of 512*1024 elements, using the lower
+   19 bits of the eventId as the index to the array.  The array item
+   is a list of events 
+*/
+
+#define EVENT_HASH_MASK  0x7ffff
+static struct list_head* events[EVENT_HASH_MASK+1];  /* 512*1024 */
 
 static pthread_mutex_t events_mutex;
 
-
 static struct event_t* event_get_nolock(uint32_t eventId, int server)
 {
-  eventId = eventId * MAX_HTSP_SERVERS + server;
+  struct list_head* head = events[(eventId * MAX_HTSP_SERVERS + server) & EVENT_HASH_MASK];
 
-  if (eventId <= MAX_EVENT_ID) {
-    return events[eventId];
-  } else {
-    return NULL;
+  if (head) {
+    struct list_head* tmp;
+    list_for_each(tmp, head) {
+      struct event_t* event = list_entry(tmp, struct event_t, list);
+      if ((event->eventId == eventId) && (event->server == server))
+        return event;
+    }
   }
+  return NULL;
 }
 
 struct event_t* event_get(uint32_t eventId, int server)
@@ -111,11 +120,20 @@ void process_event_message(char* method, struct htsp_message_t* msg)
 
   //htsp_dump_message(msg);
 
+  event->server = msg->server;
+
   eventId = eventId * MAX_HTSP_SERVERS + msg->server;
 
   if (do_insert) {
-    if (eventId < MAX_EVENT_ID)
-      events[eventId] = event;
+    if (!events[eventId & EVENT_HASH_MASK]) {
+      /* Create the list */
+      events[eventId & EVENT_HASH_MASK] = malloc(sizeof(struct list_head));
+      INIT_LIST_HEAD(events[eventId & EVENT_HASH_MASK]);
+    }
+    if (!list_empty(events[eventId & EVENT_HASH_MASK])) {
+      fprintf(stderr,"INFO: Event hash clash\n");
+    }
+    list_add(&event->list, events[eventId & EVENT_HASH_MASK]);
 
 #ifdef DEBUG_EVENTS
     struct event_t* event2 = event_get_nolock(eventId);
@@ -129,14 +147,11 @@ void process_event_message(char* method, struct htsp_message_t* msg)
 
 void event_delete(uint32_t eventId, int server)
 {
-  eventId = eventId * MAX_HTSP_SERVERS + server;
-
   pthread_mutex_lock(&events_mutex);
-  if (eventId < MAX_EVENT_ID) {
-    if (events[eventId]) {
-      event_free(events[eventId]);
-      events[eventId] = NULL;
-    }
+  struct event_t* event = event_get_nolock(eventId, server);
+  if (event) {
+    list_del(&event->list);
+    event_free(event);
   }
   pthread_mutex_unlock(&events_mutex);
 }
@@ -206,8 +221,6 @@ void event_dump(struct event_t* event)
 
 int event_find_hd_version(int eventId, int server)
 {
-  eventId = eventId * MAX_HTSP_SERVERS + server;
-
   pthread_mutex_lock(&events_mutex);
 
   struct event_t* current_event = event_get_nolock(eventId,server);
@@ -215,17 +228,22 @@ int event_find_hd_version(int eventId, int server)
   fprintf(stderr,"Searching for episode %d\n",current_event->episodeId);
   int i;
   int res = -1;
-  for (i=0;i<=MAX_EVENT_ID && res==-1;i++) {
-    if ((i != eventId) && (events[i])) {
-      if ((events[i]->episodeId == current_event->episodeId) && 
-          (events[i]->start == current_event->start) && 
-          (channels_gettype(events[i]->channelId)==CTYPE_HDTV)) {
-        res = events[i]->channelId;
+  for (i=0;i<=EVENT_HASH_MASK && res==-1;i++) {
+    if (events[i]) {
+      struct list_head* tmp;
+      list_for_each(tmp, head) {
+        struct event_t* event = list_entry(tmp, struct event_t, list);
+        if (((event->eventId != eventId) || (event->server != server)) &&
+            (event->episodeId == current_event->episodeId) && 
+            (event->start == current_event->start) && 
+            (channels_gettype(event->channelId)==CTYPE_HDTV)) {
+          res = event->channelId;;
       }
     }
   }
   fprintf(stderr,"HERE - res=%d\n",res);
   
+#endif  
   pthread_mutex_unlock(&events_mutex);
 
   return res;

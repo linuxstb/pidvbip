@@ -61,8 +61,6 @@ struct htsp_t htsp;
 
 static struct termios orig;
 
-int * channellist_offset=0;
-
 /* Messages to the HTSP receiver thread - low 16 bits are a parameter */
 #define HTMSG_CHANGE_AUDIO_STREAM 0x10000
 #define HTMSG_NEW_CHANNEL         0x20000
@@ -660,6 +658,7 @@ int main(int argc, char* argv[])
     int new_channel;
     double new_channel_timeout;
     int current_channel_id;
+    int new_actual_channel_id;
 
     new_channel = -1;
     new_channel_timeout = 0;
@@ -667,7 +666,7 @@ int main(int argc, char* argv[])
     while (1) {
       int c;
       c = msgqueue_get(&msgqueue, 100);
-      c = osd_process_key(&osd, c);
+      c = osd_process_key(&osd, c, user_channel_id);
 
       if (c != -1) {
         DEBUGF("char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
@@ -704,48 +703,23 @@ int main(int argc, char* argv[])
               /* Hide info if currently shown */
               osd_clear(&osd);
             } else {
+              osd_clear(&osd);
               osd_show_info(&osd,user_channel_id, 60000); /* 60 second timeout */
             }
             break;
-
           case 'c':
-            if (osd.osd_state == OSD_CHANNELLIST) {
-              osd_clear(&osd);    
-              user_channel_id = osd.channellist_selected_channel;  
-              int new_actual_channel_id = get_actual_channel(auto_hdtv, user_channel_id);
-              if (new_actual_channel_id != actual_channel_id) {
-                actual_channel_id = new_actual_channel_id;
-                msgqueue_add(&htsp.msgqueue, HTMSG_NEW_CHANNEL | actual_channel_id);
-                osd_show_info(&osd, user_channel_id, 7000); /* 7 second timeout */
-              }
-            } else {
-              if (osd.osd_state != OSD_NONE) {
-                osd_clear(&osd); 
-              }
-          
-              osd.channellist_selected_channel = user_channel_id;
-              osd.channellist_start_channel = user_channel_id;
-              i = 0;
-              int channel_tmp;
-              for (channel_tmp = channels_getfirst(); channel_tmp != user_channel_id; channel_tmp = channels_getnext(channel_tmp) )
-              {                
-                if (i % 12 == 0) {
-                  osd.channellist_start_channel = channel_tmp;
-                }  
-                i++;
-              }                
-              
-              osd.channellist_selected_pos = 0;
-              osd_channellist_display(&osd);
-            }                  
-            //channels_dump();
-            //channellist_offset=0;
-            //osd_show_channellist(&osd);
-            break;
-
+            user_channel_id = osd.channel_id;
+            printf("user_channel_id: %d\n", user_channel_id);
+            new_actual_channel_id = get_actual_channel(auto_hdtv, user_channel_id);
+            if (new_actual_channel_id != actual_channel_id) {
+              actual_channel_id = new_actual_channel_id;
+              msgqueue_add(&htsp.msgqueue, HTMSG_NEW_CHANNEL | actual_channel_id);
+              osd_show_info(&osd, user_channel_id, 7000); /* 7 second timeout */
+            }  
+            break;         
           case 'h':
             auto_hdtv = 1 - auto_hdtv;
-            int new_actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
+            new_actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
             if (new_actual_channel_id != actual_channel_id) {
               actual_channel_id = new_actual_channel_id;
               msgqueue_add(&htsp.msgqueue, HTMSG_NEW_CHANNEL | actual_channel_id);
@@ -863,7 +837,11 @@ int main(int argc, char* argv[])
             zoom = 1 - zoom;
             codec_send_message(&codecs.vcodec,MSG_ZOOM,(void*)zoom);
             break;
-
+            
+          case 'e':
+            osd_clear(&osd);
+            break;
+            
           default:
             break;            
         }

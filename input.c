@@ -85,6 +85,7 @@ static int get_input_key(int fd)
             return 'h';
           case KEY_I:
           case KEY_INFO:
+          case KEY_LEFTMETA:
             return 'i';
           case KEY_Q:
           case KEY_RED:
@@ -106,6 +107,7 @@ static int get_input_key(int fd)
           case KEY_RIGHT:
             return 'r';
           case KEY_O:
+          case KEY_STOPCD:
           case KEY_TAPE:
             return 'o';
           case KEY_SCREEN:

@@ -52,6 +52,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "input.h"
 #include "omx_utils.h"
 #include "utils.h"
+#include "snapshot.h"
 
 struct omx_pipeline_t omxpipe;
 extern struct configfile_parameters global_settings;
@@ -862,6 +863,10 @@ int main(int argc, char* argv[])
           case 'z':
             zoom = 1 - zoom;
             codec_send_message(&codecs.vcodec,MSG_ZOOM,(void*)zoom);
+            break;
+
+          case 's':
+            save_snapshot();
             break;
 
           default:

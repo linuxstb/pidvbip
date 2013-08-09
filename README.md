@@ -80,6 +80,7 @@ Once running, the following keys are mapped to actions:
     'o' - To toggle subscribe/unsubscribe (idle) on current channel
     'a' - Cycle through available audio streams
     'z' - Force 4:3 (pillarbox) or 16:9 (fullscreen) display
+    's' - Take a screenshot (filename is ~/pidvbip-NNNNNNNNNNN.ppm)
 
 pidvbip currently supports hardware decoding of H264 and MPEG-2 video
 streams, and software decoding of MPEG, AAC and A/52 (AC-3) audio

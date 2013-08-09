@@ -46,6 +46,7 @@ SRCS = \
 	pidvbip.c \
 	omx_utils.c \
 	osd.c \
+	snapshot.c \
 	tiresias_pcfont.c \
 	utils.c \
 	vcodec_omx.c \

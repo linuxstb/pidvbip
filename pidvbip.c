@@ -661,7 +661,7 @@ int main(int argc, char* argv[])
     int new_channel;
     double new_channel_timeout;
     int current_channel_id;
-    double max_stream_time_timeout;
+    double max_stream_time_timeout = -1;
 
     new_channel = -1;
     new_channel_timeout = 0;
@@ -879,18 +879,19 @@ int main(int argc, char* argv[])
 
       /* Check for max_stream_time timeout */
       if (global_settings.max_stream_time > 0) {
-        fprintf(stderr,"max_stream_time test triggered = $d\n",global_settings.max_stream_time);
         if (htsp.subscriptionServer >= 0) {
           /* Streaming is go so check timer */
-          if (max_stream_time_timeout = -1) { /* Timer is set to idle so no sub */
+          if (max_stream_time_timeout == -1) { /* Timer is set to idle so no sub */
             /* Start it */
-            max_stream_time_timeout = get_time() + global_settings.max_stream_time;
+            max_stream_time_timeout = get_time() + (global_settings.max_stream_time * 1000);
+            fprintf(stderr,"max_stream_time timer started and set to %G\n",max_stream_time_timeout);
           } else {
             if ((max_stream_time_timeout) && (get_time() >= max_stream_time_timeout)) {
               fprintf(stderr,"Stream expired, stopping\n");
               msgqueue_add(&htsp.msgqueue, HTMSG_STOP);
               osd_alert(&osd, "Timer expired - Viewing stopped");
               max_stream_time_timeout = -1;
+            };
           };
         };
       };

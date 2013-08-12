@@ -46,3 +46,6 @@ deinterlace-sd=1
 
 # De-interlace HD content (> 720x576)
 deinterlace-hd=0
+
+# Timeout in seconds to stop streaming (default 2Hrs)
+max-stream-time=7200

@@ -20,7 +20,7 @@ struct configfile_parameters
   int deinterlace_sd;
   int deinterlace_hd;
   int camtest;
-  int max_stream_time;
+  int idle_timeout;
 #if ENABLE_AVAHI
   int  avahi;
 #endif

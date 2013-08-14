@@ -674,6 +674,13 @@ int main(int argc, char* argv[])
       if (c != -1) {
         DEBUGF("char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
 
+        /* Check for idle-timeout */
+        if ((global_settings.idle_timeout > 0) && (htsp.subscriptionServer >= 0)) {
+          /* Streaming is go so reset timer */
+          max_stream_time_timeout = get_time() + (global_settings.idle_timeout * 1000);
+          DEBUGF("max_stream_time timer started and set to %G\n",max_stream_time_timeout);
+        };
+
         switch (c) {
           case '0':
           case '1':
@@ -878,14 +885,21 @@ int main(int argc, char* argv[])
       osd_update(&osd, user_channel_id);
 
       /* Check for max_stream_time timeout */
-      if (global_settings.max_stream_time > 0) {
+      if (global_settings.idle_timeout > 0) {
         if (htsp.subscriptionServer >= 0) {
           /* Streaming is go so check timer */
           if (max_stream_time_timeout == -1) { /* Timer is set to idle so no sub */
             /* Start it */
-            max_stream_time_timeout = get_time() + (global_settings.max_stream_time * 1000);
+            max_stream_time_timeout = get_time() + (global_settings.idle_timeout * 1000);
             fprintf(stderr,"max_stream_time timer started and set to %G\n",max_stream_time_timeout);
           } else {
+            /* Test for a warning of timer to expire first */
+            if ((max_stream_time_timeout) && (get_time() >= (max_stream_time_timeout - 60000))) {
+              fprintf(stderr,"Warning: Idle timer has 1 minute left\n");
+              if (osd.osd_state == OSD_NONE) {
+                osd_alert(&osd, "IDLE TIMER - 1 Minute before sleep");
+              };
+            };
             if ((max_stream_time_timeout) && (get_time() >= max_stream_time_timeout)) {
               fprintf(stderr,"Stream expired, stopping\n");
               msgqueue_add(&htsp.msgqueue, HTMSG_STOP);

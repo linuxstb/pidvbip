@@ -47,5 +47,5 @@ deinterlace-sd=1
 # De-interlace HD content (> 720x576)
 deinterlace-hd=0
 
-# Idle timeout in seconds before streaming stops (default 2Hrs)
-idle-timeout=7200
+# Idle timeout in minutes before streaming stops (default is 0)
+idle-timeout=0

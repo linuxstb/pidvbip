@@ -661,6 +661,7 @@ int main(int argc, char* argv[])
     int new_channel;
     double new_channel_timeout;
     int current_channel_id;
+    double idle_timeout = -1;
 
     new_channel = -1;
     new_channel_timeout = 0;
@@ -672,6 +673,13 @@ int main(int argc, char* argv[])
 
       if (c != -1) {
         DEBUGF("char read: 0x%08x ('%c')\n", c,(isalnum(c) ? c : ' '));
+
+        /* Check for idle-timeout */
+        if ((global_settings.idle_timeout > 0) && (htsp.subscriptionServer >= 0)) {
+          /* Streaming is go so reset timer */
+          idle_timeout = get_time() + (global_settings.idle_timeout * 1000 * 60);
+          DEBUGF("idle_timeout timer started and set to %G\n",idle_timeout);
+        };
 
         switch (c) {
           case '0':
@@ -875,6 +883,32 @@ int main(int argc, char* argv[])
       }
 
       osd_update(&osd, user_channel_id);
+
+      /* Check for idle_timeout */
+      if (global_settings.idle_timeout > 0) {
+        if (htsp.subscriptionServer >= 0) {
+          /* Streaming is go so check timer */
+          if (idle_timeout == -1) { /* Timer is set to idle so no sub */
+            /* Start it */
+            idle_timeout = get_time() + (global_settings.idle_timeout * 1000 * 60);
+            fprintf(stderr,"idle_timeout timer started and set to %G\n",idle_timeout);
+          } else {
+            /* Test for a warning of timer to expire first */
+            if ((idle_timeout) && (get_time() >= (idle_timeout - 60000))) {
+              fprintf(stderr,"Warning: Idle timer has <1 minute left\n");
+              if (osd.osd_state == OSD_NONE) {
+                osd_alert(&osd, "IDLE TIMER - <1 Minute before sleep");
+              };
+            };
+            if ((idle_timeout) && (get_time() >= idle_timeout)) {
+              fprintf(stderr,"Stream expired, stopping\n");
+              msgqueue_add(&htsp.msgqueue, HTMSG_STOP);
+              osd_alert(&osd, "Timer expired - Viewing stopped");
+              idle_timeout = -1;
+            };
+          };
+        };
+      };
 
       if ((new_channel_timeout) && (get_time() >= new_channel_timeout)) {
         fprintf(stderr,"new_channel = %d\n",new_channel);

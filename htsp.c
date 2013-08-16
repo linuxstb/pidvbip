@@ -638,7 +638,8 @@ int htsp_get_list(struct htsp_message_t* msg, char* name, unsigned char** data,i
 
 
 /* Calculate a priority value (higher the better) for a language string.
-   This is currently hard-coded, but should be user-configurable. */
+   This is currently hard-coded to select English audio from Spanish DVB-T, 
+   but should be user-configurable. */
 static int audio_lang_priority(char* lang)
 {
   if (!lang) return 0;
@@ -646,7 +647,7 @@ static int audio_lang_priority(char* lang)
   /* Whitelist */
   if (!strcmp(lang,"eng")) return 99;
   /* The following are the codes used on Spanish DVB-T for alternative (mostly English) language tracks */
-  if (!strcmp(lang,"v.o")) return 1;
+  if (!strcmp(lang,"v.o")) return 10;
   if (!strcmp(lang,"und")) return 1;
   if (!strcmp(lang,"qaa")) return 1;
   if (!strcmp(lang,"mul")) return 1;
@@ -740,9 +741,10 @@ int htsp_parse_subscriptionStart(struct htsp_message_t* msg, struct htsp_subscri
       subscription->streams[i].type = HMF_STREAM_AUDIO;
       subscription->streams[i].codec = HMF_AUDIO_CODEC_AC3;
       /* AC3 takes precedence over MPEG, if the language is the same or greater priority */
-      if ((subscription->audiostream == -1) || ((subscription->streams[subscription->audiostream].codec == HMF_AUDIO_CODEC_MPEG) || (audio_lang_priority(lang) >= audio_lang_priority(subscription->streams[subscription->audiostream].lang)))) {
+      if ((subscription->audiostream == -1) || (audio_lang_priority(lang) > audio_lang_priority(subscription->streams[subscription->audiostream].lang)) ||
+          ((subscription->streams[subscription->audiostream].codec == HMF_AUDIO_CODEC_MPEG) && (audio_lang_priority(lang) == audio_lang_priority(subscription->streams[subscription->audiostream].lang)))) {
         subscription->audiostream = i;
-        fprintf(stderr,"Audio stream is index %d: A/52\n",subscription->streams[i].index);
+        fprintf(stderr,"Audio stream is index %d: A/52 (%d,%d)\n",subscription->streams[i].index,audio_lang_priority(lang),audio_lang_priority(subscription->streams[subscription->audiostream].lang));
       }
     } else if (strcmp(typestr,"DVBSUB")==0) {
       subscription->streams[i].type = HMF_STREAM_SUB;

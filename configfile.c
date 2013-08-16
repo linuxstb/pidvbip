@@ -90,6 +90,7 @@ cmdline_opt_t cmdline_opts[] = {
   {   0, NULL,                "Playback options",                         OPT_NULL, NULL, 0, NULL         },
   {   0, "deinterlace-sd",    "De-interlace SD content (<= 720x576)",     OPT_BOOL, &global_settings.deinterlace_sd, 0, NULL },
   {   0, "deinterlace-hd",    "De-interlace HD content (> 720x576)",      OPT_BOOL, &global_settings.deinterlace_hd, 0, NULL },
+  {   0, "idle-timeout",      "Idle timeout (in minutes)",                OPT_INT, &global_settings.idle_timeout, 0, NULL },
 
 #if ENABLE_LIBAVFORMAT
   {   0, NULL,                "Experimental features",                   OPT_NULL, NULL, 0, NULL         },

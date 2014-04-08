@@ -505,6 +505,7 @@ int main(int argc, char* argv[])
 {
     int channel = -1;
     int user_channel_id = -1;
+    int prev_user_channel_id = -1;
     int actual_channel_id = -1;
     int auto_hdtv = 0;
     struct codecs_t codecs;
@@ -720,9 +721,11 @@ int main(int argc, char* argv[])
           case 'c':
             if (osd.osd_state == OSD_CHANNELLIST) {
               osd_clear(&osd);    
+              int tmp = user_channel_id;
               user_channel_id = osd.channellist_selected_channel;  
               int new_actual_channel_id = get_actual_channel(auto_hdtv, user_channel_id);
               if (new_actual_channel_id != actual_channel_id) {
+                prev_user_channel_id = tmp;
                 actual_channel_id = new_actual_channel_id;
                 msgqueue_add(&htsp.msgqueue, HTMSG_NEW_CHANNEL | actual_channel_id);
                 osd_show_info(&osd, user_channel_id, 7000); /* 7 second timeout */
@@ -775,6 +778,18 @@ int main(int argc, char* argv[])
 #endif
             break;
 
+          case 'y':
+            if (prev_user_channel_id != -1) {
+              int tmp = user_channel_id;
+              user_channel_id = prev_user_channel_id;
+              prev_user_channel_id = tmp;
+              actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
+
+              msgqueue_add(&htsp.msgqueue, HTMSG_NEW_CHANNEL | actual_channel_id);
+              osd_show_info(&osd,user_channel_id, 7000); /* 8 second timeout */
+            }
+            break;
+  
           case 'n':
           case 'p':
             if (c=='n') user_channel_id = channels_getnext(user_channel_id);
@@ -914,6 +929,7 @@ int main(int argc, char* argv[])
         fprintf(stderr,"new_channel = %d\n",new_channel);
         int new_channel_id = channels_getid(new_channel);
         if (new_channel_id >= 0) {
+          prev_user_channel_id = user_channel_id;
           user_channel_id = new_channel_id;
           actual_channel_id = get_actual_channel(auto_hdtv,user_channel_id);
           msgqueue_add(&htsp.msgqueue, HTMSG_NEW_CHANNEL | actual_channel_id);

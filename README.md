@@ -69,8 +69,9 @@ Once running, the following keys are mapped to actions:
 
     'q' - quit
     '0' to '9' - direct channel number entry
-    'n' - next channel
-    'p' - previous channel
+    'n' - next channel (numerically)
+    'p' - previous channel (numerically)
+    'y' - switch to the previously viewed channel
     'i' - show/hide current event information
     'h' - toggle auto-switching to HD versions of programmes from an SD channel
     ' ' - pause/resume playback

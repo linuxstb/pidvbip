@@ -125,6 +125,19 @@ next_packet:
          }
          current = NULL;
          goto next_packet;
+       } else if (current->msgtype == MSG_CROP) {
+
+         if ((int)current->data) {
+           int left = 384;
+           int bottom = 224;
+           omx_set_source_region(pipe, left, 0, 1920-left, 1080-bottom);
+           fprintf(stderr,"Crop on!\n");
+         } else {
+           fprintf(stderr,"Crop off\n");
+           omx_set_source_region(pipe, 0, 0, 1920, 1080);
+         }
+         current = NULL;
+         goto next_packet;
        }
        if ((prev_DTS != -1) && ((prev_DTS + 40000) != current->data->DTS) && ((prev_DTS + 20000) != current->data->DTS)) {
          fprintf(stderr,"DTS discontinuity - DTS=%lld, prev_DTS=%lld (diff = %lld)\n",current->data->DTS,prev_DTS,current->data->DTS-prev_DTS);
@@ -187,7 +200,7 @@ next_packet:
      if (coding == OMX_VIDEO_CodingUnused) {
        fprintf(stderr,"Setting up OMX pipeline... - vcodectype=%d\n",codec->vcodectype);
        omx_setup_pipeline(pipe, codec->vcodectype, audio_dest, ((codec->width*codec->height) > 720*576) ? 1 : 0);
- 
+
        fprintf(stderr,"Done setting up OMX pipeline.\n");
        coding = codec->vcodectype;
        width = codec->width;

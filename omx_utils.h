@@ -118,5 +118,6 @@ int omx_get_free_buffer_count(struct omx_component_t* component);
 void omx_alloc_buffers(struct omx_component_t *component, int port);
 OMX_TICKS pts_to_omx(uint64_t pts);
 void omx_set_display_region(struct omx_pipeline_t* pipe, int x, int y, int width, int height);
+void omx_set_source_region(struct omx_pipeline_t* pipe, int x, int y, int width, int height);
 
 #endif

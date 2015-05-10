@@ -82,6 +82,7 @@ Once running, the following keys are mapped to actions:
     'a' - Cycle through available audio streams
     'z' - Force 4:3 (pillarbox) or 16:9 (fullscreen) display
     's' - Take a screenshot (filename is ~/pidvbip-NNNNNNNNNNN.ppm)
+    'w' - Crop video to remove BT Sport Europe HD "L" graphics (a hack!)
 
 pidvbip currently supports hardware decoding of H264 and MPEG-2 video
 streams, and software decoding of MPEG, AAC and A/52 (AC-3) audio

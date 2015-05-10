@@ -35,6 +35,7 @@ struct packet_t
 #define MSG_SET_ASPECT_16_9  8
 #define MSG_HTSP_STARTED 9
 #define MSG_CODECDATA 10
+#define MSG_CROP         11
 
 struct codec_queue_t
 {

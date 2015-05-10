@@ -513,6 +513,7 @@ int main(int argc, char* argv[])
     pthread_t htspthread = 0;
     struct msgqueue_t msgqueue;
     int zoom = 0;
+    int crop = 0;
     int i;
 #if ENABLE_LIBAVFORMAT
     struct avplay_t avplay;
@@ -886,6 +887,11 @@ int main(int argc, char* argv[])
           case 'z':
             zoom = 1 - zoom;
             codec_send_message(&codecs.vcodec,MSG_ZOOM,(void*)zoom);
+            break;
+
+          case 'w':
+            crop = 1 - crop;
+            codec_send_message(&codecs.vcodec,MSG_CROP,(void*)crop);
             break;
 
           case 's':

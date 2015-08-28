@@ -534,7 +534,7 @@ void omx_set_display_region(struct omx_pipeline_t* pipe, int x, int y, int width
   OMX_INIT_STRUCTURE(region);
   region.nPortIndex = 90; /* Video render input port */
 
-  region.set = OMX_DISPLAY_SET_DEST_RECT | OMX_DISPLAY_SET_SRC_RECT | OMX_DISPLAY_SET_FULLSCREEN | OMX_DISPLAY_SET_NOASPECT;
+  region.set = OMX_DISPLAY_SET_DEST_RECT | OMX_DISPLAY_SET_FULLSCREEN | OMX_DISPLAY_SET_NOASPECT;
 
   region.fullscreen = OMX_FALSE;
   region.noaspect = OMX_TRUE;
@@ -543,13 +543,6 @@ void omx_set_display_region(struct omx_pipeline_t* pipe, int x, int y, int width
   region.dest_rect.y_offset = y;
   region.dest_rect.width = width;
   region.dest_rect.height = height;
-
-  int crop_left = 192;
-  int crop_bottom = 96;
-  region.src_rect.x_offset = 1920-crop_left;
-  region.src_rect.y_offset = 0;
-  region.src_rect.width = width-crop_left;
-  region.src_rect.height = height-crop_bottom;
 
   DEBUGF("Setting display region\n");
   OERR(OMX_SetParameter(pipe->video_render.h, OMX_IndexConfigDisplayRegion, &region));

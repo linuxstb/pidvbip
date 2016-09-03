@@ -59,6 +59,15 @@ static void event_free_items(struct event_t* event)
     free(event->episodeUri);
 }
 
+// Clears the contents of an event, but does not remove it from the list.
+static void event_clear(struct event_t* event)
+{
+  event_free_items(event);
+  struct list_head tmp = event->list;
+  memset(event, 0, sizeof(event));
+  event->list = tmp;
+}
+
 void event_free(struct event_t* event)
 {
   if (!event)
@@ -97,8 +106,7 @@ void process_event_message(char* method, struct htsp_message_t* msg)
       fprintf(stderr,"WARNING: eventUpdate received for non-existent event %d, adding instead.\n",eventId);
     }
   } else {
-    event_free_items(event);
-    memset(event,0,sizeof(event));
+    event_clear(event);
     if (strcmp(method,"eventAdd")==0) {
       fprintf(stderr,"WARNING: eventAdd received for existing event %d, updating instead.\n",eventId);
     }

@@ -64,7 +64,7 @@ static void event_clear(struct event_t* event)
 {
   event_free_items(event);
   struct list_head tmp = event->list;
-  memset(event, 0, sizeof(event));
+  memset(event, 0, sizeof(struct event_t));
   event->list = tmp;
 }
 

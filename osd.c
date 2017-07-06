@@ -58,6 +58,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #define CHANNELLIST_UP 1
 #define CHANNELLIST_DOWN 2
 
+#define SCREENWIDTH 1280
+#define SCREENHEIGHT 800
+
 static void utf8decode(char* str, char* r)
 {
   int x,y,z,ud;
@@ -299,8 +302,8 @@ void osd_alert(struct osd_t* osd, char* text)
     text_length = strlen(text);
     s = graphics_resource_text_dimensions_ext(osd->img, text, text_length, &width, &height, text_size);
 
-    x_offset = ((1920 - width) / 2);
-    y_offset = (1080 - height) / 2;
+    x_offset = ((SCREENWIDTH - width) / 2);
+    y_offset = (SCREENHEIGHT - height) / 2;
 
     osd_draw_window(osd,x_offset,y_offset,width+100,height+50);
 
@@ -324,10 +327,10 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event, struct 
   struct tm start_time;
   struct tm stop_time;
   int duration;
-  int width = 1920-2*OSD_XMARGIN;
+  int width = SCREENWIDTH-2*OSD_XMARGIN;
   int height = 380-OSD_YMARGIN;
 
-  osd_draw_window(osd,OSD_XMARGIN,700,width,height);
+  osd_draw_window(osd,OSD_XMARGIN,SCREENHEIGHT-height,width,height);
 
   if (event==NULL)
     return;
@@ -338,7 +341,7 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event, struct 
   duration = event->stop - event->start;
 
   snprintf(str,sizeof(str),"%02d:%02d - %02d:%02d",start_time.tm_hour,start_time.tm_min,stop_time.tm_hour,stop_time.tm_min);
-  s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 720,
+  s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, SCREENHEIGHT-height+20,
                                      width,
                                      height,
                                      GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
@@ -349,7 +352,7 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event, struct 
   if (event->title) {
     char* iso_text = malloc(strlen(event->title)+1);
     utf8decode(event->title,iso_text);
-    s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+350, 720,
+    s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+350, SCREENHEIGHT-height+20,
                                        width,
                                        height,
                                        GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
@@ -359,7 +362,7 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event, struct 
   }
 
   snprintf(str,sizeof(str),"%dh %02dm",duration/3600,(duration%3600)/60);
-  s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 800,
+  s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, SCREENHEIGHT-height+100,
                                      width,
                                      height,
                                      GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
@@ -374,7 +377,7 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event, struct 
     } else {
       snprintf(str,sizeof(str),"Season %d, Ep. %d",event->seasonNumber,event->episodeNumber);
     }
-    s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 838,
+    s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, SCREENHEIGHT-height+200,
                                      width,
                                      height,
                                      GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
@@ -385,7 +388,7 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event, struct 
   if (event->description) {
     char* iso_text = malloc(strlen(event->description)+1);
     utf8decode(event->description,iso_text);
-    render_paragraph(osd->img,iso_text,30,OSD_XMARGIN+350,800);
+    render_paragraph(osd->img,iso_text,30,OSD_XMARGIN+200,SCREENHEIGHT-height+100);
     free(iso_text);
   }
 
@@ -397,7 +400,7 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event, struct 
     localtime_r((time_t*)&nextEvent->stop,&stop_time);
 
     snprintf(str,sizeof(str),"%02d:%02d - %02d:%02d",start_time.tm_hour,start_time.tm_min,stop_time.tm_hour,stop_time.tm_min);
-    s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, 1020,
+    s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+50, SCREENHEIGHT-100,
                                        width,
                                        height,
                                        GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
@@ -408,7 +411,7 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event, struct 
     if (nextEvent->title) {
       char* iso_text = malloc(strlen(nextEvent->title)+1);
       utf8decode(nextEvent->title,iso_text);
-      s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+350, 1020,
+      s = graphics_resource_render_text_ext(osd->img, OSD_XMARGIN+350, SCREENHEIGHT-100,
                                          width,
                                          height,
                                          GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */
@@ -600,7 +603,7 @@ void osd_channellist_show_epg(struct osd_t* osd, int channel_id)
   struct event_t* event = event_copy(osd->event, server);
   struct event_t* nextEvent = event_copy(osd->nextEvent, server);
 
-  osd_draw_window(osd, 700 + OSD_XMARGIN + 40, OSD_YMARGIN, 1920 - (700 + OSD_XMARGIN + 40) - 2 * OSD_XMARGIN, 120);
+  osd_draw_window(osd, 700 + OSD_XMARGIN + 40, OSD_YMARGIN, SCREENWIDTH - (700 + OSD_XMARGIN + 40) - 2 * OSD_XMARGIN, 120);
 
   if (event == NULL)
     return;
@@ -702,7 +705,7 @@ void osd_channellist_update_channels(struct osd_t* osd, int direction)
   }                                            
   
   osd_channellist_show_epg(osd, id);                                                                                      
-  graphics_update_displayed_resource(osd->img, 0, 0, 1920,1080);                                        
+  graphics_update_displayed_resource(osd->img, 0, 0, SCREENWIDTH,SCREENHEIGHT);                                        
 }
 
 void osd_channellist_display_channels(struct osd_t* osd)

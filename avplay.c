@@ -57,15 +57,15 @@ static void convert4(unsigned char* dest, unsigned char* src, int size)
   }
 }
 
-static int map_vcodec(enum CodecID id)
+static int map_vcodec(enum AVCodecID id)
 {
   printf("Mapping video codec ID %d (%x)\n", id, id);
   switch (id) {
-    case    CODEC_ID_MPEG2VIDEO:
-    case    CODEC_ID_MPEG2VIDEO_XVMC:
+    case    AV_CODEC_ID_MPEG2VIDEO:
+    case    AV_CODEC_ID_MPEG2VIDEO_XVMC:
       fprintf(stderr,"vcodec=MPEG2\n");
       return OMX_VIDEO_CodingMPEG2;
-    case    CODEC_ID_H264:
+    case    AV_CODEC_ID_H264:
       fprintf(stderr,"vcodec=AVC\n");
       return OMX_VIDEO_CodingAVC;
     case    13:
@@ -78,18 +78,18 @@ static int map_vcodec(enum CodecID id)
   return -1;
 }
 
-static int map_acodec(enum CodecID id)
+static int map_acodec(enum AVCodecID id)
 {
   printf("Mapping audio codec ID %d (%x)\n", id, id);
   switch (id) {
-    case    CODEC_ID_MP2:
-    case    CODEC_ID_MP3:
+    case    AV_CODEC_ID_MP2:
+    case    AV_CODEC_ID_MP3:
       fprintf(stderr,"acodec=MPEG\n");
       return HMF_AUDIO_CODEC_MPEG;
-    case    CODEC_ID_AC3:
+    case    AV_CODEC_ID_AC3:
       fprintf(stderr,"acodec=AC3\n");
       return HMF_AUDIO_CODEC_AC3;
-    case    CODEC_ID_AAC:
+    case    AV_CODEC_ID_AAC:
       fprintf(stderr,"acodec=AAC\n");
       return HMF_AUDIO_CODEC_AAC;
     default:
@@ -173,7 +173,7 @@ restart:
     exit(1);
   }
 
-  if (fmt_ctx->streams[audio_stream_idx]->codec->codec_id == CODEC_ID_AAC) {
+  if (fmt_ctx->streams[audio_stream_idx]->codec->codec_id == AV_CODEC_ID_AAC) {
     AVCodecContext* c =  fmt_ctx->streams[audio_stream_idx]->codec;
     if (c->extradata_size != 2) {
       fprintf(stderr,"Unexpected AAC extradata size %d, aborting\n",c->extradata_size);

@@ -89,6 +89,12 @@ streams, and software decoding of MPEG, AAC and A/52 (AC-3) audio
 streams.  Multi-channel audio streams are downmixed to Stereo.
 
 
+Screenshots
+-----------
+
+! [](https://cloud.githubusercontent.com/assets/2352508/3712184/5d63d3f6-1501-11e4-9392-f2712eea5fb5.png "Info display")
+! [](https://cloud.githubusercontent.com/assets/2352508/3712185/65ee0a28-1501-11e4-8ac2-53904dcbf423.png "Channel Display")
+
 OpenELEC build
 --------------
 

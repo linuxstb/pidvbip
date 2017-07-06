@@ -5,7 +5,7 @@ DVB-over-IP set-top box software for the Raspberry Pi.
 
 It requires Tvheadend running on a server
 
-https://githib.com/tvheadend/
+https://github.com/tvheadend/
 
 In addition to pidvbip itself, this repository contains some
 experimental software:

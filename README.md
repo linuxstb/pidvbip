@@ -3,15 +3,9 @@ pidvbip
 
 DVB-over-IP set-top box software for the Raspberry Pi.
 
-It requires Tvheadend running on a server:
+It requires Tvheadend running on a server
 
-https://www.lonelycoder.com/tvheadend/
-
-pidvbip requires a development version of tvheadend from later than
-the 24th August 2012.  It will not work with the 3.0 release or
-earlier.  This can be cloned as follows:
-
-git clone https://githib.com/tvheadend/tvheadend.git
+https://githib.com/tvheadend/
 
 In addition to pidvbip itself, this repository contains some
 experimental software:
@@ -21,8 +15,6 @@ experimental software:
 
 Building
 --------
-
-The platform being used to develop pidvbip is Raspbian (2012-08-16 image).
 
 pidvbip requires the following dependencies:
 

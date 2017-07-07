@@ -120,7 +120,7 @@ int32_t render_paragraph(GRAPHICS_RESOURCE_HANDLE img, const char *text, const u
    uint32_t width=0, height=0;
    const char *split = text;
    int32_t s=0;
-   uint32_t img_w = 1400;;
+   uint32_t img_w = SCREENWIDTH - 300;
 
    if ((!text) || ((text_length=strlen(text))==0))
       return 0;
@@ -394,7 +394,7 @@ static void osd_show_eventinfo(struct osd_t* osd, struct event_t* event, struct 
 
 
   if (nextEvent) {
-    osd_draw_window(osd,OSD_XMARGIN,1002,width,78-OSD_YMARGIN);
+    //osd_draw_window(osd,OSD_XMARGIN,1002,width,78-OSD_YMARGIN);
     /* Start/stop time - next event */
     localtime_r((time_t*)&nextEvent->start,&start_time);
     localtime_r((time_t*)&nextEvent->stop,&stop_time);
@@ -438,7 +438,7 @@ static void osd_show_time(struct osd_t* osd)
   int width = 218;
   int height = 80;
 
-  osd_draw_window(osd,1670,18,width,height);
+  osd_draw_window(osd,SCREENWIDTH-width-50,18,width,height);
 
   now = time(NULL);
   localtime_r(&now,&now_tm);
@@ -447,7 +447,7 @@ static void osd_show_time(struct osd_t* osd)
 
   osd->last_now = now;
 
-  s = graphics_resource_render_text_ext(osd->img, 1700, OSD_YMARGIN+25,
+  s = graphics_resource_render_text_ext(osd->img, SCREENWIDTH-width-25, OSD_YMARGIN+25,
                                      width,
                                      height,
                                      GRAPHICS_RGBA32(0xff,0xff,0xff,0xff), /* fg */

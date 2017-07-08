@@ -7,11 +7,12 @@ It requires Tvheadend running on a server
 
 https://github.com/tvheadend/
 
-In addition to pidvbip itself, this repository contains some
-experimental software:
+Screenshots
+-----------
 
-* flvtoh264 - Simple parser to extract an h264 video stream from an FLV file
+![](http://i.imgur.com/REHGLaBm.jpg "Info display")
 
+![](http://i.imgur.com/Upa7Jahm.jpg "Channel Display")
 
 Building
 --------
@@ -79,61 +80,6 @@ Once running, the following keys are mapped to actions:
 pidvbip currently supports hardware decoding of H264 and MPEG-2 video
 streams, and software decoding of MPEG, AAC and A/52 (AC-3) audio
 streams.  Multi-channel audio streams are downmixed to Stereo.
-
-
-Screenshots
------------
-
-![](https://cloud.githubusercontent.com/assets/2352508/3712184/5d63d3f6-1501-11e4-9392-f2712eea5fb5.png "Info display")
-
-![](https://cloud.githubusercontent.com/assets/2352508/3712185/65ee0a28-1501-11e4-8ac2-53904dcbf423.png "Channel Display")
-
-OpenELEC build
---------------
-
-NOTE: As of January 2013 the OE build is not functioning.  I hope to
-fix this soon.
-
-A modified version of OpenELEC using pidvbip instead of xbmc as the
-mediacenter package can be built from the fork of OpenELEC at:
-
-https://github.com/linuxstb/OpenELEC.tv
-
-This is configured to take the latest "git master" version of pidvbip
-directly from github.  To build, do the following
-
-git clone https://github.com/linuxstb/OpenELEC.tv
-cd OpenELEC.tv
-PROJECT=pidvbip ARCH=arm make release
-
-This will generate (after many hours, and using about 6GB of disk
-space) a .bz2 file within the "target" subdirectory.
-
-To create a bootable SD card, format a SD card as FAT32 (no Linux
-format partitions are needed) and copy the following files:
-
-3rdparty/bootloader/bootcode.bin
-3rdparty/bootloader/start.elf
-target/KERNEL (rename to kernel.img)
-target/SYSTEM
-
-
-In addition, you should add a config.txt file including your MPEG-2
-license key (if required) and any other settings, plus a cmdline.txt
-file containing the following line:
-
-boot=/dev/mmcblk0p1 ssh quiet
-
-(if you don't want to enable the ssh server, remove "ssh" from the
-above line)
-
-
-
-Bugs
-----
-
-pidvbip is still very early software and many things don't work or are
-not implemented yet.  See the file BUGS for more information.
 
 
 Copyright

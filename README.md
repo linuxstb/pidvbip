@@ -3,9 +3,13 @@ pidvbip
 
 DVB-over-IP set-top box software for the Raspberry Pi.
 
-It requires Tvheadend running on a server
+It requires Tvheadend running on a server (or on same pi)
 
 https://github.com/tvheadend/
+
+GPU memory should be a minimum of 128MB in config.txt
+
+    gpu_mem=128
 
 Screenshots
 -----------
@@ -19,7 +23,7 @@ Building
 
 pidvbip requires the following dependencies:
 
-libmpg123-dev libfaad-dev liba52-dev libavahi-client-dev libfreetype6-dev
+libmpg123-dev libfaad-dev liba52-dev libavahi-client-dev libfreetype6-dev libavformat-dev
 
 After installing the above libraries, you can build pidvbip by typing
 "./configure && make" in the source code directory.
@@ -29,9 +33,13 @@ MPEG-2 decoding
 ---------------
 
 pidvbip requires that the MPEG-2 hardware codec is enabled (by
-purchase of the license).  Early versions of pidvbip has a software
+purchase of the license).  Early versions of pidvbip have a software
 MPEG-2 decoder but this was removed in February 2013 to simplify
 maintenance and development of the main hardware playback code.
+
+The CPU-decoding version is still available at https://github.com/mikerr/pidvbip-cpu
+which doesn't require the hardware codec, but does need a faster
+pi model ( pi 2 or 3)
 
 Usage
 -----

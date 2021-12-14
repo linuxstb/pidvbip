@@ -32,6 +32,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include "debug.h"
 #include "utils.h"
 
+#define SCREENWIDTH 1280
+#define SCREENHEIGHT 800
+
 static void* vcodec_omx_thread(struct codec_init_args_t* args)
 {
    struct codec_t* codec = args->codec;
@@ -108,20 +111,20 @@ next_packet:
          is_paused = 1;
          goto next_packet;
        } else if (current->msgtype == MSG_SET_ASPECT_4_3) {
-         omx_set_display_region(pipe, 240, 0, 1440, 1080);
+         omx_set_display_region(pipe, 240, 0, SCREENHEIGHT * 0.75, SCREENHEIGHT);
          current = NULL;
          goto next_packet;
        } else if (current->msgtype == MSG_SET_ASPECT_16_9) {
-         omx_set_display_region(pipe, 0, 0, 1920, 1080);
+         omx_set_display_region(pipe, 0, 0, SCREENWIDTH, SCREENHEIGHT);
          current = NULL;
          goto next_packet;
        } else if (current->msgtype == MSG_ZOOM) {
          if ((int)current->data) {
            fprintf(stderr,"4:3 on!\n");
-           omx_set_display_region(pipe, 240, 0, 1440, 1080);
+           omx_set_display_region(pipe, 240, 0, SCREENHEIGHT * 0.75,SCREENHEIGHT);
          } else {
            fprintf(stderr,"4:3 off\n");
-           omx_set_display_region(pipe, 0, 0, 1920, 1080);
+           omx_set_display_region(pipe, 0, 0, SCREENWIDTH, SCREENHEIGHT);
          }
          current = NULL;
          goto next_packet;
@@ -130,11 +133,11 @@ next_packet:
          if ((int)current->data) {
            int left = 384;
            int bottom = 224;
-           omx_set_source_region(pipe, left, 0, 1920-left, 1080-bottom);
+           omx_set_source_region(pipe, left, 0, SCREENWIDTH-left, SCREENHEIGHT-bottom);
            fprintf(stderr,"Crop on!\n");
          } else {
            fprintf(stderr,"Crop off\n");
-           omx_set_source_region(pipe, 0, 0, 1920, 1080);
+           omx_set_source_region(pipe, 0, 0, SCREENWIDTH, SCREENHEIGHT);
          }
          current = NULL;
          goto next_packet;
@@ -189,10 +192,10 @@ next_packet:
      if ((codec->vcodectype == OMX_VIDEO_CodingMPEG2) && (pipe->video_render.aspect != current_aspect)) {
        if (pipe->video_render.aspect == 2) { // 4:3
          fprintf(stderr,"Switching to 4:3\n");
-         omx_set_display_region(pipe, 240, 0, 1440, 1080);
+         omx_set_display_region(pipe, 240, 0, SCREENHEIGHT * 0.75, SCREENHEIGHT);
        } else { // 16:9 - DVB can only be 4:3 or 16:9
          fprintf(stderr,"Switching to 16:9\n");
-         omx_set_display_region(pipe, 0, 0, 1920, 1080);
+         omx_set_display_region(pipe, 0, 0, SCREENWIDTH, SCREENHEIGHT);
        }
        current_aspect = pipe->video_render.aspect;
      }

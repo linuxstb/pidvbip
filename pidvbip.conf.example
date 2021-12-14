@@ -42,7 +42,7 @@ no-cec=0
 ##### Playback options
 
 # De-interlace SD content (<= 720x576)
-deinterlace-sd=1
+deinterlace-sd=0
 
 # De-interlace HD content (> 720x576)
 deinterlace-hd=0

@@ -3,30 +3,27 @@ pidvbip
 
 DVB-over-IP set-top box software for the Raspberry Pi.
 
-It requires Tvheadend running on a server:
+It requires Tvheadend running on a server (or on same pi)
 
-https://www.lonelycoder.com/tvheadend/
+https://github.com/tvheadend/
 
-pidvbip requires a development version of tvheadend from later than
-the 24th August 2012.  It will not work with the 3.0 release or
-earlier.  This can be cloned as follows:
+GPU memory should be a minimum of 128MB in config.txt
 
-git clone https://githib.com/tvheadend/tvheadend.git
+    gpu_mem=128
 
-In addition to pidvbip itself, this repository contains some
-experimental software:
+Screenshots
+-----------
 
-* flvtoh264 - Simple parser to extract an h264 video stream from an FLV file
+![](http://i.imgur.com/REHGLaBm.jpg "Info display")
 
+![](http://i.imgur.com/Upa7Jahm.jpg "Channel Display")
 
 Building
 --------
 
-The platform being used to develop pidvbip is Raspbian (2012-08-16 image).
-
 pidvbip requires the following dependencies:
 
-libmpg123-dev libfaad-dev liba52-dev libavahi-client-dev libfreetype6-dev
+libmpg123-dev libfaad-dev liba52-dev libavahi-client-dev libfreetype6-dev libavformat-dev
 
 After installing the above libraries, you can build pidvbip by typing
 "./configure && make" in the source code directory.
@@ -36,9 +33,13 @@ MPEG-2 decoding
 ---------------
 
 pidvbip requires that the MPEG-2 hardware codec is enabled (by
-purchase of the license).  Early versions of pidvbip has a software
+purchase of the license).  Early versions of pidvbip have a software
 MPEG-2 decoder but this was removed in February 2013 to simplify
 maintenance and development of the main hardware playback code.
+
+The CPU-decoding version is still available at https://github.com/mikerr/pidvbip-cpu
+which doesn't require the hardware codec, but does need a faster
+pi model ( pi 2 or 3)
 
 Usage
 -----
@@ -87,54 +88,6 @@ Once running, the following keys are mapped to actions:
 pidvbip currently supports hardware decoding of H264 and MPEG-2 video
 streams, and software decoding of MPEG, AAC and A/52 (AC-3) audio
 streams.  Multi-channel audio streams are downmixed to Stereo.
-
-
-OpenELEC build
---------------
-
-NOTE: As of January 2013 the OE build is not functioning.  I hope to
-fix this soon.
-
-A modified version of OpenELEC using pidvbip instead of xbmc as the
-mediacenter package can be built from the fork of OpenELEC at:
-
-https://github.com/linuxstb/OpenELEC.tv
-
-This is configured to take the latest "git master" version of pidvbip
-directly from github.  To build, do the following
-
-git clone https://github.com/linuxstb/OpenELEC.tv
-cd OpenELEC.tv
-PROJECT=pidvbip ARCH=arm make release
-
-This will generate (after many hours, and using about 6GB of disk
-space) a .bz2 file within the "target" subdirectory.
-
-To create a bootable SD card, format a SD card as FAT32 (no Linux
-format partitions are needed) and copy the following files:
-
-3rdparty/bootloader/bootcode.bin
-3rdparty/bootloader/start.elf
-target/KERNEL (rename to kernel.img)
-target/SYSTEM
-
-
-In addition, you should add a config.txt file including your MPEG-2
-license key (if required) and any other settings, plus a cmdline.txt
-file containing the following line:
-
-boot=/dev/mmcblk0p1 ssh quiet
-
-(if you don't want to enable the ssh server, remove "ssh" from the
-above line)
-
-
-
-Bugs
-----
-
-pidvbip is still very early software and many things don't work or are
-not implemented yet.  See the file BUGS for more information.
 
 
 Copyright

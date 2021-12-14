@@ -53,7 +53,6 @@ SRCS = \
 	vo_pi.c
 
 BIN 		= $(ROOTDIR)/pidvbip
-FLVTOH264	= $(ROOTDIR)/flvtoh264
 LIBVGFONT 	= $(ROOTDIR)/libs/vgfont/libvgfont.a
 
 #
@@ -102,9 +101,6 @@ reconfigure:
 
 $(BIN): check_config $(LIBVGFONT) $(OBJS)
 	$(CC) -o $@ $(OBJS) $(LIBVGFONT) $(LDFLAGS)
-
-$(FLVTOH264): check_config flvtoh264.o
-	$(CC) -o $@ flvtoh264.o $(LDFLAGS)
 
 #
 # Build Intermediates

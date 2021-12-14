@@ -73,7 +73,7 @@ check_cc_snippet "vcos" '#include <interface/vcos/vcos.h>;
 void t(){vcos_malloc_aligned(0,0,0);}' ||\
   die "Failed to locate vcos"
 
-LDFLAGS="$LDFLAGS -lEGL -lGLESv2"
+LDFLAGS="$LDFLAGS -lbrcmEGL -lbrcmGLESv2"
 check_cc_snippet "gles" '#include <EGL/egl.h>;
 void t(){eglCreateContext(0,0,0,0);}' ||\
   die "Failed to locate GLES"
